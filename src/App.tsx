@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'; // <--- useEffect toegevoegd
+import React, { useState, useRef, useEffect } from 'react';
 import { useInspectionStore } from './store';
 import { DEFECT_LIBRARY, calculateSample, INSTRUMENTS, COMPANIES, INSPECTORS } from './constants';
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -12,20 +12,61 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 const FUSE_OPTIONS = ['3x25A', '3x63A', '3x80A'];
 const STEPS = ['setup', 'measure', 'inspect', 'report'] as const;
 
-// --- NIEUWE FUNCTIE: Safari-veilige datum berekening ---
+// --- FUNCTIE 1: Safari-veilige datum berekening ---
 const addYearsSafe = (dateString: string, yearsToAdd: number) => {
   if (!dateString) return '';
-  // Splits handmatig omdat new Date() op iPhone soms faalt met strings
   const parts = dateString.split('-');
   if (parts.length !== 3) return '';
-  
   const year = parseInt(parts[0], 10);
   const month = parts[1];
   const day = parts[2];
-  
   const newYear = year + yearsToAdd;
-  
   return `${newYear}-${month}-${day}`;
+};
+
+// --- FUNCTIE 2: Slimme CSV Parser (voor teksten met enters) ---
+const parseCSV = (text: string): string[][] => {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentCell = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        currentCell += '"';
+        i++; 
+      } else {
+        inQuotes = !inQuotes;
+      }
+    }
+    else if (char === ';' && !inQuotes) {
+      currentRow.push(currentCell.trim());
+      currentCell = '';
+    }
+    else if ((char === '\n' || (char === '\r' && nextChar === '\n')) && !inQuotes) {
+      currentRow.push(currentCell.trim());
+      if (currentRow.length > 1 || (currentRow.length === 1 && currentRow[0] !== '')) {
+         rows.push(currentRow);
+      }
+      currentRow = [];
+      currentCell = '';
+      if (char === '\r') i++;
+    }
+    else {
+        if (char !== '\r') currentCell += char;
+    }
+  }
+  
+  if (currentCell || currentRow.length > 0) {
+    currentRow.push(currentCell.trim());
+    rows.push(currentRow);
+  }
+  
+  return rows;
 };
 
 export default function App() {
@@ -41,7 +82,6 @@ export default function App() {
   const [defectPhoto1, setDefectPhoto1] = useState<string | null>(null);
   const [defectPhoto2, setDefectPhoto2] = useState<string | null>(null);
 
-  // Hybride invoer states
   const [selectedMainCategory, setSelectedMainCategory] = useState('');
   const [selectedSubCategory, setSelectedSubCategory] = useState('');
   const [selectedLibId, setSelectedLibId] = useState('');
@@ -50,13 +90,11 @@ export default function App() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [isCustomDefect, setIsCustomDefect] = useState(false);
   
-  // Custom defect fields
   const [staticDescription, setStaticDescription] = useState('');
   const [customComment, setCustomComment] = useState('');
   const [customClassification, setCustomClassification] = useState<Classification>('Yellow');
   const [customAction, setCustomAction] = useState('');
 
-  // Setup states
   const [showNewInstrumentForm, setShowNewInstrumentForm] = useState(false);
   const [newInstName, setNewInstName] = useState('');
   const [newInstSn, setNewInstSn] = useState('');
@@ -70,8 +108,6 @@ export default function App() {
   const isCustomFuse = !FUSE_OPTIONS.includes(measurements.mainFuse) && measurements.mainFuse !== '';
   const currentStepIndex = STEPS.indexOf(activeTab);
 
-  // --- NIEUW: useEffect voor datum berekening ---
-  // Dit zorgt ervoor dat de datum automatisch wordt ingevuld op basis van frequentie
   useEffect(() => {
     if (meta.date && meta.inspectionInterval) {
       const nextDate = addYearsSafe(meta.date, meta.inspectionInterval);
@@ -79,11 +115,9 @@ export default function App() {
     }
   }, [meta.date, meta.inspectionInterval, setMeta]);
   
-  // --- NAVIGATIE ---
   const goNext = () => { if (currentStepIndex < STEPS.length - 1) { setActiveTab(STEPS[currentStepIndex + 1]); window.scrollTo(0, 0); }};
   const goPrev = () => { if (currentStepIndex > 0) { setActiveTab(STEPS[currentStepIndex - 1]); window.scrollTo(0, 0); }};
 
-  // --- LOGICA VOOR CATEGORIEËN ---
   const mainCategories = Array.from(new Set(ACTIVE_LIBRARY.map(d => d.category))).sort();
   
   const subCategories = selectedMainCategory 
@@ -94,7 +128,7 @@ export default function App() {
     ? ACTIVE_LIBRARY.filter(d => d.category === selectedMainCategory && d.subcategory === selectedSubCategory)
     : [];
 
-  // --- CSV IMPORT LOGICA ---
+  // --- CSV IMPORT LOGICA (VERNIEUWD) ---
   const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -102,23 +136,19 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      const lines = text.split('\n');
+      const rows = parseCSV(text);
       const newLib: LibraryDefect[] = [];
       let idCounter = 1;
 
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        
-        const cols = line.split(';');
-        
+      for (let i = 1; i < rows.length; i++) {
+        const cols = rows[i];
         if (cols.length >= 4) { 
-            const cat = cols[0].trim();
-            const sub = cols[1].trim();
-            const short = cols[2].trim();
-            const desc = cols[3].trim();
-            const cl = (cols[4]?.trim() || 'Yellow') as Classification; 
-            const act = cols[5]?.trim() || 'Herstellen';
+            const cat = cols[0];
+            const sub = cols[1];
+            const short = cols[2];
+            const desc = cols[3];
+            const cl = (cols[4] || 'Yellow') as Classification; 
+            const act = cols[5] || 'Herstellen';
 
             if (cat && desc) {
                 newLib.push({
@@ -138,7 +168,7 @@ export default function App() {
           setCustomLibrary(newLib);
           alert(`Succes! ${newLib.length} items geïmporteerd.`);
       } else {
-          alert("Geen geldige items gevonden. Controleer of het bestand puntkomma's (;) gebruikt.");
+          alert("Geen geldige items gevonden.");
       }
     };
     reader.readAsText(file);
@@ -151,7 +181,6 @@ export default function App() {
       }
   };
 
-  // --- HANDLERS ---
   const handleMainCategoryChange = (val: string) => {
     if (val === 'NEW') { setIsCreatingCategory(true); setSelectedMainCategory(''); } else { setIsCreatingCategory(false); setSelectedMainCategory(val); }
     setSelectedSubCategory(''); setSelectedLibId(''); setIsCustomDefect(false); setStaticDescription('');
@@ -199,7 +228,39 @@ export default function App() {
   const handlePhotoUpload = async (file: File) => await compressImage(file, 'defect');
   const handleLocationPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files?.[0]) { const res = await compressImage(e.target.files[0], 'cover'); setMeta({ locationPhotoUrl: res }); e.target.value = ''; } };
   const onDefectPhoto = async (e: React.ChangeEvent<HTMLInputElement>, num: 1 | 2) => { if (e.target.files?.[0]) { const res = await handlePhotoUpload(e.target.files[0]); if (num === 1) setDefectPhoto1(res); else setDefectPhoto2(res); e.target.value = ''; } };
-  const handleExport = () => { const blob = new Blob([JSON.stringify({ meta, measurements, defects, customInstruments, exportDate: new Date().toISOString() }, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `Inspectie_${meta.clientName || 'Onbekend'}_${meta.date}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); };
+  
+  // --- VERBETERDE EXPORT/OPSLAAN FUNCTIE ---
+  const handleExport = async () => { 
+      const fileName = `Inspectie_${meta.clientName || 'Onbekend'}_${meta.date}.json`;
+      const data = JSON.stringify({ meta, measurements, defects, customInstruments, exportDate: new Date().toISOString() }, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const file = new File([blob], fileName, { type: 'application/json' });
+
+      // Probeer de 'Share' API voor mobiel (opent het deel-menu van iOS/Android)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+              await navigator.share({
+                  files: [file],
+                  title: 'Inspectie Backup',
+                  text: 'Hier is de backup van de inspectie data.'
+              });
+              return; // Als delen lukt, stop hier.
+          } catch (e) {
+              // Als gebruiker annuleert of het faalt, val terug op gewone download
+          }
+      }
+
+      // Fallback: Gewone download voor laptop
+      const url = URL.createObjectURL(blob); 
+      const a = document.createElement('a'); 
+      a.href = url; 
+      a.download = fileName; 
+      document.body.appendChild(a); 
+      a.click(); 
+      document.body.removeChild(a); 
+      URL.revokeObjectURL(url); 
+  };
+
   const handleImportClick = () => { if (window.confirm('Overschrijven?')) fileInputRef.current?.click(); };
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = (ev) => { try { importState(JSON.parse(ev.target?.result as string)); alert('Geladen!'); } catch { alert('Fout'); } }; r.readAsText(f); e.target.value = ''; };
   const handleReset = () => { if (window.confirm('Alles wissen?')) { resetState(); setEditingId(null); setLocation(''); setSelectedLibId(''); setSelectedMainCategory(''); setSelectedSubCategory(''); setCustomComment(''); setStaticDescription(''); setDefectPhoto1(null); setDefectPhoto2(null); if (sigPad.current) sigPad.current.clear(); window.scrollTo(0, 0); } };
