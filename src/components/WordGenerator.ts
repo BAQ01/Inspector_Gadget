@@ -2,7 +2,7 @@
 import { 
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, 
   WidthType, HeadingLevel, ImageRun, AlignmentType, PageBreak, 
-  Footer, PageNumber, VerticalAlign 
+  Footer, PageNumber, VerticalAlign, BorderStyle 
 } from "docx";
 import { saveAs } from "file-saver";
 import { InspectionState } from "../types"; 
@@ -46,6 +46,7 @@ const base64ToUint8Array = (base64: string) => {
   }
 };
 
+// Tabelrij helper
 const createRow = (label: string, value: string | undefined | null, boldLabel: boolean = true) => {
   return new TableRow({
     children: [
@@ -62,6 +63,7 @@ const createRow = (label: string, value: string | undefined | null, boldLabel: b
   });
 };
 
+// Standaard tekst paragraaf
 const createTextPara = (text: string, isBold: boolean = false) => {
     return new Paragraph({
         children: [new TextRun({ text: text, bold: isBold })],
@@ -81,9 +83,9 @@ export const generateWordDocument = async (
   
   const sectionsChildren: any[] = [];
 
-  // -------------------------------------------------------------------------
+  // ==========================================
   // PAGINA 1: VOORBLAD
-  // -------------------------------------------------------------------------
+  // ==========================================
   
   sectionsChildren.push(
     new Paragraph({
@@ -107,6 +109,7 @@ export const generateWordDocument = async (
     })
   );
 
+  // Foto Voorblad
   if (meta.locationPhotoUrl) {
     try {
       const isPng = meta.locationPhotoUrl.startsWith("data:image/png");
@@ -128,6 +131,7 @@ export const generateWordDocument = async (
       sectionsChildren.push(new Paragraph({ text: "", spacing: { after: 2000 } }));
   }
 
+  // Projectgegevensblok op voorblad
   sectionsChildren.push(
       new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
@@ -143,36 +147,37 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
 
-  // -------------------------------------------------------------------------
+  // ==========================================
   // PAGINA 2: VOORWOORD & LEESWIJZER
-  // -------------------------------------------------------------------------
+  // ==========================================
   
   sectionsChildren.push(
       new Paragraph({ text: "Voorwoord", heading: HeadingLevel.HEADING_1 }),
-      createTextPara("Het doel van de SCIOS Scope 10 inspectie is om inzicht te krijgen in de belangrijkste elektrische risico's. Het zijn vaak relatief kleine afwijkingen die risico's veroorzaken."),
+      createTextPara("Het doel van de SCIOS Scope 10 inspectie is om inzicht te krijgen in de belangrijkste elektrische risico's. Het zijn vaak relatief kleine afwijkingen die risico's veroorzaken. U kunt deze echter niet altijd zien of herkennen of u bent zich niet bewust van het feit dat ze een risico vormen."),
       createTextPara("Tijdens de inspectie is niet alleen gefocust op de elektrische installatie, risicovolle apparaten en machines zijn ook bekeken. Deze zijn vaak verantwoordelijk voor het ontstaan van een brand."),
       createTextPara("De inhoud van de SCIOS Scope 10 inspectie bestaat uit:"),
-      new Paragraph({ text: "• een uitgebreide visuele inspectie;", bullet: { level: 0 } }),
+      new Paragraph({ text: "• een uitgebreide visuele inspectie van de schakel- en verdeelinrichtingen;", bullet: { level: 0 } }),
       new Paragraph({ text: "• metingen en beproevingen;", bullet: { level: 0 } }),
       new Paragraph({ text: "• thermografische inspectie (warmtebeeldopname).", bullet: { level: 0 } }),
       
       new Paragraph({ text: "", spacing: { after: 200 } }),
-      createTextPara("Let op: met deze inspectie voldoet u nog niet aan de Arbowet (NEN 3140). Dit is puur gericht op brandrisico.", true),
+      createTextPara("Let op: met deze inspectie voldoet u nog niet aan de Arbowet.", true),
+      createTextPara("Er is geen sprake van een volledige inspectie conform de NEN-EN 50110/NEN 3140. Deze normen bevatten aanvullende bepalingen om het geheel te voldoen aan artikel 3.4 en 3.5 van het Arbobesluit."),
       
       new Paragraph({ text: "Leeswijzer", heading: HeadingLevel.HEADING_1, spacing: { before: 300 } }),
       createTextPara("Dit rapport is opgesteld aan de hand van technisch document 14 dat behoort bij een SCIOS Scope 10 inspectie."),
       createTextPara("Dit document is gebaseerd op de NTA 8220 Beoordelingsmethode op brandrisico van elektrisch materieel."),
       new Paragraph({ text: "• Hoofdstuk 1: Basisgegevens", bullet: { level: 0 } }),
       new Paragraph({ text: "• Hoofdstuk 2: Installatiegegevens", bullet: { level: 0 } }),
-      new Paragraph({ text: "• Hoofdstuk 3: Inspectieresultaten & Advies", bullet: { level: 0 } }),
+      new Paragraph({ text: "• Hoofdstuk 3: Inspectie methode & resultaten", bullet: { level: 0 } }),
       new Paragraph({ text: "• Hoofdstuk 4: Geconstateerde gebreken", bullet: { level: 0 } }),
   );
 
   sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
 
-  // -------------------------------------------------------------------------
-  // PAGINA 3: BASISGEGEVENS
-  // -------------------------------------------------------------------------
+  // ==========================================
+  // PAGINA 3: HOOFDSTUK 1 - BASISGEGEVENS
+  // ==========================================
 
   sectionsChildren.push(new Paragraph({ text: "1. BASISGEGEVENS", heading: HeadingLevel.HEADING_1 }));
   
@@ -217,9 +222,9 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
 
-  // -------------------------------------------------------------------------
+  // ==========================================
   // PAGINA 4: MEETINSTRUMENTEN
-  // -------------------------------------------------------------------------
+  // ==========================================
 
   sectionsChildren.push(new Paragraph({ text: "GEBRUIKTE MEETINSTRUMENTEN", heading: HeadingLevel.HEADING_2 }));
   
@@ -245,15 +250,20 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: instrumentRows }));
   
+  createTextPara("Meetmiddelen die worden ingezet voor metingen die selectief zijn, moeten jaarlijks worden gekalibreerd.");
+
   sectionsChildren.push(new Paragraph({ text: "AANVULLENDE INSTALLATIES", heading: HeadingLevel.HEADING_3, spacing: { before: 300 } }));
   sectionsChildren.push(new Paragraph({ text: `Energieopslagsysteem aanwezig? ${measurements.hasEnergyStorage === true ? "[X] Ja" : "[ ] Nee"}` }));
   sectionsChildren.push(new Paragraph({ text: `Zonnestroominstallatie aanwezig? ${measurements.hasSolarSystem === true ? "[X] Ja" : "[ ] Nee"}` }));
+  if(measurements.hasSolarSystem) {
+      createTextPara("Bij aanwezigheid van een zonnestroominstallatie is deze tot de omvormer met de hierop aangesloten stekers geïnspecteerd. Inspectie voor zonnestroominstallaties is vastgelegd in SCIOS Scope 12.");
+  }
 
   sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
 
-  // -------------------------------------------------------------------------
-  // PAGINA 5: INSTALLATIEGEGEVENS & GEBRUIKSFUNCTIES
-  // -------------------------------------------------------------------------
+  // ==========================================
+  // PAGINA 5: HOOFDSTUK 2 - INSTALLATIEGEGEVENS
+  // ==========================================
 
   sectionsChildren.push(new Paragraph({ text: "2. INSTALLATIEGEGEVENS", heading: HeadingLevel.HEADING_1 }));
   
@@ -265,10 +275,12 @@ export const generateWordDocument = async (
           createRow("Bouwjaar (schatting):", measurements.yearOfConstruction),
           createRow("Impedantie (Zi):", `${measurements.impedance || '-'} Ω`),
           createRow("Isolatieweerstand:", `${measurements.insulationResistance || '-'} MΩ`),
+          createRow("Temp. Verdeler:", `${measurements.switchboardTemp || '-'} °C`),
       ]
   }));
 
   sectionsChildren.push(new Paragraph({ text: "GEBRUIKSFUNCTIES (BBL)", heading: HeadingLevel.HEADING_3, spacing: { before: 300 } }));
+  createTextPara("Onderstaande functies volgens het Besluit bouwwerken leefomgeving zijn van toepassing:");
   
   const usageKeys = Object.keys(meta.usageFunctions) as Array<keyof typeof meta.usageFunctions>;
   const activeFunctions = usageKeys.filter(key => meta.usageFunctions[key]);
@@ -284,16 +296,39 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
 
-  // -------------------------------------------------------------------------
-  // PAGINA 6 & 7: INSPECTIE METHODE & RESULTAAT
-  // -------------------------------------------------------------------------
+  // ==========================================
+  // PAGINA 6: HOOFDSTUK 3 - INSPECTIE METHODE
+  // ==========================================
 
-  sectionsChildren.push(new Paragraph({ text: "3. INSPECTIE RESULTATEN", heading: HeadingLevel.HEADING_1 }));
+  sectionsChildren.push(new Paragraph({ text: "3. INSPECTIE", heading: HeadingLevel.HEADING_1 }));
   
-  createTextPara("De inspectie is uitgevoerd op basis van NTA 8220 en SCIOS TD14.");
-  createTextPara("Inspectiemethoden: Visuele inspectie, Metingen en beproevingen, Thermografie.");
+  sectionsChildren.push(new Paragraph({ text: "TOEGEPASTE NORMEN", heading: HeadingLevel.HEADING_3 }));
+  createTextPara("De inspectie is uitgevoerd op basis van:");
+  sectionsChildren.push(new Paragraph({ text: "• NTA 8220: 2017", bullet: { level: 0 } }));
+  sectionsChildren.push(new Paragraph({ text: "• SCIOS TD14 Versie 2.10", bullet: { level: 0 } }));
+  sectionsChildren.push(new Paragraph({ text: "• NPR 8040-1:2013", bullet: { level: 0 } }));
 
-  sectionsChildren.push(new Paragraph({ text: "VERKLARING", heading: HeadingLevel.HEADING_3, spacing: { before: 200 } }));
+  sectionsChildren.push(new Paragraph({ text: "VISUELE INSPECTIE", heading: HeadingLevel.HEADING_3, spacing: { before: 200 } }));
+  createTextPara("Voor de beoordeling van elektrisch materieel op brandrisico wordt gelet op:");
+  sectionsChildren.push(new Paragraph({ text: "• kan er brand ontstaan bij normaal gebruik;", bullet: { level: 0 } }));
+  sectionsChildren.push(new Paragraph({ text: "• kan er brand ontstaan door oneigenlijk gebruik;", bullet: { level: 0 } }));
+  sectionsChildren.push(new Paragraph({ text: "• kan er brand ontstaan door een defect.", bullet: { level: 0 } }));
+
+  sectionsChildren.push(new Paragraph({ text: "METINGEN EN BEPROEVINGEN", heading: HeadingLevel.HEADING_3, spacing: { before: 200 } }));
+  createTextPara("De inspectie door meting en beproeving wordt gedaan door:");
+  sectionsChildren.push(new Paragraph({ text: "• meting van isolatieweerstand;", bullet: { level: 0 } }));
+  sectionsChildren.push(new Paragraph({ text: "• meting van temperatuur (thermografie);", bullet: { level: 0 } }));
+  sectionsChildren.push(new Paragraph({ text: "• meting circuitimpedantie.", bullet: { level: 0 } }));
+
+  sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
+
+  // ==========================================
+  // PAGINA 7: RESULTAAT VERKLARING
+  // ==========================================
+
+  sectionsChildren.push(new Paragraph({ text: "VERKLARING BETREFFENDE GEÏNSPECTEERDE INSTALLATIE", heading: HeadingLevel.HEADING_2 }));
+  
+  createTextPara("Van Gestel Inspectie en Advies B.V. verklaart dat de inspectie geheel onafhankelijk is uitgevoerd.");
   
   const hasDefects = defects && defects.length > 0;
   
@@ -302,25 +337,27 @@ export const generateWordDocument = async (
           new TextRun({ 
               text: hasDefects 
                 ? "[X] Tijdens de inspectie zijn er gebreken vastgesteld die een risico vormen." 
-                : "[X] Er zijn tijdens de inspectie GEEN gebreken vastgesteld.",
+                : "[ ] Tijdens de inspectie zijn er gebreken vastgesteld die een risico vormen.",
+              bold: true 
+          })
+      ],
+      spacing: { before: 200 }
+  }));
+  
+  sectionsChildren.push(new Paragraph({ 
+      children: [
+          new TextRun({ 
+              text: !hasDefects 
+                ? "[X] Er zijn tijdens de inspectie GEEN gebreken vastgesteld." 
+                : "[ ] Er zijn tijdens de inspectie GEEN gebreken vastgesteld.",
               bold: true 
           })
       ]
   }));
 
-  sectionsChildren.push(new Paragraph({ text: "CONCLUSIE & ADVIES", heading: HeadingLevel.HEADING_3, spacing: { before: 300 } }));
-  
-  sectionsChildren.push(new Paragraph({ text: `Geadviseerde inspectiefrequentie: ${meta.inspectionInterval} jaar.` }));
-  sectionsChildren.push(new Paragraph({ text: `Grondslag: ${meta.inspectionBasis.nta8220 ? "NTA 8220" : ""} ${meta.inspectionBasis.verzekering ? "+ Verzekeringseis" : ""}` }));
-  sectionsChildren.push(new Paragraph({ 
-      children: [
-          new TextRun({ text: "Volgende inspectie uiterlijk: ", bold: true }),
-          new TextRun({ text: meta.nextInspectionDate || "Nader te bepalen" })
-      ]
-  }));
+  createTextPara("Een scope 10 inspectie wordt na uitvoering afgemeld in het landelijk SCIOS portaal. Afmeldingen met of zonder constateringen dienen binnen 28 dagen na afronding werkzaamheden te worden gedaan.");
 
-  // Handtekening
-  sectionsChildren.push(new Paragraph({ text: "Voor akkoord,", spacing: { before: 300 } }));
+  sectionsChildren.push(new Paragraph({ text: "Namens toezichtverantwoordelijke:", spacing: { before: 300 } }));
   sectionsChildren.push(new Paragraph({ children: [new TextRun({ text: meta.inspectorName, bold: true })] }));
   
   if (meta.signatureUrl) {
@@ -340,14 +377,85 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
 
-  // -------------------------------------------------------------------------
-  // PAGINA 8: STEEKPROEF & CLASSIFICATIE LEGENDA
-  // -------------------------------------------------------------------------
+  // ==========================================
+  // PAGINA 8: FREQUENTIE MATRIX
+  // ==========================================
 
-  sectionsChildren.push(new Paragraph({ text: "TOELICHTING STEEKPROEF & CLASSIFICATIES", heading: HeadingLevel.HEADING_2 }));
-  createTextPara("De omvang van de steekproef is bepaald conform Tabel 1 van de NTA 8220:2017.");
+  sectionsChildren.push(new Paragraph({ text: "INSPECTIEFREQUENTIE & ADVIES", heading: HeadingLevel.HEADING_2 }));
   
-  sectionsChildren.push(new Paragraph({ text: "CLASSIFICATIE VAN GEBREKEN", heading: HeadingLevel.HEADING_3, spacing: { before: 200 } }));
+  // Matrix Tabel (Vereenvoudigde weergave van de complexe matrix)
+  sectionsChildren.push(new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+          new TableRow({ children: [
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Object / Gebruik", bold: true })] })] }),
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Risico Laag", bold: true })] })] }),
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Risico Hoog", bold: true })] })] }),
+          ]}),
+          new TableRow({ children: [
+              new TableCell({ children: [new Paragraph("Utiliteit")] }),
+              new TableCell({ children: [new Paragraph("5 jaar")] }),
+              new TableCell({ children: [new Paragraph("3 jaar")] }),
+          ]}),
+          new TableRow({ children: [
+              new TableCell({ children: [new Paragraph("Industrie")] }),
+              new TableCell({ children: [new Paragraph("5 jaar")] }),
+              new TableCell({ children: [new Paragraph("3 jaar")] }),
+          ]}),
+          new TableRow({ children: [
+              new TableCell({ children: [new Paragraph("Slapen/Verminderd zelfredzaam")] }),
+              new TableCell({ children: [new Paragraph("3 jaar")] }),
+              new TableCell({ children: [new Paragraph("3 jaar")] }),
+          ]}),
+      ]
+  }));
+
+  createTextPara("Als er in de overeenkomst een termijn is vastgelegd (bijv. verzekering), dan is deze leidend.");
+
+  sectionsChildren.push(new Paragraph({ text: "ADVIES", heading: HeadingLevel.HEADING_3, spacing: { before: 200 } }));
+  sectionsChildren.push(new Paragraph({ text: `Er wordt een inspectie-interval geadviseerd van: ${meta.inspectionInterval} jaar.` }));
+  sectionsChildren.push(new Paragraph({ text: `Grondslag: ${meta.inspectionBasis.nta8220 ? "NTA 8220" : ""} ${meta.inspectionBasis.verzekering ? "+ Verzekeringseis" : ""}` }));
+  sectionsChildren.push(new Paragraph({ 
+      children: [
+          new TextRun({ text: "Volgende inspectie uiterlijk: ", bold: true }),
+          new TextRun({ text: meta.nextInspectionDate || "Nader te bepalen" })
+      ]
+  }));
+
+  sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
+
+  // ==========================================
+  // PAGINA 9: STEEKPROEF
+  // ==========================================
+
+  sectionsChildren.push(new Paragraph({ text: "STEEKPROEF", heading: HeadingLevel.HEADING_2 }));
+  createTextPara("De minimale omvang van de steekproef wordt bepaald door tabel 1 van de NTA 8220:2017.");
+
+  sectionsChildren.push(new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+          new TableRow({ children: [
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Omvang Partij", bold: true })] })] }),
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Steekproef", bold: true })] })] }),
+          ]}),
+          new TableRow({ children: [ new TableCell({ children: [new Paragraph("26 - 50")] }), new TableCell({ children: [new Paragraph("8")] }) ]}),
+          new TableRow({ children: [ new TableCell({ children: [new Paragraph("51 - 90")] }), new TableCell({ children: [new Paragraph("13")] }) ]}),
+          new TableRow({ children: [ new TableCell({ children: [new Paragraph("91 - 150")] }), new TableCell({ children: [new Paragraph("20")] }) ]}),
+          new TableRow({ children: [ new TableCell({ children: [new Paragraph("151 - 280")] }), new TableCell({ children: [new Paragraph("32")] }) ]}),
+          new TableRow({ children: [ new TableCell({ children: [new Paragraph("281 - 500")] }), new TableCell({ children: [new Paragraph("50")] }) ]}),
+          new TableRow({ children: [ new TableCell({ children: [new Paragraph("> 500")] }), new TableCell({ children: [new Paragraph("80+")] }) ]}),
+      ]
+  }));
+
+  createTextPara(`Totaal aantal componenten opgegeven: ${meta.totalComponents}`);
+
+  sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
+
+  // ==========================================
+  // PAGINA 10: CLASSIFICATIE LEGENDA
+  // ==========================================
+
+  sectionsChildren.push(new Paragraph({ text: "CLASSIFICATIE VAN GEBREKEN", heading: HeadingLevel.HEADING_2 }));
   
   sectionsChildren.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
@@ -377,9 +485,9 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
 
-  // -------------------------------------------------------------------------
-  // PAGINA 9+: GEBREKENLIJST
-  // -------------------------------------------------------------------------
+  // ==========================================
+  // PAGINA 11+: HOOFDSTUK 4 - GEBREKEN
+  // ==========================================
 
   sectionsChildren.push(new Paragraph({ text: "4. VASTGESTELDE GEBREKEN", heading: HeadingLevel.HEADING_1 }));
 
@@ -443,9 +551,9 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
 
-  // -------------------------------------------------------------------------
+  // ==========================================
   // LAATSTE PAGINA: HERSTELVERKLARING
-  // -------------------------------------------------------------------------
+  // ==========================================
 
   sectionsChildren.push(new Paragraph({ text: "BIJLAGE 1: HERSTELVERKLARING", heading: HeadingLevel.HEADING_1 }));
   
