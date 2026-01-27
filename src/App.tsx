@@ -1,8 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useInspectionStore } from './store';
 import { DEFECT_LIBRARY, calculateSample, INSTRUMENTS, COMPANIES, INSPECTORS } from './constants';
-import { PDFDownloadLink } from '@react-pdf/renderer';
+// AANGEPAST: 'pdf' functie geïmporteerd voor handmatige generatie
+import { pdf } from '@react-pdf/renderer'; 
 import { PDFReport } from './components/PDFReport';
+// AANGEPAST: Word generator geïmporteerd (zorg dat je WordGenerator.ts hebt aangemaakt!)
+import { generateWordDocument } from './components/WordGenerator';
+import { saveAs } from 'file-saver';
+
 import { compressImage } from './utils';
 import SignatureCanvas from 'react-signature-canvas';
 import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, Save, RotateCcw, Calendar, Download, Search, MapPin, AlertTriangle, Info, FileText, RefreshCw } from 'lucide-react';
@@ -72,6 +77,7 @@ const parseCSV = (text: string): string[][] => {
 export default function App() {
   const { meta, defects, measurements, customInstruments, customLibrary, setMeta, setUsageFunction, setMeasurements, addDefect, updateDefect, removeDefect, addInstrument, removeInstrument, addCustomInstrument, importState, resetState, setCustomLibrary } = useInspectionStore();
   const [activeTab, setActiveTab] = useState<typeof STEPS[number]>('setup');
+  const [isGenerating, setIsGenerating] = useState(false); // Nieuwe state voor laad-indicator
   
   const ALL_INSTRUMENTS = [...INSTRUMENTS, ...customInstruments];
   const ACTIVE_LIBRARY = customLibrary && customLibrary.length > 0 ? customLibrary : DEFECT_LIBRARY;
@@ -244,9 +250,9 @@ export default function App() {
                   title: 'Inspectie Backup',
                   text: 'Hier is de backup van de inspectie data.'
               });
-              return; // Als delen lukt, stop hier.
+              return; 
           } catch (e) {
-              // Als gebruiker annuleert of het faalt, val terug op gewone download
+              // Als gebruiker annuleert
           }
       }
 
@@ -270,6 +276,40 @@ export default function App() {
   const usageOptionsLeft: {key: keyof UsageFunctions, label: string}[] = [{ key: 'woonfunctie', label: 'Woonfunctie' }, { key: 'bijeenkomstfunctie', label: 'Bijeenkomstfunctie' }, { key: 'celfunctie', label: 'Celfunctie' }, { key: 'gezondheidszorgfunctie', label: 'Gezondheidszorgfunctie' }, { key: 'industriefunctie', label: 'Industriefunctie' }, { key: 'kantoorfunctie', label: 'Kantoorfunctie' }];
   const usageOptionsRight: {key: keyof UsageFunctions, label: string}[] = [{ key: 'logiesfunctie', label: 'Logiesfunctie' }, { key: 'onderwijsfunctie', label: 'Onderwijsfunctie' }, { key: 'sportfunctie', label: 'Sportfunctie' }, { key: 'winkelfunctie', label: 'Winkelfunctie' }, { key: 'overigeGebruiksfunctie', label: 'Overige gebruiksfunctie' }, { key: 'bouwwerkGeenGebouw', label: 'Bouwwerk geen gebouw zijnde' }];
 
+  // --- NIEUW: Functie om BEIDE rapporten tegelijk te downloaden ---
+  const handleDownloadAll = async () => {
+    if (!meta.signatureUrl) {
+      alert("Let op: Je hebt nog niet getekend.");
+      return;
+    }
+
+    setIsGenerating(true);
+    const fileNameBase = `Scope10_${meta.clientName || 'Klant'}_${meta.date}`;
+
+    try {
+      // 1. Genereer PDF Blob
+      const pdfBlob = await pdf(<PDFReport meta={meta} defects={defects} measurements={measurements} />).toBlob();
+      saveAs(pdfBlob, `${fileNameBase}.pdf`);
+
+      // 2. Genereer Word Blob (met een kleine vertraging om de browser lucht te geven)
+      setTimeout(async () => {
+        try {
+            await generateWordDocument(meta, defects, measurements);
+        } catch (e) {
+            console.error("Word export failed", e);
+            alert("Fout bij genereren Word bestand. PDF is wel opgeslagen.");
+        } finally {
+            setIsGenerating(false);
+        }
+      }, 500);
+
+    } catch (e) {
+      console.error(e);
+      alert("Er ging iets mis bij het genereren.");
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="min-h-screen font-sans text-gray-800 pb-20 bg-gray-50">
       <div className="max-w-2xl mx-auto bg-white shadow-xl min-h-screen md:min-h-0 md:rounded-lg md:my-8 overflow-hidden flex flex-col">
@@ -279,7 +319,7 @@ export default function App() {
         <div className="p-6 flex-grow">
           {activeTab === 'setup' && (
             <div className="space-y-6">
-               <div className="flex gap-2 mb-4"><button onClick={handleImportClick} className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Upload size={16} /><span className="hidden md:inline">Laden</span></button><button onClick={handleExport} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Save size={16} /><span className="hidden md:inline">Opslaan</span></button><button onClick={handleReset} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><RotateCcw size={16} /><span className="hidden md:inline">Leegmaken</span></button><input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" /></div>
+               <div className="flex gap-2 mb-4"><button onClick={handleImportClick} className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Upload size={16} /><span className="hidden md:inline">Laden</span></button><button onClick={handleExport} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Download size={16} /><span className="hidden md:inline">Backup</span></button><button onClick={handleReset} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><RotateCcw size={16} /><span className="hidden md:inline">Leegmaken</span></button><input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" /></div>
                <div className="bg-gray-50 p-4 rounded border"><h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Opdrachtgever</h2><div className="grid grid-cols-1 gap-3"><input className="border rounded p-2" placeholder="Naam" value={meta.clientName} onChange={(e) => setMeta({ clientName: e.target.value })} /><input className="border rounded p-2" placeholder="Adres" value={meta.clientAddress} onChange={(e) => setMeta({ clientAddress: e.target.value })} /><div className="flex gap-2"><input className="border rounded p-2 w-1/3" placeholder="Postcode" value={meta.clientPostalCode} onChange={(e) => setMeta({ clientPostalCode: e.target.value })} /><input className="border rounded p-2 w-2/3" placeholder="Plaats" value={meta.clientCity} onChange={(e) => setMeta({ clientCity: e.target.value })} /></div><input className="border rounded p-2" placeholder="Contact" value={meta.clientContactPerson} onChange={(e) => setMeta({ clientContactPerson: e.target.value })} /><input className="border rounded p-2" placeholder="Tel" value={meta.clientPhone} onChange={(e) => setMeta({ clientPhone: e.target.value })} /><input className="border rounded p-2" placeholder="Email" value={meta.clientEmail} onChange={(e) => setMeta({ clientEmail: e.target.value })} /></div></div>
                <div className="bg-gray-50 p-4 rounded border"><h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Projectgegevens</h2><div className="grid grid-cols-1 gap-3"><input className="border rounded p-2" placeholder="Locatie (Naam Gebouw)" value={meta.projectLocation} onChange={(e) => setMeta({ projectLocation: e.target.value })} /><input className="border rounded p-2" placeholder="Adres" value={meta.projectAddress} onChange={(e) => setMeta({ projectAddress: e.target.value })} /><div className="flex gap-2"><input className="border rounded p-2 w-1/3" placeholder="Postcode" value={meta.projectPostalCode} onChange={(e) => setMeta({ projectPostalCode: e.target.value })} /><input className="border rounded p-2 w-2/3" placeholder="Plaats" value={meta.projectCity} onChange={(e) => setMeta({ projectCity: e.target.value })} /></div><input className="border rounded p-2" placeholder="Contact" value={meta.projectContactPerson} onChange={(e) => setMeta({ projectContactPerson: e.target.value })} /><input className="border rounded p-2" placeholder="Tel" value={meta.projectPhone} onChange={(e) => setMeta({ projectPhone: e.target.value })} /><input className="border rounded p-2" placeholder="Email" value={meta.projectEmail} onChange={(e) => setMeta({ projectEmail: e.target.value })} /><input className="border rounded p-2" placeholder="IV'er" value={meta.installationResponsible} onChange={(e) => setMeta({ installationResponsible: e.target.value })} /><div className="flex gap-2 items-center"><input className="border rounded p-2 flex-grow" placeholder="ID Bagviewer" value={meta.idBagviewer} onChange={(e) => setMeta({ idBagviewer: e.target.value })} /><button onClick={handleBagSearch} disabled={isSearchingBag} className="bg-emerald-600 text-white p-2 rounded hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1 text-sm font-bold whitespace-nowrap">{isSearchingBag ? '...' : <><Search size={16} /> Zoek ID</>}</button></div>{meta.idBagviewer && (<a href={`https://bagviewer.kadaster.nl/lvbag/bag-viewer/?zoomlevel=1&objectId=${meta.idBagviewer}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline flex items-center gap-1"><MapPin size={12}/> Open in BAG Viewer</a>)}<div className="mt-4 border-t border-emerald-200 pt-4"><label className="block text-xs font-bold text-emerald-800 uppercase mb-2">Foto voorblad rapport</label><div className="flex gap-4 items-center"><label className="bg-emerald-600 text-white px-4 py-2 rounded cursor-pointer flex items-center gap-2 text-sm font-bold hover:bg-emerald-700 transition shadow-sm"><Camera size={18} /><span>Foto maken/kiezen</span><input type="file" accept="image/*" className="hidden" onChange={handleLocationPhoto} /></label>{meta.locationPhotoUrl && (<div className="relative group"><img src={meta.locationPhotoUrl} className="h-20 w-20 object-cover rounded-lg border-2 border-emerald-500 shadow-sm" alt="Voorblad" /><button onClick={() => setMeta({ locationPhotoUrl: '' })} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow hover:bg-red-600"><X size={14}/></button></div>)}</div></div></div></div>
                <div className="bg-gray-50 p-4 rounded border"><h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Gebruiksfunctie</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="space-y-2">{usageOptionsLeft.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div><div className="space-y-2">{usageOptionsRight.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div></div></div>
@@ -300,7 +340,6 @@ export default function App() {
           {activeTab === 'inspect' && (
             <div className="space-y-6">
               
-              {/* NIEUW: BIBLIOTHEEK BEHEER (VERPLAATST NAAR HIER) */}
               <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
                  <h2 className="text-sm font-bold text-yellow-800 uppercase border-b border-yellow-300 pb-2 mb-3 flex items-center gap-2"><FileText size={16}/> Bibliotheek Beheer</h2>
                  <p className="text-xs text-gray-600 mb-3">Gebruik een eigen Excel/CSV-lijst in plaats van de standaard gebreken.</p>
@@ -326,13 +365,11 @@ export default function App() {
               <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-5">
                 <h3 className="font-bold text-gray-800 mb-4">{editingId ? 'Gebrek Bewerken' : 'Nieuw Gebrek Melden'}</h3>
                 <div className="space-y-4">
-                  {/* LOCATIE */}
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Locatie</label>
                     <input className="w-full border rounded p-2" placeholder="Bijv. Meterkast begane grond" value={location} onChange={(e) => setLocation(e.target.value)}/>
                   </div>
 
-                  {/* STAP 1: HOOFDCATEGORIE */}
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">1. Hoofdcategorie</label>
                     {isCreatingCategory ? (
@@ -350,7 +387,6 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* STAP 2: SUBCATEGORIE (alleen zichtbaar als hoofdcat gekozen is) */}
                   {!isCreatingCategory && selectedMainCategory && (
                     <div className="animate-fadeIn">
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">2. Subcategorie</label>
@@ -361,7 +397,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* STAP 3: GEBREK KIEZEN (Hybride) */}
                   {!isCreatingCategory && selectedSubCategory && (
                     <div className="animate-fadeIn">
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">3. Soort Gebrek</label>
@@ -374,10 +409,8 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* OMSCHRIJVING VELDEN */}
                   {(selectedLibId || isCustomDefect) && (
                     <div className="space-y-4 animate-fadeIn pt-2">
-                        {/* VELD 1: Standaard Toelichting (Read-only als het standaard is) */}
                         {!isCustomDefect && staticDescription && (
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Toelichting (Standaard)</label>
@@ -387,7 +420,6 @@ export default function App() {
                             </div>
                         )}
 
-                        {/* VELD 2: Aanvullende Toelichting (Of Hoofdtekst bij Custom) */}
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                                 {isCustomDefect ? 'Omschrijving Gebrek (Verplicht)' : 'Aanvullende Toelichting (Optioneel)'}
@@ -400,7 +432,6 @@ export default function App() {
                             />
                         </div>
 
-                        {/* MAATWERK VELDEN: Alleen zichtbaar bij 'Eigen omschrijving' */}
                         {isCustomDefect && (
                             <div className="bg-blue-50 p-4 rounded border border-blue-100 space-y-4">
                                 <div>
@@ -464,7 +495,6 @@ export default function App() {
             </div>
           )}
 
-          {/* REPORT TAB */}
           {activeTab === 'report' && (
             <div className="text-center py-6 space-y-6">
               <div className="bg-indigo-50 p-4 rounded border border-indigo-100 text-left">
@@ -476,7 +506,26 @@ export default function App() {
                 </div>
               </div>
               <div className="bg-white p-4 rounded shadow-sm border"><h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Handtekening Inspecteur</h3>{!meta.signatureUrl ? (<div className="border border-gray-300 rounded bg-gray-50"><SignatureCanvas ref={sigPad} canvasProps={{width: 300, height: 150, className: 'mx-auto cursor-crosshair'}} /><div className="border-t flex justify-end p-2 gap-2"><button onClick={clearSignature} className="text-xs text-red-500 font-bold">Wissen</button><button onClick={saveSignature} className="text-xs bg-emerald-600 text-white px-3 py-1 rounded font-bold">Opslaan</button></div></div>) : (<div className="flex flex-col items-center"><img src={meta.signatureUrl} className="border h-24 mb-2" /><button onClick={() => setMeta({signatureUrl: ''})} className="text-xs text-red-500 underline">Opnieuw tekenen</button></div>)}</div>
-              <PDFDownloadLink document={<PDFReport meta={meta} defects={defects} measurements={measurements} />} fileName={`Scope10_${meta.clientName}.pdf`}>{({ loading }) => (<button className="bg-blue-600 w-full text-white px-6 py-4 rounded-lg font-bold shadow hover:bg-blue-700 flex items-center justify-center gap-3 disabled:bg-gray-400" disabled={loading || !meta.signatureUrl}><Download size={20} />{loading ? 'Genereren...' : 'Download Rapport'}</button>)}</PDFDownloadLink>
+              
+              {/* --- NIEUWE DOWNLOAD KNOP (DUAL DOWNLOAD) --- */}
+              <button 
+                onClick={handleDownloadAll}
+                disabled={isGenerating || !meta.signatureUrl}
+                className="bg-blue-600 w-full text-white px-6 py-4 rounded-lg font-bold shadow hover:bg-blue-700 flex items-center justify-center gap-3 disabled:bg-gray-400"
+              >
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="animate-spin" size={20} />
+                    <span>Rapporten Genereren...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download size={20} />
+                    <span>Download Rapport (PDF + Word)</span>
+                  </>
+                )}
+              </button>
+
               {!meta.signatureUrl && <p className="text-xs text-red-500">U moet eerst tekenen en opslaan.</p>}
             </div>
           )}
