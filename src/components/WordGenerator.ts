@@ -46,7 +46,6 @@ const base64ToUint8Array = (base64: string) => {
   }
 };
 
-// Tabelrij helper
 const createRow = (label: string, value: string | undefined | null, boldLabel: boolean = true) => {
   return new TableRow({
     children: [
@@ -63,12 +62,25 @@ const createRow = (label: string, value: string | undefined | null, boldLabel: b
   });
 };
 
-// Standaard tekst paragraaf
 const createTextPara = (text: string, isBold: boolean = false) => {
     return new Paragraph({
         children: [new TextRun({ text: text, bold: isBold })],
         spacing: { after: 120 }
     });
+};
+
+// Functie om steekproef te bepalen op basis van aantal componenten (NTA 8220 Tabel 1)
+const calculateSampleData = (total: number) => {
+    if (total <= 25) return { range: "5 - 25", sample: "5" };
+    if (total <= 50) return { range: "26 - 50", sample: "8" };
+    if (total <= 90) return { range: "51 - 90", sample: "13" };
+    if (total <= 150) return { range: "91 - 150", sample: "20" };
+    if (total <= 280) return { range: "151 - 280", sample: "32" };
+    if (total <= 500) return { range: "281 - 500", sample: "50" };
+    if (total <= 1200) return { range: "501 - 1200", sample: "80" };
+    if (total <= 3200) return { range: "1201 - 3200", sample: "125" };
+    if (total <= 10000) return { range: "3201 - 10000", sample: "200" };
+    return { range: "> 10000", sample: "315" }; // Code M
 };
 
 // ==========================================
@@ -261,7 +273,6 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: instrumentRows }));
   
-  // FIX: Deze regel was voorheen niet gepusht
   sectionsChildren.push(createTextPara("Meetmiddelen die worden ingezet voor metingen die selectief zijn, moeten jaarlijks worden gekalibreerd. Indien de leverancier van het meetmiddel een kortere termijn voorschrijft, moet deze worden toegepast."));
 
   // ENERGIE OPSLAGSYSTEEM
@@ -276,7 +287,6 @@ export const generateWordDocument = async (
   sectionsChildren.push(new Paragraph({ text: measurements.hasSolarSystem === true ? "[X] Ja" : "[ ] Ja" }));
   sectionsChildren.push(new Paragraph({ text: measurements.hasSolarSystem === false ? "[X] Nee" : "[ ] Nee" }));
   
-  // FIX: Deze regels waren voorheen niet gepusht
   sectionsChildren.push(createTextPara("Bij aanwezigheid van een zonnestroominstallatie is deze tot de omvormer met de hierop aangesloten stekers geïnspecteerd."));
   sectionsChildren.push(createTextPara("Inspectie voor zonnestroominstallaties is vastgelegd in SCIOS Scope 12, het is raadzaam deze inspectie uit te laten voeren."));
 
@@ -302,7 +312,6 @@ export const generateWordDocument = async (
   // GEBRUIKSFUNCTIES
   sectionsChildren.push(new Paragraph({ text: "GEBRUIKSFUNCTIES (BBL)", heading: HeadingLevel.HEADING_3, spacing: { before: 300 } }));
   
-  // FIX: Ook deze tekst werd niet gepusht
   sectionsChildren.push(createTextPara("Onderstaande functies volgens het Besluit bouwwerken leefomgeving zijn van toepassing."));
   
   const check = (key: keyof typeof meta.usageFunctions) => meta.usageFunctions[key] ? "V" : "";
@@ -367,34 +376,32 @@ export const generateWordDocument = async (
   
   sectionsChildren.push(new Paragraph({ text: "TOEGEPASTE NORMEN", heading: HeadingLevel.HEADING_3 }));
   
-  // FIX: Push voor createTextPara
   sectionsChildren.push(createTextPara("De inspectie is uitgevoerd op basis van:"));
-  sectionsChildren.push(new Paragraph({ text: "• NTA 8220: 2017", bullet: { level: 0 } }));
-  sectionsChildren.push(new Paragraph({ text: "• SCIOS TD14 Versie 2.10", bullet: { level: 0 } }));
-  sectionsChildren.push(new Paragraph({ text: "• NPR 8040-1:2013", bullet: { level: 0 } }));
+  sectionsChildren.push(new Paragraph({ text: "[X] NTA 8220: 2017", bullet: { level: 0 } }));
+  sectionsChildren.push(new Paragraph({ text: "[X] SCIOS TD14 Versie 2.10", bullet: { level: 0 } }));
+  sectionsChildren.push(new Paragraph({ text: "[X] NPR 8040-1:2013", bullet: { level: 0 } }));
+
+  sectionsChildren.push(new Paragraph({ text: "INSPECTIEMETHODE", heading: HeadingLevel.HEADING_3, spacing: { before: 200 } }));
+  sectionsChildren.push(new Paragraph({ text: "Thermografie" }));
 
   sectionsChildren.push(new Paragraph({ text: "VISUELE INSPECTIE", heading: HeadingLevel.HEADING_3, spacing: { before: 200 } }));
   
-  // FIX: Push voor createTextPara
   sectionsChildren.push(createTextPara("Voor de beoordeling van elektrisch materieel op brandrisico moet gelet worden op het volgende:"));
   sectionsChildren.push(new Paragraph({ text: "• kan er brand ontstaan bij normaal gebruik;", bullet: { level: 0 } }));
   sectionsChildren.push(new Paragraph({ text: "• kan er brand ontstaan door oneigenlijk gebruik;", bullet: { level: 0 } }));
   sectionsChildren.push(new Paragraph({ text: "• kan er brand ontstaan door een defect.", bullet: { level: 0 } }));
   
-  // FIX: Push voor createTextPara
   sectionsChildren.push(createTextPara("Voor het uitvoeren van de beoordeling wordt het elektrisch materieel beoordeeld op: bedrijfsomstandigheden, wederzijdse beïnvloeding, uitwendige beïnvloeding en automatische uitschakeling van de voeding."));
   sectionsChildren.push(createTextPara("Geconstateerde afwijkingen worden in hoofdstuk 4 weergegeven."));
 
   sectionsChildren.push(new Paragraph({ text: "METINGEN EN BEPROEVINGEN", heading: HeadingLevel.HEADING_3, spacing: { before: 200 } }));
   
-  // FIX: Push voor createTextPara
   sectionsChildren.push(createTextPara("De inspectie door meting en beproeving aan de genoemde installatie(delen) wordt gedaan door:"));
   sectionsChildren.push(new Paragraph({ text: "• meting van isolatieweerstand;", bullet: { level: 0 } }));
   sectionsChildren.push(new Paragraph({ text: "• het beproeven van de aardlekbeveiligingen;", bullet: { level: 0 } }));
   sectionsChildren.push(new Paragraph({ text: "• meting voor het bepalen van de circuitimpedantie;", bullet: { level: 0 } }));
   sectionsChildren.push(new Paragraph({ text: "• meting van temperatuur.", bullet: { level: 0 } }));
   
-  // FIX: Push voor createTextPara
   sectionsChildren.push(createTextPara("Geconstateerde afwijkingen worden in hoofdstuk 4 weergegeven."));
 
   sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
@@ -405,7 +412,6 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Paragraph({ text: "VERKLARING BETREFFENDE GEÏNSPECTEERDE INSTALLATIE", heading: HeadingLevel.HEADING_2 }));
   
-  // FIX: Alle createTextPara calls in push
   sectionsChildren.push(createTextPara("In overeenstemming met de opdrachtgever is er een inspectieplan opgesteld. Toch blijft er altijd een risico bestaan, omdat de inspectie een momentopname is. Uit praktisch oogpunt is het onmogelijk de gehele installatie uitputtend te inspecteren."));
   sectionsChildren.push(createTextPara("Met het inspectieplan wordt gestreefd naar een optimaal risicobeheer en een veiligheidsniveau volgens de wet en regelgeving."));
   sectionsChildren.push(createTextPara(`${meta.inspectionCompany || "Van Gestel Inspectie en Advies B.V."} verklaart dat de inspectie geheel onafhankelijk is uitgevoerd, volgens de methoden beschreven in het inspectieplan.`));
@@ -435,10 +441,14 @@ export const generateWordDocument = async (
       ]
   }));
 
-  // FIX: Alle createTextPara calls in push
   sectionsChildren.push(createTextPara("Een scope 10 inspectie wordt na uitvoering afgemeld in het landelijk SCIOS portaal, onafhankelijk van het inspectieresultaat. Afmeldingen met of zonder constateringen dienen binnen 28 dagen na afronding werkzaamheden te worden gedaan."));
-  sectionsChildren.push(createTextPara("Dit dient te gebeuren op naam van de persoon die de inspectie heeft uitgevoerd. Vermelding in het SCIOS-portaal dient te geschieden door het inspectiebedrijf."));
-  sectionsChildren.push(createTextPara("Een SCIOS gecertificeerd bedrijf mag enkel een afmelding met constateringen aanpassen naar een afmelding zonder constateringen binnen een periode van één jaar."));
+  sectionsChildren.push(createTextPara(`Dit dient te gebeuren op naam van de persoon die de inspectie heeft uitgevoerd. Vermelding in het SCIOS-portaal dient te geschieden door ${meta.inspectionCompany || "het inspectiebedrijf"}.`));
+  sectionsChildren.push(createTextPara("Een SCIOS gecertificeerd bedrijf mag enkel een afmelding met constateringen aanpassen naar een afmelding zonder constateringen binnen een periode van één jaar. Hierna dient er een geheel nieuwe inspectie plaats te vinden."));
+  
+  sectionsChildren.push(createTextPara("Wanneer na een inspectie met constateringen vastgesteld wordt dat de constateringen zijn weggenomen, dan wordt de bestaande afmelding met constateringen gewijzigd in een afmelding zonder constateringen. Daarbij wordt aangegeven hoe is vastgesteld dat de constateringen zijn weggenomen:"));
+  sectionsChildren.push(new Paragraph({ text: `> Door middel van een her-inspectie door ${meta.inspectionCompany || "het inspectiebedrijf"}. Hieraan zijn kosten verbonden.`, bullet: { level: 0 } }));
+  sectionsChildren.push(new Paragraph({ text: `> Verklaring omtrent het wegnemen van de constateringen. Vermelding in het SCIOS-portaal dient te geschieden door ${meta.inspectionCompany || "het inspectiebedrijf"}. Hieraan zijn administratieve kosten verbonden.`, bullet: { level: 0 } }));
+  sectionsChildren.push(createTextPara("Een ondertekende herstelverklaring, ondersteund met foto's en een beschrijving van de herstelwijze, wordt enkel geaccepteerd indien alle bedrijfsgegevens van de installateur en een volledig overzicht van de herstelde punten zijn aangeleverd en beoordeeld kunnen worden."));
 
   sectionsChildren.push(new Paragraph({ text: "Namens toezichtverantwoordelijke:", spacing: { before: 300 } }));
   sectionsChildren.push(new Paragraph({ children: [new TextRun({ text: meta.inspectorName, bold: true })] }));
@@ -476,8 +486,13 @@ export const generateWordDocument = async (
               new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Risico Hoog (aantal constateringen)", bold: true })] })] }),
           ]}),
           new TableRow({ children: [
-              new TableCell({ children: [new Paragraph("Utiliteit")] }),
+              new TableCell({ children: [new Paragraph("Utiliteit (d)")] }),
               new TableCell({ children: [new Paragraph("5 jaar")] }),
+              new TableCell({ children: [new Paragraph("3 jaar")] }),
+          ]}),
+          new TableRow({ children: [
+              new TableCell({ children: [new Paragraph("Utiliteit, gebruikers niet zelfredzaam of slapen")] }),
+              new TableCell({ children: [new Paragraph("3 jaar")] }),
               new TableCell({ children: [new Paragraph("3 jaar")] }),
           ]}),
           new TableRow({ children: [
@@ -486,24 +501,37 @@ export const generateWordDocument = async (
               new TableCell({ children: [new Paragraph("3 jaar")] }),
           ]}),
           new TableRow({ children: [
-              new TableCell({ children: [new Paragraph("Utiliteit met slapen")] }),
+              new TableCell({ children: [new Paragraph("Intensieve veehouderij")] }),
               new TableCell({ children: [new Paragraph("3 jaar")] }),
               new TableCell({ children: [new Paragraph("3 jaar")] }),
           ]}),
       ]
   }));
 
-  // FIX: Push
+  // Legenda a t/m e
+  sectionsChildren.push(createTextPara("(a) Op allerlei gebieden kunnen afbreukrisico's bestaan, niet alleen in verband met arbeid. Een bedrijf kan ook een afbreukrisico lopen op het gebied van imago."));
+  sectionsChildren.push(createTextPara("(b) Het aantal gelijktijdig bedreigde mensen is hoog bij meer dan 75 personen."));
+  sectionsChildren.push(createTextPara("(c) Of het aantal laag of hoog is, is afhankelijk van de omvang van de beoordeling van het elektrisch materieel."));
+  sectionsChildren.push(createTextPara("(d) Utiliteit zijn gebouwen met een bijeenkomstfunctie, sportfunctie, kantoorfunctie, winkelfunctie."));
+  sectionsChildren.push(createTextPara("(e) Brandrisico is hoog bij industrie waar hout, metaal of kunststof wordt verwerkt."));
+
   sectionsChildren.push(createTextPara("Als er in de overeenkomst een termijn is vastgelegd (bijv. verzekering), dan is deze leidend. Anders geldt tabel 3 van de NTA 8220:2017."));
 
   sectionsChildren.push(new Paragraph({ text: "ADVIES", heading: HeadingLevel.HEADING_3, spacing: { before: 200 } }));
-  sectionsChildren.push(new Paragraph({ text: `Er wordt een inspectie-interval geadviseerd van: ${meta.inspectionInterval} jaar.` }));
-  sectionsChildren.push(new Paragraph({ text: `Grondslag: ${meta.inspectionBasis.nta8220 ? "NTA 8220" : ""} ${meta.inspectionBasis.verzekering ? "+ Verzekeringseis" : ""}` }));
+  
+  // Advies met vinkjes
+  sectionsChildren.push(new Paragraph({ 
+      text: `Er wordt een inspectie-interval van 1x per [${meta.inspectionInterval === 3 ? "X" : " "}] 3 [${meta.inspectionInterval === 5 ? "X" : " "}] 5 jaar geadviseerd.` 
+  }));
+  sectionsChildren.push(new Paragraph({ text: `Conform verzekeringspolis: [${meta.inspectionBasis.verzekering ? "X" : " "}]` }));
+  sectionsChildren.push(new Paragraph({ text: `Conform NTA8220:2017: [${meta.inspectionBasis.nta8220 ? "X" : " "}]` }));
+  
   sectionsChildren.push(new Paragraph({ 
       children: [
           new TextRun({ text: "Volgende inspectie uiterlijk: ", bold: true }),
           new TextRun({ text: meta.nextInspectionDate || "Nader te bepalen" })
-      ]
+      ],
+      spacing: { before: 200 }
   }));
 
   sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
@@ -514,10 +542,10 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Paragraph({ text: "STEEKPROEF", heading: HeadingLevel.HEADING_2 }));
   
-  // FIX: Push voor alle createTextPara
   sectionsChildren.push(createTextPara("Het bepalen van de steekproef: Bij de kwaliteitscontrole van producten is een steekproef gebruikelijk. Men wil zekerheid dat een product aan de opgegeven specificaties voldoet. Bij brandrisico-inspecties wil men ook zekerheid."));
   sectionsChildren.push(createTextPara("De minimale omvang van de steekproef wordt bepaald door tabel 1 van de NTA 8220:2017. De steekproef beperkt zich tot de 1e steekproefcyclus."));
 
+  // Tabel 1 NTA 8220
   sectionsChildren.push(new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
@@ -534,8 +562,29 @@ export const generateWordDocument = async (
       ]
   }));
 
-  // FIX: Push
-  sectionsChildren.push(createTextPara(`Totaal aantal componenten opgegeven: ${meta.totalComponents}`));
+  // Berekening steekproef (Dynamisch)
+  const sampleCalc = calculateSampleData(meta.totalComponents);
+
+  sectionsChildren.push(new Paragraph({ text: "OPMERKING: G = maximaal aantal constateringen voor acceptatie; F = minimaal aantal constateringen voor afwijzing.", spacing: { before: 100, after: 100 } }));
+
+  // DAADWERKELIJKE STEEKPROEF TABEL (NIEUW)
+  sectionsChildren.push(new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+          new TableRow({ children: [
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Onderdeel", bold: true })] })] }),
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Aansluitpunten", bold: true })] })] }),
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Steekproef", bold: true })] })] }),
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Resultaat", bold: true })] })] }),
+          ]}),
+          new TableRow({ children: [
+              new TableCell({ children: [new Paragraph("Contactdozen/Aansluitpunten")] }),
+              new TableCell({ children: [new Paragraph(sampleCalc.range)] }),
+              new TableCell({ children: [new Paragraph(sampleCalc.sample)] }),
+              new TableCell({ children: [new Paragraph(defects.length > 0 ? "O" : "V")] }), // O = Onvoldoende (gebrek), V = Voldoende
+          ]}),
+      ]
+  }));
 
   sectionsChildren.push(new Paragraph({ children: [new PageBreak()] }));
 
@@ -545,7 +594,6 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Paragraph({ text: "CLASSIFICATIE VAN GEBREKEN", heading: HeadingLevel.HEADING_2 }));
   
-  // FIX: Push
   sectionsChildren.push(createTextPara("Afwijkingen worden gecategoriseerd conform informatieblad 22 (IB22) van SCIOS. IB22 beschrijft de methode hoe geconstateerde gebreken geclassificeerd worden."));
   
   sectionsChildren.push(new Table({
@@ -659,7 +707,6 @@ export const generateWordDocument = async (
 
   sectionsChildren.push(new Paragraph({ text: "HERSTELVERKLARING DOOR INSTALLATEUR", heading: HeadingLevel.HEADING_3, spacing: { before: 300 } }));
   
-  // FIX: Alle createTextPara calls in push
   sectionsChildren.push(createTextPara("Ondergetekende (de installateur) verklaart dat:"));
   sectionsChildren.push(createTextPara("> Minimaal alle afwijkingen van classificatie Rood en Oranje zoals vastgelegd in dit inspectierapport vakkundig hersteld zijn."));
   sectionsChildren.push(createTextPara("> De werkzaamheden zijn uitgevoerd conform de geldende installatievoorschriften zoals de NEN 1010."));
