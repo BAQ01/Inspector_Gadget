@@ -58,6 +58,7 @@ const initialState = {
   measurements: {
     installationType: 'TN-S' as const,
     mainFuse: '',
+    mainsVoltage: '400 V ~ 3 fase + N', // <--- NIEUW: Default waarde
     yearOfConstruction: '',
     insulationResistance: '',
     impedance: '',

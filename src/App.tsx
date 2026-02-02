@@ -405,12 +405,116 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'measure' && (
+{activeTab === 'measure' && (
             <div className="space-y-4">
                <h2 className="text-lg font-bold text-gray-700 border-b pb-2">Metingen & Beproevingen</h2>
-               <div className="bg-blue-50 p-4 rounded border border-blue-100 mb-4"><label className="block text-xs font-bold text-blue-800 uppercase mb-2">Gebruikte Meetinstrumenten</label><div className="flex gap-2 mb-3"><select className="border rounded p-2 w-full" onChange={(e) => { const inst = ALL_INSTRUMENTS.find(i => i.id === e.target.value); if (inst) { addInstrument(inst); e.target.value = ""; } }} defaultValue=""><option value="" disabled>-- Selecteer --</option>{ALL_INSTRUMENTS.map(i => <option key={i.id} value={i.id}>{i.name} ({i.serialNumber})</option>)}</select><button onClick={() => setShowNewInstrumentForm(true)} className="bg-blue-600 text-white p-2 rounded whitespace-nowrap flex items-center gap-1 text-sm font-bold"><PlusCircle size={16} /> Nieuw</button></div>{showNewInstrumentForm && (<div className="bg-white p-3 rounded border border-blue-200 mb-3"><div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2"><input className="border p-1 rounded text-sm" placeholder="Naam" value={newInstName} onChange={e => setNewInstName(e.target.value)} /><input className="border p-1 rounded text-sm" placeholder="Serienummer" value={newInstSn} onChange={e => setNewInstSn(e.target.value)} /><input className="border p-1 rounded text-sm" placeholder="Datum" value={newInstDate} onChange={e => setNewInstDate(e.target.value)} /></div><button onClick={() => { if (!newInstName) return; const newInst = { id: generateId(), name: newInstName, serialNumber: newInstSn || 'N.v.t.', calibrationDate: newInstDate || 'N.v.t.' }; addCustomInstrument(newInst); addInstrument(newInst); setNewInstName(''); setNewInstSn(''); setNewInstDate(''); setShowNewInstrumentForm(false); }} className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold w-full">Toevoegen en Opslaan</button></div>)}<div className="space-y-1">{measurements.selectedInstruments.map(inst => (<div key={inst.id} className="flex justify-between items-center bg-white p-2 rounded border border-blue-200 shadow-sm"><div className="flex items-center gap-2"><CheckSquare size={16} className="text-emerald-600" /><div><div className="font-bold text-sm">{inst.name}</div><div className="text-xs text-gray-500">Sn: {inst.serialNumber}</div></div></div><button onClick={() => removeInstrument(inst.id)} className="text-red-400"><X size={18} /></button></div>))}</div></div>
-               <div className="bg-white p-4 rounded border border-orange-200 mb-4 shadow-sm"><h3 className="font-bold text-sm text-orange-800 border-b border-orange-200 pb-2 mb-3">Aanvullende Installaties</h3><div className="flex justify-between items-center mb-4"><span className="text-sm font-bold">Energieopslagsysteem?</span><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="energyStorage" checked={measurements.hasEnergyStorage === true} onChange={() => setMeasurements({ hasEnergyStorage: true })} /><span className="text-sm">Ja</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="energyStorage" checked={measurements.hasEnergyStorage === false} onChange={() => setMeasurements({ hasEnergyStorage: false })} /><span className="text-sm">Nee</span></label></div></div><div className="flex justify-between items-center"><span className="text-sm font-bold">Zonnestroominstallatie?</span><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="solarSystem" checked={measurements.hasSolarSystem === true} onChange={() => setMeasurements({ hasSolarSystem: true })} /><span className="text-sm">Ja</span></label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="solarSystem" checked={measurements.hasSolarSystem === false} onChange={() => setMeasurements({ hasSolarSystem: false })} /><span className="text-sm">Nee</span></label></div></div></div>
-               <div className="grid grid-cols-2 gap-4"><div><label className="text-xs text-gray-500">Stroomstelsel</label><select className="border rounded p-2 w-full" value={measurements.installationType} onChange={(e) => setMeasurements({installationType: e.target.value as any})}><option value="TT">TT-Stelsel</option><option value="TN-S">TN-S</option><option value="TN-C-S">TN-C-S</option></select></div><div><label className="text-xs text-gray-500">Bouwjaar</label><input className="border rounded p-2 w-full" type="number" value={measurements.yearOfConstruction || ''} onChange={(e) => setMeasurements({yearOfConstruction: e.target.value})} /></div><div className="col-span-2 md:col-span-1"><label className="text-xs text-gray-500">Voorbeveiliging</label><div className="flex gap-2"><select className="border rounded p-2 w-full" value={isCustomFuse ? 'custom' : measurements.mainFuse} onChange={(e) => { if (e.target.value === 'custom') setMeasurements({ mainFuse: '' }); else setMeasurements({ mainFuse: e.target.value }); }}>{FUSE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}<option value="custom">Anders...</option></select></div>{(isCustomFuse || measurements.mainFuse === '') && (<input className="border rounded p-2 w-full mt-2 bg-gray-50" value={measurements.mainFuse || ''} onChange={(e) => setMeasurements({mainFuse: e.target.value})} placeholder="Waarde..." />)}</div><div><label className="text-xs text-gray-500">Temp (°C)</label><input className="border rounded p-2 w-full" type="number" value={measurements.switchboardTemp || ''} onChange={(e) => setMeasurements({switchboardTemp: e.target.value})} /></div><div><label className="text-xs text-gray-500">Riso (MΩ)</label><input className="border rounded p-2 w-full" type="number" step="10" value={measurements.insulationResistance || ''} onChange={(e) => setMeasurements({insulationResistance: e.target.value})} /></div><div><label className="text-xs text-gray-500">Zi (Ω)</label><input className="border rounded p-2 w-full" type="number" step="0.01" value={measurements.impedance || ''} onChange={(e) => setMeasurements({impedance: e.target.value})} /></div></div>
+               
+               {/* INSTRUMENTEN */}
+               <div className="bg-blue-50 p-4 rounded border border-blue-100 mb-4">
+                   <label className="block text-xs font-bold text-blue-800 uppercase mb-2">Gebruikte Meetinstrumenten</label>
+                   <div className="flex gap-2 mb-3">
+                       <select className="border rounded p-2 w-full" onChange={(e) => { const inst = ALL_INSTRUMENTS.find(i => i.id === e.target.value); if (inst) { addInstrument(inst); e.target.value = ""; } }} defaultValue="">
+                           <option value="" disabled>-- Selecteer --</option>
+                           {ALL_INSTRUMENTS.map(i => <option key={i.id} value={i.id}>{i.name} ({i.serialNumber})</option>)}
+                       </select>
+                       <button onClick={() => setShowNewInstrumentForm(true)} className="bg-blue-600 text-white p-2 rounded whitespace-nowrap flex items-center gap-1 text-sm font-bold"><PlusCircle size={16} /> Nieuw</button>
+                   </div>
+                   {showNewInstrumentForm && (
+                       <div className="bg-white p-3 rounded border border-blue-200 mb-3">
+                           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                               <input className="border p-1 rounded text-sm" placeholder="Naam" value={newInstName} onChange={e => setNewInstName(e.target.value)} />
+                               <input className="border p-1 rounded text-sm" placeholder="Serienummer" value={newInstSn} onChange={e => setNewInstSn(e.target.value)} />
+                               <input className="border p-1 rounded text-sm" placeholder="Datum" value={newInstDate} onChange={e => setNewInstDate(e.target.value)} />
+                           </div>
+                           <button onClick={() => { if (!newInstName) return; const newInst = { id: generateId(), name: newInstName, serialNumber: newInstSn || 'N.v.t.', calibrationDate: newInstDate || 'N.v.t.' }; addCustomInstrument(newInst); addInstrument(newInst); setNewInstName(''); setNewInstSn(''); setNewInstDate(''); setShowNewInstrumentForm(false); }} className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold w-full">Toevoegen en Opslaan</button>
+                       </div>
+                   )}
+                   <div className="space-y-1">
+                       {measurements.selectedInstruments.map(inst => (
+                           <div key={inst.id} className="flex justify-between items-center bg-white p-2 rounded border border-blue-200 shadow-sm">
+                               <div className="flex items-center gap-2"><CheckSquare size={16} className="text-emerald-600" /><div><div className="font-bold text-sm">{inst.name}</div><div className="text-xs text-gray-500">Sn: {inst.serialNumber}</div></div></div>
+                               <button onClick={() => removeInstrument(inst.id)} className="text-red-400"><X size={18} /></button>
+                           </div>
+                       ))}
+                   </div>
+               </div>
+
+               {/* AANVULLENDE INSTALLATIES */}
+               <div className="bg-white p-4 rounded border border-orange-200 mb-4 shadow-sm">
+                   <h3 className="font-bold text-sm text-orange-800 border-b border-orange-200 pb-2 mb-3">Aanvullende Installaties</h3>
+                   <div className="flex justify-between items-center mb-4">
+                       <span className="text-sm font-bold">Energieopslagsysteem?</span>
+                       <div className="flex gap-4">
+                           <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="energyStorage" checked={measurements.hasEnergyStorage === true} onChange={() => setMeasurements({ hasEnergyStorage: true })} /><span className="text-sm">Ja</span></label>
+                           <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="energyStorage" checked={measurements.hasEnergyStorage === false} onChange={() => setMeasurements({ hasEnergyStorage: false })} /><span className="text-sm">Nee</span></label>
+                       </div>
+                   </div>
+                   <div className="flex justify-between items-center">
+                       <span className="text-sm font-bold">Zonnestroominstallatie?</span>
+                       <div className="flex gap-4">
+                           <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="solarSystem" checked={measurements.hasSolarSystem === true} onChange={() => setMeasurements({ hasSolarSystem: true })} /><span className="text-sm">Ja</span></label>
+                           <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="solarSystem" checked={measurements.hasSolarSystem === false} onChange={() => setMeasurements({ hasSolarSystem: false })} /><span className="text-sm">Nee</span></label>
+                       </div>
+                   </div>
+               </div>
+
+               {/* METINGEN GRID */}
+               <div className="grid grid-cols-2 gap-4">
+                   <div>
+                       <label className="text-xs text-gray-500">Stroomstelsel</label>
+                       <select className="border rounded p-2 w-full" value={measurements.installationType} onChange={(e) => setMeasurements({installationType: e.target.value as any})}>
+                           <option value="TT">TT-Stelsel</option>
+                           <option value="TN-S">TN-S</option>
+                           <option value="TN-C-S">TN-C-S</option>
+                       </select>
+                   </div>
+                   
+                   {/* NIEUW: Netspanning Veld */}
+                   <div>
+                       <label className="text-xs text-gray-500">Netspanning</label>
+                       <select 
+                           className="border rounded p-2 w-full" 
+                           value={measurements.mainsVoltage || ''} 
+                           onChange={(e) => setMeasurements({mainsVoltage: e.target.value})}
+                       >
+                           <option value="400 V ~ 3 fase + N">400 V ~ 3 fase + N</option>
+                           <option value="230 V ~ 1 fase + N">230 V ~ 1 fase + N</option>
+                           <option value="3x 230 V (Oud net)">3x 230 V (Oud net)</option>
+                           <option value="Anders...">Anders...</option>
+                       </select>
+                   </div>
+
+                   <div>
+                       <label className="text-xs text-gray-500">Bouwjaar</label>
+                       <input className="border rounded p-2 w-full" type="number" value={measurements.yearOfConstruction || ''} onChange={(e) => setMeasurements({yearOfConstruction: e.target.value})} />
+                   </div>
+                   
+                   <div className="col-span-2 md:col-span-1">
+                       <label className="text-xs text-gray-500">Voorbeveiliging</label>
+                       <div className="flex gap-2">
+                           <select className="border rounded p-2 w-full" value={isCustomFuse ? 'custom' : measurements.mainFuse} onChange={(e) => { if (e.target.value === 'custom') setMeasurements({ mainFuse: '' }); else setMeasurements({ mainFuse: e.target.value }); }}>
+                               {FUSE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                               <option value="custom">Anders...</option>
+                           </select>
+                       </div>
+                       {(isCustomFuse || measurements.mainFuse === '') && (<input className="border rounded p-2 w-full mt-2 bg-gray-50" value={measurements.mainFuse || ''} onChange={(e) => setMeasurements({mainFuse: e.target.value})} placeholder="Waarde..." />)}
+                   </div>
+                   
+                   <div>
+                       <label className="text-xs text-gray-500">Temp (°C)</label>
+                       <input className="border rounded p-2 w-full" type="number" value={measurements.switchboardTemp || ''} onChange={(e) => setMeasurements({switchboardTemp: e.target.value})} />
+                   </div>
+                   
+                   <div>
+                       <label className="text-xs text-gray-500">Riso (MΩ)</label>
+                       <input className="border rounded p-2 w-full" type="number" step="10" value={measurements.insulationResistance || ''} onChange={(e) => setMeasurements({insulationResistance: e.target.value})} />
+                   </div>
+                   
+                   <div>
+                       <label className="text-xs text-gray-500">Zi (Ω)</label>
+                       <input className="border rounded p-2 w-full" type="number" step="0.01" value={measurements.impedance || ''} onChange={(e) => setMeasurements({impedance: e.target.value})} />
+                   </div>
+               </div>
             </div>
           )}
 

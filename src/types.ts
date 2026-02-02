@@ -47,6 +47,7 @@ export interface Instrument {
 export interface MeasurementData {
   installationType: 'TT' | 'TN-S' | 'TN-C-S';
   mainFuse: string;
+  mainsVoltage: string; // <--- NIEUW: Netspanning veld
   yearOfConstruction: string;
   insulationResistance: string;
   impedance: string;

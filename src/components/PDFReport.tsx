@@ -317,13 +317,20 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
         <Text style={{ fontSize: 9, fontStyle: 'italic', color: '#555', marginTop: 4 }}>Bij aanwezigheid van een zonnestroominstallatie is deze tot de omvormer met de hierop aangesloten stekers geïnspecteerd. Inspectie voor zonnestroominstallaties is vastgelegd in SCIOS Scope 12, het is raadzaam deze inspectie uit te laten voeren.</Text>
       </Page>
 
-      {/* PAGINA 5: INSTALLATIEGEGEVENS (ONGWIJZIGD EN CORRECT) */}
+      {/* PAGINA 5: INSTALLATIEGEGEVENS */}
       <Page size="A4" style={styles.page}>
         <Text style={styles.pageNumber} fixed render={({ pageNumber }) => { return pageNumber > 1 ? `Pagina ${pageNumber - 1}` : ''; }} />
         <Text style={styles.headerLevel1}>2. Installatiegegevens</Text>
         <View style={styles.tableContainer}>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Stroomstelsel:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.installationType}</Text></View>
-          <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Netspanning:</Text><Text style={[styles.tableCellLast, styles.colValue]}>400 V ~ 3 fase + N</Text></View>
+          
+          {/* AANGEPASTE REGEL VOOR NETSPANNING */}
+          <View style={styles.tableRow}>
+            <Text style={[styles.tableCell, styles.colLabel]}>Netspanning:</Text>
+            <Text style={[styles.tableCellLast, styles.colValue]}>{measurements.mainsVoltage || '400 V ~ 3 fase + N'}</Text>
+          </View>
+          {/* --------------------------------- */}
+
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Voorbeveiliging:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.mainFuse}</Text></View>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Bouwjaar verdeler:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.yearOfConstruction}</Text></View>
           <View style={styles.tableRowLast}><Text style={[styles.tableCell, styles.colLabel]}>Impedantie (Zi):</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.impedance} Ω</Text></View>
