@@ -3,9 +3,9 @@ import { useInspectionStore } from './store';
 import { DEFECT_LIBRARY, calculateSample, INSTRUMENTS, COMPANIES, INSPECTORS } from './constants';
 import { pdf } from '@react-pdf/renderer'; 
 import { PDFReport } from './components/PDFReport';
-// VERWIJDERD: import { saveAs } from 'file-saver'; 
 import { compressImage } from './utils';
 import SignatureCanvas from 'react-signature-canvas';
+// AANPASSING 1: 'Save' is hier verwijderd uit de importlijst
 import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, AlertTriangle, Info, FileText, RefreshCw } from 'lucide-react';
 import { UsageFunctions, Defect, Classification, LibraryDefect } from './types';
 
@@ -71,7 +71,8 @@ const parseCSV = (text: string): string[][] => {
 };
 
 export default function App() {
-  const { meta, defects, measurements, customInstruments, customLibrary, setMeta, setUsageFunction, setMeasurements, addDefect, updateDefect, removeDefect, addInstrument, removeInstrument, addCustomInstrument, importState, resetState, setCustomLibrary } = useInspectionStore();
+  // AANPASSING 2: mergeState toegevoegd aan de destructuring
+  const { meta, defects, measurements, customInstruments, customLibrary, setMeta, setUsageFunction, setMeasurements, addDefect, updateDefect, removeDefect, addInstrument, removeInstrument, addCustomInstrument, importState, mergeState, resetState, setCustomLibrary } = useInspectionStore();
   const [activeTab, setActiveTab] = useState<typeof STEPS[number]>('setup');
   const [isGenerating, setIsGenerating] = useState(false);
   
@@ -106,6 +107,9 @@ export default function App() {
   const sigPad = useRef<SignatureCanvas>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  
+  // AANPASSING 3: Nieuwe ref voor samenvoegen
+  const mergeInputRef = useRef<HTMLInputElement>(null);
 
   const isCustomFuse = !FUSE_OPTIONS.includes(measurements.mainFuse) && measurements.mainFuse !== '';
   const currentStepIndex = STEPS.indexOf(activeTab);
@@ -183,6 +187,30 @@ export default function App() {
       }
   };
 
+  // AANPASSING 4: Logica voor Samenvoegen
+  const handleMergeClick = () => {
+    if (window.confirm('Wil je gebreken van een collega toevoegen aan dit rapport?')) {
+        mergeInputRef.current?.click();
+    }
+  };
+
+  const handleMergeFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const json = JSON.parse(ev.target?.result as string);
+        mergeState(json);
+        alert(`Succes! ${json.defects.length} gebreken van collega toegevoegd.`);
+      } catch (e) {
+        alert('Fout bij samenvoegen bestand. Is dit een geldig exportbestand?');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const handleMainCategoryChange = (val: string) => {
     if (val === 'NEW') { setIsCreatingCategory(true); setSelectedMainCategory(''); } else { setIsCreatingCategory(false); setSelectedMainCategory(val); }
     setSelectedSubCategory(''); setSelectedLibId(''); setIsCustomDefect(false); setStaticDescription('');
@@ -231,7 +259,7 @@ export default function App() {
   const handleLocationPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files?.[0]) { const res = await compressImage(e.target.files[0], 'cover'); setMeta({ locationPhotoUrl: res }); e.target.value = ''; } };
   const onDefectPhoto = async (e: React.ChangeEvent<HTMLInputElement>, num: 1 | 2) => { if (e.target.files?.[0]) { const res = await handlePhotoUpload(e.target.files[0]); if (num === 1) setDefectPhoto1(res); else setDefectPhoto2(res); e.target.value = ''; } };
   
-  // --- EXPORT FUNCTIE (JSON) ---
+  // --- EXPORT FUNCTIE ---
   const handleExport = async () => { 
       const fileName = `Inspectie_${meta.clientName || 'Onbekend'}_${meta.date}.json`;
       const data = JSON.stringify({ meta, measurements, defects, customInstruments, exportDate: new Date().toISOString() }, null, 2);
@@ -309,7 +337,20 @@ export default function App() {
         <div className="p-6 flex-grow">
           {activeTab === 'setup' && (
             <div className="space-y-6">
-               <div className="flex gap-2 mb-4"><button onClick={handleImportClick} className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Upload size={16} /><span className="hidden md:inline">Laden</span></button><button onClick={handleExport} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Download size={16} /><span className="hidden md:inline">Backup</span></button><button onClick={handleReset} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><RotateCcw size={16} /><span className="hidden md:inline">Leegmaken</span></button><input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" /></div>
+               <div className="flex gap-2 mb-4">
+                 <button onClick={handleImportClick} className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Upload size={16} /><span className="hidden md:inline">Laden</span></button>
+                 
+                 {/* AANPASSING 5: De knop Samenvoegen */}
+                 <button onClick={handleMergeClick} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><PlusCircle size={16} /><span className="hidden md:inline">Samenvoegen</span></button>
+                 
+                 <button onClick={handleExport} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Download size={16} /><span className="hidden md:inline">Backup</span></button>
+                 <button onClick={handleReset} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><RotateCcw size={16} /><span className="hidden md:inline">Leegmaken</span></button>
+                 
+                 {/* Inputs voor bestanden */}
+                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
+                 <input type="file" ref={mergeInputRef} onChange={handleMergeFile} accept=".json" className="hidden" />
+               </div>
+
                <div className="bg-gray-50 p-4 rounded border"><h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Opdrachtgever</h2><div className="grid grid-cols-1 gap-3"><input className="border rounded p-2" placeholder="Naam" value={meta.clientName} onChange={(e) => setMeta({ clientName: e.target.value })} /><input className="border rounded p-2" placeholder="Adres" value={meta.clientAddress} onChange={(e) => setMeta({ clientAddress: e.target.value })} /><div className="flex gap-2"><input className="border rounded p-2 w-1/3" placeholder="Postcode" value={meta.clientPostalCode} onChange={(e) => setMeta({ clientPostalCode: e.target.value })} /><input className="border rounded p-2 w-2/3" placeholder="Plaats" value={meta.clientCity} onChange={(e) => setMeta({ clientCity: e.target.value })} /></div><input className="border rounded p-2" placeholder="Contact" value={meta.clientContactPerson} onChange={(e) => setMeta({ clientContactPerson: e.target.value })} /><input className="border rounded p-2" placeholder="Tel" value={meta.clientPhone} onChange={(e) => setMeta({ clientPhone: e.target.value })} /><input className="border rounded p-2" placeholder="Email" value={meta.clientEmail} onChange={(e) => setMeta({ clientEmail: e.target.value })} /></div></div>
                <div className="bg-gray-50 p-4 rounded border"><h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Projectgegevens</h2><div className="grid grid-cols-1 gap-3"><input className="border rounded p-2" placeholder="Locatie (Naam Gebouw)" value={meta.projectLocation} onChange={(e) => setMeta({ projectLocation: e.target.value })} /><input className="border rounded p-2" placeholder="Adres" value={meta.projectAddress} onChange={(e) => setMeta({ projectAddress: e.target.value })} /><div className="flex gap-2"><input className="border rounded p-2 w-1/3" placeholder="Postcode" value={meta.projectPostalCode} onChange={(e) => setMeta({ projectPostalCode: e.target.value })} /><input className="border rounded p-2 w-2/3" placeholder="Plaats" value={meta.projectCity} onChange={(e) => setMeta({ projectCity: e.target.value })} /></div><input className="border rounded p-2" placeholder="Contact" value={meta.projectContactPerson} onChange={(e) => setMeta({ projectContactPerson: e.target.value })} /><input className="border rounded p-2" placeholder="Tel" value={meta.projectPhone} onChange={(e) => setMeta({ projectPhone: e.target.value })} /><input className="border rounded p-2" placeholder="Email" value={meta.projectEmail} onChange={(e) => setMeta({ projectEmail: e.target.value })} /><input className="border rounded p-2" placeholder="IV'er" value={meta.installationResponsible} onChange={(e) => setMeta({ installationResponsible: e.target.value })} /><div className="flex gap-2 items-center"><input className="border rounded p-2 flex-grow" placeholder="ID Bagviewer" value={meta.idBagviewer} onChange={(e) => setMeta({ idBagviewer: e.target.value })} /><button onClick={handleBagSearch} disabled={isSearchingBag} className="bg-emerald-600 text-white p-2 rounded hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1 text-sm font-bold whitespace-nowrap">{isSearchingBag ? '...' : <><Search size={16} /> Zoek ID</>}</button></div>{meta.idBagviewer && (<a href={`https://bagviewer.kadaster.nl/lvbag/bag-viewer/?zoomlevel=1&objectId=${meta.idBagviewer}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline flex items-center gap-1"><MapPin size={12}/> Open in BAG Viewer</a>)}<div className="mt-4 border-t border-emerald-200 pt-4"><label className="block text-xs font-bold text-emerald-800 uppercase mb-2">Foto voorblad rapport</label><div className="flex gap-4 items-center"><label className="bg-emerald-600 text-white px-4 py-2 rounded cursor-pointer flex items-center gap-2 text-sm font-bold hover:bg-emerald-700 transition shadow-sm"><Camera size={18} /><span>Foto maken/kiezen</span><input type="file" accept="image/*" className="hidden" onChange={handleLocationPhoto} /></label>{meta.locationPhotoUrl && (<div className="relative group"><img src={meta.locationPhotoUrl} className="h-20 w-20 object-cover rounded-lg border-2 border-emerald-500 shadow-sm" alt="Voorblad" /><button onClick={() => setMeta({ locationPhotoUrl: '' })} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow hover:bg-red-600"><X size={14}/></button></div>)}</div></div></div></div>
                <div className="bg-gray-50 p-4 rounded border"><h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Gebruiksfunctie</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="space-y-2">{usageOptionsLeft.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div><div className="space-y-2">{usageOptionsRight.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div></div></div>

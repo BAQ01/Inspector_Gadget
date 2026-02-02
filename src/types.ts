@@ -1,9 +1,11 @@
+// src/types.ts
+
 export type Classification = 'Red' | 'Orange' | 'Yellow' | 'Blue';
 
 export interface LibraryDefect {
   id: string;
-  category: string;      // Hoofdcategorie (bijv. Gebruik)
-  subcategory: string;   // NIEUW: Subcategorie (bijv. Apparatuur)
+  category: string;
+  subcategory: string;
   shortName: string;
   description: string;
   classification: Classification;
@@ -28,7 +30,7 @@ export interface Defect {
   id: string;
   libraryId?: string;
   location: string;
-  description: string; // Dit wordt de samengevoegde tekst (standaard + aanvullend)
+  description: string;
   classification: Classification;
   action: string;
   photoUrl?: string;
@@ -122,7 +124,8 @@ export interface InspectionState {
   measurements: MeasurementData;
   defects: Defect[];
   customInstruments: Instrument[];
-  
+  customLibrary: LibraryDefect[] | null; // Toegevoegd voor CSV import
+
   setMeta: (meta: Partial<InspectionMeta>) => void;
   setUsageFunction: (key: keyof UsageFunctions, value: boolean) => void;
   setMeasurements: (data: Partial<MeasurementData>) => void;
@@ -134,8 +137,10 @@ export interface InspectionState {
   addInstrument: (instrument: Instrument) => void;
   removeInstrument: (id: string) => void;
 
-  addCustomInstrument: (instrument: Instrument) => void; 
+  addCustomInstrument: (instrument: Instrument) => void;
+  setCustomLibrary: (lib: LibraryDefect[] | null) => void; // Toegevoegd voor CSV import
   
   importState: (data: any) => void;
+  mergeState: (incoming: any) => void; // <--- HIER DE NIEUWE MERGE FUNCTIE
   resetState: () => void;
 }
