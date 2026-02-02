@@ -1,16 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useInspectionStore } from './store';
 import { DEFECT_LIBRARY, calculateSample, INSTRUMENTS, COMPANIES, INSPECTORS } from './constants';
-// AANGEPAST: 'pdf' functie geïmporteerd voor handmatige generatie
 import { pdf } from '@react-pdf/renderer'; 
 import { PDFReport } from './components/PDFReport';
-// AANGEPAST: Word generator geïmporteerd (zorg dat je WordGenerator.ts hebt aangemaakt!)
-import { generateWordDocument } from './components/WordGenerator';
-import { saveAs } from 'file-saver';
-
+// VERWIJDERD: import { saveAs } from 'file-saver'; 
 import { compressImage } from './utils';
 import SignatureCanvas from 'react-signature-canvas';
-import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, Save, RotateCcw, Calendar, Download, Search, MapPin, AlertTriangle, Info, FileText, RefreshCw } from 'lucide-react';
+import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, AlertTriangle, Info, FileText, RefreshCw } from 'lucide-react';
 import { UsageFunctions, Defect, Classification, LibraryDefect } from './types';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -29,7 +25,7 @@ const addYearsSafe = (dateString: string, yearsToAdd: number) => {
   return `${newYear}-${month}-${day}`;
 };
 
-// --- FUNCTIE 2: Slimme CSV Parser (voor teksten met enters) ---
+// --- FUNCTIE 2: Slimme CSV Parser ---
 const parseCSV = (text: string): string[][] => {
   const rows: string[][] = [];
   let currentRow: string[] = [];
@@ -77,7 +73,7 @@ const parseCSV = (text: string): string[][] => {
 export default function App() {
   const { meta, defects, measurements, customInstruments, customLibrary, setMeta, setUsageFunction, setMeasurements, addDefect, updateDefect, removeDefect, addInstrument, removeInstrument, addCustomInstrument, importState, resetState, setCustomLibrary } = useInspectionStore();
   const [activeTab, setActiveTab] = useState<typeof STEPS[number]>('setup');
-  const [isGenerating, setIsGenerating] = useState(false); // Nieuwe state voor laad-indicator
+  const [isGenerating, setIsGenerating] = useState(false);
   
   const ALL_INSTRUMENTS = [...INSTRUMENTS, ...customInstruments];
   const ACTIVE_LIBRARY = customLibrary && customLibrary.length > 0 ? customLibrary : DEFECT_LIBRARY;
@@ -134,7 +130,7 @@ export default function App() {
     ? ACTIVE_LIBRARY.filter(d => d.category === selectedMainCategory && d.subcategory === selectedSubCategory)
     : [];
 
-  // --- CSV IMPORT LOGICA (VERNIEUWD) ---
+  // --- CSV IMPORT LOGICA ---
   const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -235,14 +231,13 @@ export default function App() {
   const handleLocationPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files?.[0]) { const res = await compressImage(e.target.files[0], 'cover'); setMeta({ locationPhotoUrl: res }); e.target.value = ''; } };
   const onDefectPhoto = async (e: React.ChangeEvent<HTMLInputElement>, num: 1 | 2) => { if (e.target.files?.[0]) { const res = await handlePhotoUpload(e.target.files[0]); if (num === 1) setDefectPhoto1(res); else setDefectPhoto2(res); e.target.value = ''; } };
   
-  // --- VERBETERDE EXPORT/OPSLAAN FUNCTIE ---
+  // --- EXPORT FUNCTIE (JSON) ---
   const handleExport = async () => { 
       const fileName = `Inspectie_${meta.clientName || 'Onbekend'}_${meta.date}.json`;
       const data = JSON.stringify({ meta, measurements, defects, customInstruments, exportDate: new Date().toISOString() }, null, 2);
       const blob = new Blob([data], { type: 'application/json' });
       const file = new File([blob], fileName, { type: 'application/json' });
 
-      // Probeer de 'Share' API voor mobiel (opent het deel-menu van iOS/Android)
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
               await navigator.share({
@@ -251,12 +246,9 @@ export default function App() {
                   text: 'Hier is de backup van de inspectie data.'
               });
               return; 
-          } catch (e) {
-              // Als gebruiker annuleert
-          }
+          } catch (e) { }
       }
 
-      // Fallback: Gewone download voor laptop
       const url = URL.createObjectURL(blob); 
       const a = document.createElement('a'); 
       a.href = url; 
@@ -276,33 +268,31 @@ export default function App() {
   const usageOptionsLeft: {key: keyof UsageFunctions, label: string}[] = [{ key: 'woonfunctie', label: 'Woonfunctie' }, { key: 'bijeenkomstfunctie', label: 'Bijeenkomstfunctie' }, { key: 'celfunctie', label: 'Celfunctie' }, { key: 'gezondheidszorgfunctie', label: 'Gezondheidszorgfunctie' }, { key: 'industriefunctie', label: 'Industriefunctie' }, { key: 'kantoorfunctie', label: 'Kantoorfunctie' }];
   const usageOptionsRight: {key: keyof UsageFunctions, label: string}[] = [{ key: 'logiesfunctie', label: 'Logiesfunctie' }, { key: 'onderwijsfunctie', label: 'Onderwijsfunctie' }, { key: 'sportfunctie', label: 'Sportfunctie' }, { key: 'winkelfunctie', label: 'Winkelfunctie' }, { key: 'overigeGebruiksfunctie', label: 'Overige gebruiksfunctie' }, { key: 'bouwwerkGeenGebouw', label: 'Bouwwerk geen gebouw zijnde' }];
 
-  // --- NIEUW: Functie om BEIDE rapporten tegelijk te downloaden ---
-  const handleDownloadAll = async () => {
+  // --- PDF DOWNLOAD FUNCTIE (ZONDER file-saver) ---
+  const handleDownloadPDF = async () => {
     if (!meta.signatureUrl) {
       alert("Let op: Je hebt nog niet getekend.");
       return;
     }
 
     setIsGenerating(true);
-    const fileNameBase = `Scope10_${meta.clientName || 'Klant'}_${meta.date}`;
+    const fileName = `Scope10_${meta.clientName || 'Klant'}_${meta.date}.pdf`;
 
     try {
-      // 1. Genereer PDF Blob
-      const pdfBlob = await pdf(<PDFReport meta={meta} defects={defects} measurements={measurements} />).toBlob();
-      saveAs(pdfBlob, `${fileNameBase}.pdf`);
+      // Genereer de PDF blob
+      const blob = await pdf(<PDFReport meta={meta} defects={defects} measurements={measurements} />).toBlob();
+      
+      // Download de blob "native" (zonder file-saver)
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
-      // 2. Genereer Word Blob (met een kleine vertraging om de browser lucht te geven)
-      setTimeout(async () => {
-        try {
-            await generateWordDocument(meta, defects, measurements);
-        } catch (e) {
-            console.error("Word export failed", e);
-            alert("Fout bij genereren Word bestand. PDF is wel opgeslagen.");
-        } finally {
-            setIsGenerating(false);
-        }
-      }, 500);
-
+      setIsGenerating(false);
     } catch (e) {
       console.error(e);
       alert("Er ging iets mis bij het genereren.");
@@ -495,6 +485,7 @@ export default function App() {
             </div>
           )}
 
+          {/* REPORT TAB */}
           {activeTab === 'report' && (
             <div className="text-center py-6 space-y-6">
               <div className="bg-indigo-50 p-4 rounded border border-indigo-100 text-left">
@@ -507,21 +498,21 @@ export default function App() {
               </div>
               <div className="bg-white p-4 rounded shadow-sm border"><h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Handtekening Inspecteur</h3>{!meta.signatureUrl ? (<div className="border border-gray-300 rounded bg-gray-50"><SignatureCanvas ref={sigPad} canvasProps={{width: 300, height: 150, className: 'mx-auto cursor-crosshair'}} /><div className="border-t flex justify-end p-2 gap-2"><button onClick={clearSignature} className="text-xs text-red-500 font-bold">Wissen</button><button onClick={saveSignature} className="text-xs bg-emerald-600 text-white px-3 py-1 rounded font-bold">Opslaan</button></div></div>) : (<div className="flex flex-col items-center"><img src={meta.signatureUrl} className="border h-24 mb-2" /><button onClick={() => setMeta({signatureUrl: ''})} className="text-xs text-red-500 underline">Opnieuw tekenen</button></div>)}</div>
               
-              {/* --- NIEUWE DOWNLOAD KNOP (DUAL DOWNLOAD) --- */}
+              {/* DOWNLOAD KNOP (ALLEEN PDF) */}
               <button 
-                onClick={handleDownloadAll}
+                onClick={handleDownloadPDF}
                 disabled={isGenerating || !meta.signatureUrl}
                 className="bg-blue-600 w-full text-white px-6 py-4 rounded-lg font-bold shadow hover:bg-blue-700 flex items-center justify-center gap-3 disabled:bg-gray-400"
               >
                 {isGenerating ? (
                   <>
                     <RefreshCw className="animate-spin" size={20} />
-                    <span>Rapporten Genereren...</span>
+                    <span>Rapport Genereren...</span>
                   </>
                 ) : (
                   <>
                     <Download size={20} />
-                    <span>Download Rapport (PDF + Word)</span>
+                    <span>Download Rapport (PDF)</span>
                   </>
                 )}
               </button>
