@@ -320,6 +320,7 @@ export default function App() {
   const usageOptionsRight: {key: keyof UsageFunctions, label: string}[] = [{ key: 'logiesfunctie', label: 'Logiesfunctie' }, { key: 'onderwijsfunctie', label: 'Onderwijsfunctie' }, { key: 'sportfunctie', label: 'Sportfunctie' }, { key: 'winkelfunctie', label: 'Winkelfunctie' }, { key: 'overigeGebruiksfunctie', label: 'Overige gebruiksfunctie' }, { key: 'bouwwerkGeenGebouw', label: 'Bouwwerk geen gebouw zijnde' }];
 
   // --- PDF DOWNLOAD FUNCTIE ---
+// --- PDF & JSON DOWNLOAD FUNCTIE ---
   const handleDownloadPDF = async () => {
     if (!meta.signatureUrl) {
       alert("Let op: Je hebt nog niet getekend.");
@@ -327,19 +328,39 @@ export default function App() {
     }
 
     setIsGenerating(true);
-    // AANPASSING BESTANDSNAAM: Datum_Klant_Project_Plaats
-    const fileName = `${meta.date || 'Datum'}_${meta.clientName || 'Klant'}_${meta.projectLocation || 'Project'}_${meta.projectCity || 'Plaats'}.pdf`;
+    
+    // 1. De universele bestandsnaam vaststellen (zonder extensie)
+    const baseFileName = `${meta.date || 'Datum'}_${meta.clientName || 'Klant'}_${meta.projectLocation || 'Project'}_${meta.projectCity || 'Plaats'}`;
 
     try {
-      const blob = await pdf(<PDFReport meta={meta} defects={defects} measurements={measurements} />).toBlob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // STAP A: JSON Genereren en Downloaden (De Backup)
+      const jsonData = JSON.stringify({ meta, measurements, defects, customInstruments, exportDate: new Date().toISOString() }, null, 2);
+      const jsonBlob = new Blob([jsonData], { type: 'application/json' });
+      const jsonUrl = URL.createObjectURL(jsonBlob);
+      
+      const jsonLink = document.createElement('a');
+      jsonLink.href = jsonUrl;
+      jsonLink.download = `${baseFileName}.json`; // Zelfde naam, maar .json
+      document.body.appendChild(jsonLink);
+      jsonLink.click();
+      document.body.removeChild(jsonLink);
+      URL.revokeObjectURL(jsonUrl);
+
+      // Korte pauze (500ms) om de browser de tijd te geven de eerste download te starten
+      // Dit voorkomt dat sommige browsers de tweede download blokkeren
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // STAP B: PDF Genereren en Downloaden (Het Rapport)
+      const pdfBlob = await pdf(<PDFReport meta={meta} defects={defects} measurements={measurements} />).toBlob();
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      const pdfLink = document.createElement('a');
+      pdfLink.href = pdfUrl;
+      pdfLink.download = `${baseFileName}.pdf`; // Zelfde naam, maar .pdf
+      document.body.appendChild(pdfLink);
+      pdfLink.click();
+      document.body.removeChild(pdfLink);
+      URL.revokeObjectURL(pdfUrl);
 
       setIsGenerating(false);
     } catch (e) {
