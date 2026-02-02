@@ -367,8 +367,21 @@ export default function App() {
                  <button onClick={handleBackupDownload} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Download size={16} /><span className="hidden md:inline">Backup Opslaan</span></button>
                  <button onClick={handleReset} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><RotateCcw size={16} /><span className="hidden md:inline">Leegmaken</span></button>
                  
-                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
-                 <input type="file" ref={mergeInputRef} onChange={handleMergeFile} accept=".json" className="hidden" />
+                 {/* Inputs voor bestanden - Strikt gefilterd op JSON */}
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  accept=".json,application/json" 
+                  className="hidden" 
+                />
+                <input 
+                  type="file" 
+                  ref={mergeInputRef} 
+                  onChange={handleMergeFile} 
+                  accept=".json,application/json" 
+                  className="hidden" 
+                />
                </div>
 
                <div className="bg-gray-50 p-4 rounded border"><h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Opdrachtgever</h2><div className="grid grid-cols-1 gap-3"><input className="border rounded p-2" placeholder="Naam" value={meta.clientName} onChange={(e) => setMeta({ clientName: e.target.value })} /><input className="border rounded p-2" placeholder="Adres" value={meta.clientAddress} onChange={(e) => setMeta({ clientAddress: e.target.value })} /><div className="flex gap-2"><input className="border rounded p-2 w-1/3" placeholder="Postcode" value={meta.clientPostalCode} onChange={(e) => setMeta({ clientPostalCode: e.target.value })} /><input className="border rounded p-2 w-2/3" placeholder="Plaats" value={meta.clientCity} onChange={(e) => setMeta({ clientCity: e.target.value })} /></div><input className="border rounded p-2" placeholder="Contact" value={meta.clientContactPerson} onChange={(e) => setMeta({ clientContactPerson: e.target.value })} /><input className="border rounded p-2" placeholder="Tel" value={meta.clientPhone} onChange={(e) => setMeta({ clientPhone: e.target.value })} /><input className="border rounded p-2" placeholder="Email" value={meta.clientEmail} onChange={(e) => setMeta({ clientEmail: e.target.value })} /></div></div>
