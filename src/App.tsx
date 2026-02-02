@@ -352,7 +352,13 @@ export default function App() {
   return (
     <div className="min-h-screen font-sans text-gray-800 pb-20 bg-gray-50">
       <div className="max-w-2xl mx-auto bg-white shadow-xl min-h-screen md:min-h-0 md:rounded-lg md:my-8 overflow-hidden flex flex-col">
-        <div className="bg-emerald-700 p-4 text-white flex justify-between items-center shadow-md"><h1 className="font-bold text-xl">SCIOS Scope 10</h1><div className="text-xs font-mono bg-emerald-900/50 px-3 py-1 rounded">{meta.date}</div></div>
+        <div className="bg-emerald-700 p-4 text-white flex justify-between items-center shadow-md"><h1 className="font-bold text-xl">SCIOS Scope 10</h1><div className="flex items-center gap-3">
+    <div className="flex items-center gap-1 text-[10px] bg-emerald-800/50 px-2 py-1 rounded text-emerald-100 animate-pulse">
+      <RefreshCw size={10} /> Autosave aan
+      </div>
+        <div className="text-xs font-mono bg-emerald-900/50 px-3 py-1 rounded">{meta.date}</div>
+      </div>
+    </div>
         <div className="flex border-b overflow-x-auto bg-white">{STEPS.map((tab, i) => (<button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 p-3 text-xs md:text-sm font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${activeTab === tab ? 'text-emerald-700 border-b-4 border-emerald-700 bg-emerald-50' : 'text-gray-400 hover:text-gray-600'}`}>{i + 1}. {tab === 'setup' ? 'Basis' : tab === 'measure' ? 'Metingen' : tab === 'inspect' ? 'Gebreken' : 'Export'}</button>))}</div>
 
         <div className="p-6 flex-grow">

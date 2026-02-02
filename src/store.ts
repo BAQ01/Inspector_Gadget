@@ -1,5 +1,5 @@
-// src/store.ts
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware'; // <--- NIEUW
 import { InspectionState, Defect, Instrument } from './types';
 
 const initialState = {
@@ -52,6 +52,8 @@ const initialState = {
     inspectionInterval: 5 as 3 | 5,
     inspectionBasis: { nta8220: true, verzekering: false },
     nextInspectionDate: '',
+    locationPhotoUrl: '',
+    signatureUrl: ''
   },
   measurements: {
     installationType: 'TN-S' as const,
@@ -69,90 +71,95 @@ const initialState = {
   customLibrary: null,
 };
 
-export const useInspectionStore = create<InspectionState>((set) => ({
-  ...initialState,
+// We gebruiken 'persist' om alles automatisch op te slaan
+export const useInspectionStore = create<InspectionState>()(
+  persist(
+    (set) => ({
+      ...initialState,
 
-  setMeta: (newMeta) => set((state) => ({ 
-    meta: { ...state.meta, ...newMeta } 
-  })),
+      setMeta: (newMeta) => set((state) => ({ 
+        meta: { ...state.meta, ...newMeta } 
+      })),
 
-  setUsageFunction: (key, value) => set((state) => ({
-    meta: {
-      ...state.meta,
-      usageFunctions: { ...state.meta.usageFunctions, [key]: value }
+      setUsageFunction: (key, value) => set((state) => ({
+        meta: {
+          ...state.meta,
+          usageFunctions: { ...state.meta.usageFunctions, [key]: value }
+        }
+      })),
+
+      setMeasurements: (data) => set((state) => ({
+        measurements: { ...state.measurements, ...data }
+      })),
+
+      addDefect: (defect) => set((state) => ({ 
+        defects: [...state.defects, defect] 
+      })),
+
+      updateDefect: (id, updatedDefect) => set((state) => ({
+        defects: state.defects.map(d => d.id === id ? updatedDefect : d)
+      })),
+
+      removeDefect: (id) => set((state) => ({
+        defects: state.defects.filter(d => d.id !== id)
+      })),
+
+      addInstrument: (instrument) => set((state) => {
+        if (state.measurements.selectedInstruments.some(i => i.id === instrument.id)) return state;
+        return {
+          measurements: {
+            ...state.measurements,
+            selectedInstruments: [...state.measurements.selectedInstruments, instrument]
+          }
+        };
+      }),
+
+      removeInstrument: (id) => set((state) => ({
+        measurements: {
+          ...state.measurements,
+          selectedInstruments: state.measurements.selectedInstruments.filter(i => i.id !== id)
+        }
+      })),
+
+      addCustomInstrument: (inst) => set((state) => ({
+        customInstruments: [...state.customInstruments, inst]
+      })),
+
+      setCustomLibrary: (lib) => set(() => ({
+        customLibrary: lib
+      })),
+
+      importState: (data) => set(() => ({
+        meta: data.meta || initialState.meta,
+        measurements: data.measurements || initialState.measurements,
+        defects: data.defects || [],
+        customInstruments: data.customInstruments || [],
+        customLibrary: data.customLibrary || null,
+      })),
+
+      mergeState: (incoming) => set((state) => {
+        const incomingDefects = incoming.defects || [];
+        const existingDefectIds = new Set(state.defects.map(d => d.id));
+        const newDefects = incomingDefects.filter((d: Defect) => !existingDefectIds.has(d.id));
+        
+        const incomingInstruments = incoming.measurements?.selectedInstruments || [];
+        const existingInstIds = new Set(state.measurements.selectedInstruments.map(i => i.id));
+        const newInstruments = incomingInstruments.filter((i: Instrument) => !existingInstIds.has(i.id));
+
+        return {
+          defects: [...state.defects, ...newDefects],
+          measurements: {
+            ...state.measurements,
+            selectedInstruments: [...state.measurements.selectedInstruments, ...newInstruments]
+          }
+        };
+      }),
+
+      resetState: () => set(() => initialState),
+    }),
+    {
+      name: 'inspection-storage', // De unieke naam in LocalStorage
+      storage: createJSONStorage(() => localStorage), // We slaan op in de browser
     }
-  })),
-
-  setMeasurements: (data) => set((state) => ({
-    measurements: { ...state.measurements, ...data }
-  })),
-
-  addDefect: (defect) => set((state) => ({ 
-    defects: [...state.defects, defect] 
-  })),
-
-  updateDefect: (id, updatedDefect) => set((state) => ({
-    defects: state.defects.map(d => d.id === id ? updatedDefect : d)
-  })),
-
-  removeDefect: (id) => set((state) => ({
-    defects: state.defects.filter(d => d.id !== id)
-  })),
-
-  addInstrument: (instrument) => set((state) => {
-    if (state.measurements.selectedInstruments.some(i => i.id === instrument.id)) return state;
-    return {
-      measurements: {
-        ...state.measurements,
-        selectedInstruments: [...state.measurements.selectedInstruments, instrument]
-      }
-    };
-  }),
-
-  removeInstrument: (id) => set((state) => ({
-    measurements: {
-      ...state.measurements,
-      selectedInstruments: state.measurements.selectedInstruments.filter(i => i.id !== id)
-    }
-  })),
-
-  addCustomInstrument: (inst) => set((state) => ({
-    customInstruments: [...state.customInstruments, inst]
-  })),
-
-  setCustomLibrary: (lib) => set(() => ({
-    customLibrary: lib
-  })),
-
-  importState: (data) => set(() => ({
-    meta: data.meta || initialState.meta,
-    measurements: data.measurements || initialState.measurements,
-    defects: data.defects || [],
-    customInstruments: data.customInstruments || [],
-    customLibrary: data.customLibrary || null,
-  })),
-
-  // --- HIER IS DE MAGIE VOOR HET SAMENVOEGEN ---
-  mergeState: (incoming) => set((state) => {
-    // 1. Gebreken samenvoegen (filter dubbele ID's eruit)
-    const incomingDefects = incoming.defects || [];
-    const existingDefectIds = new Set(state.defects.map(d => d.id));
-    const newDefects = incomingDefects.filter((d: Defect) => !existingDefectIds.has(d.id));
-    
-    // 2. Instrumenten samenvoegen (geen dubbele)
-    const incomingInstruments = incoming.measurements?.selectedInstruments || [];
-    const existingInstIds = new Set(state.measurements.selectedInstruments.map(i => i.id));
-    const newInstruments = incomingInstruments.filter((i: Instrument) => !existingInstIds.has(i.id));
-
-    return {
-      // We behouden de meta van de "Lead" inspecteur, maar voegen gebreken toe
-      defects: [...state.defects, ...newDefects],
-      measurements: {
-        ...state.measurements,
-        selectedInstruments: [...state.measurements.selectedInstruments, ...newInstruments]
-      }
-    };
-  }),
-
-  resetState: () => set(() => initialState),
-}));
+  )
+);
