@@ -55,14 +55,14 @@ const initialState = {
     locationPhotoUrl: '',
     signatureUrl: ''
   },
-  measurements: {
+measurements: {
     installationType: 'TN-S' as const,
-    mainFuse: '',
-    mainsVoltage: '400 V ~ 3 fase + N', // <--- NIEUW: Default waarde
-    yearOfConstruction: '',
-    insulationResistance: '',
-    impedance: '',
-    switchboardTemp: '',
+    mainFuse: '3x63A', // Standaardwaarde (voorkomt dat het lege tekstveld verschijnt)
+    mainsVoltage: '400 V ~ 3 fase + N', // Standaardwaarde
+    yearOfConstruction: '1990', // Standaard schatting
+    insulationResistance: '999', // >999 MOhm is vaak de max weergave (is goed)
+    impedance: '0.35', // Realistische waarde voor Zi
+    switchboardTemp: '20', // Standaard omgevingstemperatuur
     selectedInstruments: [],
     hasEnergyStorage: null,
     hasSolarSystem: null,
