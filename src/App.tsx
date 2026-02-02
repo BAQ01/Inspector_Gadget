@@ -105,7 +105,6 @@ export default function App() {
   const sigPad = useRef<SignatureCanvas>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
-  
   const mergeInputRef = useRef<HTMLInputElement>(null);
 
   const isCustomFuse = !FUSE_OPTIONS.includes(measurements.mainFuse) && measurements.mainFuse !== '';
@@ -257,7 +256,6 @@ export default function App() {
   const onDefectPhoto = async (e: React.ChangeEvent<HTMLInputElement>, num: 1 | 2) => { if (e.target.files?.[0]) { const res = await handlePhotoUpload(e.target.files[0]); if (num === 1) setDefectPhoto1(res); else setDefectPhoto2(res); e.target.value = ''; } };
   
   // --- DOWNLOAD FUNCTIE (BACKUP) ---
-  // Slaat direct op, geen share menu.
   const handleBackupDownload = () => { 
       const fileName = `Backup_${meta.clientName || 'Klant'}_${meta.date}.json`;
       const data = JSON.stringify({ meta, measurements, defects, customInstruments, exportDate: new Date().toISOString() }, null, 2);
@@ -273,27 +271,15 @@ export default function App() {
       URL.revokeObjectURL(url); 
   };
 
-  // --- DELEN FUNCTIE (SHARE) ---
-  // Probeert het bestand te delen via AirDrop/Mail
+  // --- DELEN FUNCTIE (SHARE + FALLBACK) ---
   const handleShareFindings = async () => {
       const fileName = `Deelbestand_${meta.projectLocation || 'Project'}_${meta.inspectorName || 'Inspecteur'}.json`;
       const data = JSON.stringify({ meta, measurements, defects, customInstruments, exportDate: new Date().toISOString() }, null, 2);
       const blob = new Blob([data], { type: 'application/json' });
       const file = new File([blob], fileName, { type: 'application/json' });
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-              await navigator.share({
-                  files: [file],
-                  title: 'Inspectie Bevindingen',
-                  text: 'Hier zijn mijn bevindingen voor samenvoeging.'
-              });
-          } catch (e) {
-              console.log('Delen geannuleerd of mislukt', e);
-          }
-      } else {
-          // Fallback als delen niet kan: gewoon downloaden
-          alert("Delen niet ondersteund op dit apparaat, bestand wordt gedownload.");
+      // Helper functie voor direct downloaden (als fallback)
+      const forceDownload = () => {
           const url = URL.createObjectURL(blob); 
           const a = document.createElement('a'); 
           a.href = url; 
@@ -301,7 +287,28 @@ export default function App() {
           document.body.appendChild(a); 
           a.click(); 
           document.body.removeChild(a); 
-          URL.revokeObjectURL(url); 
+          URL.revokeObjectURL(url);
+      };
+
+      // Check of delen mogelijk is (iPad/Mobiel)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+              await navigator.share({
+                  files: [file],
+                  title: 'Inspectie Bevindingen',
+                  text: 'Hier zijn mijn bevindingen voor samenvoeging.'
+              });
+          } catch (e: any) {
+              // Als het niet lukt (maar geen user cancel), dan downloaden we
+              if (e.name !== 'AbortError') {
+                  console.log('Delen mislukt, fallback naar download.', e);
+                  forceDownload();
+              }
+          }
+      } else {
+          // Op Desktop (Mac/PC) ondersteunt Chrome vaak geen files sharing -> Direct downloaden
+          // We geven geen alert meer, maar downloaden direct.
+          forceDownload();
       }
   };
 
