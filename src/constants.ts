@@ -19,7 +19,8 @@ export const COMPANIES: Company[] = [
   {
     name: 'Van Gestel Inspectie en Advies B.V.',
     address: 'Bourgognelaan 1',
-    postalCode: '5627 KP Eindhoven',
+    postalCode: '5627KP',
+    city: 'Eindhoven',
     phone: '06 291 988 79',
     email: 'Info@vangestelinspecties.nl'
   }
