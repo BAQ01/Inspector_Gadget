@@ -105,6 +105,7 @@ export default function App() {
   const sigPad = useRef<SignatureCanvas>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  
   const mergeInputRef = useRef<HTMLInputElement>(null);
 
   const isCustomFuse = !FUSE_OPTIONS.includes(measurements.mainFuse) && measurements.mainFuse !== '';
@@ -257,7 +258,8 @@ export default function App() {
   
   // --- DOWNLOAD FUNCTIE (BACKUP) ---
   const handleBackupDownload = () => { 
-      const fileName = `Backup_${meta.clientName || 'Klant'}_${meta.date}.json`;
+      // AANPASSING BESTANDSNAAM: Datum_Klant_Project_Plaats
+      const fileName = `${meta.date || 'Datum'}_${meta.clientName || 'Klant'}_${meta.projectLocation || 'Project'}_${meta.projectCity || 'Plaats'}.json`;
       const data = JSON.stringify({ meta, measurements, defects, customInstruments, exportDate: new Date().toISOString() }, null, 2);
       const blob = new Blob([data], { type: 'application/json' });
       
@@ -273,12 +275,12 @@ export default function App() {
 
   // --- DELEN FUNCTIE (SHARE + FALLBACK) ---
   const handleShareFindings = async () => {
-      const fileName = `Deelbestand_${meta.projectLocation || 'Project'}_${meta.inspectorName || 'Inspecteur'}.json`;
+      // AANPASSING BESTANDSNAAM: Datum_Klant_Project_Plaats
+      const fileName = `${meta.date || 'Datum'}_${meta.clientName || 'Klant'}_${meta.projectLocation || 'Project'}_${meta.projectCity || 'Plaats'}.json`;
       const data = JSON.stringify({ meta, measurements, defects, customInstruments, exportDate: new Date().toISOString() }, null, 2);
       const blob = new Blob([data], { type: 'application/json' });
       const file = new File([blob], fileName, { type: 'application/json' });
 
-      // Helper functie voor direct downloaden (als fallback)
       const forceDownload = () => {
           const url = URL.createObjectURL(blob); 
           const a = document.createElement('a'); 
@@ -290,7 +292,6 @@ export default function App() {
           URL.revokeObjectURL(url);
       };
 
-      // Check of delen mogelijk is (iPad/Mobiel)
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
               await navigator.share({
@@ -299,15 +300,12 @@ export default function App() {
                   text: 'Hier zijn mijn bevindingen voor samenvoeging.'
               });
           } catch (e: any) {
-              // Als het niet lukt (maar geen user cancel), dan downloaden we
               if (e.name !== 'AbortError') {
                   console.log('Delen mislukt, fallback naar download.', e);
                   forceDownload();
               }
           }
       } else {
-          // Op Desktop (Mac/PC) ondersteunt Chrome vaak geen files sharing -> Direct downloaden
-          // We geven geen alert meer, maar downloaden direct.
           forceDownload();
       }
   };
@@ -329,7 +327,8 @@ export default function App() {
     }
 
     setIsGenerating(true);
-    const fileName = `Scope10_${meta.clientName || 'Klant'}_${meta.date}.pdf`;
+    // AANPASSING BESTANDSNAAM: Datum_Klant_Project_Plaats
+    const fileName = `${meta.date || 'Datum'}_${meta.clientName || 'Klant'}_${meta.projectLocation || 'Project'}_${meta.projectCity || 'Plaats'}.pdf`;
 
     try {
       const blob = await pdf(<PDFReport meta={meta} defects={defects} measurements={measurements} />).toBlob();
@@ -367,21 +366,8 @@ export default function App() {
                  <button onClick={handleBackupDownload} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Download size={16} /><span className="hidden md:inline">Backup Opslaan</span></button>
                  <button onClick={handleReset} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><RotateCcw size={16} /><span className="hidden md:inline">Leegmaken</span></button>
                  
-                 {/* Inputs voor bestanden - Strikt gefilterd op JSON */}
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileChange} 
-                  accept=".json,application/json" 
-                  className="hidden" 
-                />
-                <input 
-                  type="file" 
-                  ref={mergeInputRef} 
-                  onChange={handleMergeFile} 
-                  accept=".json,application/json" 
-                  className="hidden" 
-                />
+                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json,application/json" className="hidden" />
+                 <input type="file" ref={mergeInputRef} onChange={handleMergeFile} accept=".json,application/json" className="hidden" />
                </div>
 
                <div className="bg-gray-50 p-4 rounded border"><h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Opdrachtgever</h2><div className="grid grid-cols-1 gap-3"><input className="border rounded p-2" placeholder="Naam" value={meta.clientName} onChange={(e) => setMeta({ clientName: e.target.value })} /><input className="border rounded p-2" placeholder="Adres" value={meta.clientAddress} onChange={(e) => setMeta({ clientAddress: e.target.value })} /><div className="flex gap-2"><input className="border rounded p-2 w-1/3" placeholder="Postcode" value={meta.clientPostalCode} onChange={(e) => setMeta({ clientPostalCode: e.target.value })} /><input className="border rounded p-2 w-2/3" placeholder="Plaats" value={meta.clientCity} onChange={(e) => setMeta({ clientCity: e.target.value })} /></div><input className="border rounded p-2" placeholder="Contact" value={meta.clientContactPerson} onChange={(e) => setMeta({ clientContactPerson: e.target.value })} /><input className="border rounded p-2" placeholder="Tel" value={meta.clientPhone} onChange={(e) => setMeta({ clientPhone: e.target.value })} /><input className="border rounded p-2" placeholder="Email" value={meta.clientEmail} onChange={(e) => setMeta({ clientEmail: e.target.value })} /></div></div>
