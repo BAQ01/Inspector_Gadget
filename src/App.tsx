@@ -5,8 +5,7 @@ import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './components/PDFReport';
 import { compressImage } from './utils';
 import SignatureCanvas from 'react-signature-canvas';
-// AANPASSING 1: 'Save' is hier verwijderd uit de importlijst
-import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, AlertTriangle, Info, FileText, RefreshCw } from 'lucide-react';
+import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, AlertTriangle, Info, FileText, RefreshCw, Share2 } from 'lucide-react';
 import { UsageFunctions, Defect, Classification, LibraryDefect } from './types';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -71,7 +70,6 @@ const parseCSV = (text: string): string[][] => {
 };
 
 export default function App() {
-  // AANPASSING 2: mergeState toegevoegd aan de destructuring
   const { meta, defects, measurements, customInstruments, customLibrary, setMeta, setUsageFunction, setMeasurements, addDefect, updateDefect, removeDefect, addInstrument, removeInstrument, addCustomInstrument, importState, mergeState, resetState, setCustomLibrary } = useInspectionStore();
   const [activeTab, setActiveTab] = useState<typeof STEPS[number]>('setup');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -108,7 +106,6 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
   
-  // AANPASSING 3: Nieuwe ref voor samenvoegen
   const mergeInputRef = useRef<HTMLInputElement>(null);
 
   const isCustomFuse = !FUSE_OPTIONS.includes(measurements.mainFuse) && measurements.mainFuse !== '';
@@ -187,7 +184,7 @@ export default function App() {
       }
   };
 
-  // AANPASSING 4: Logica voor Samenvoegen
+  // --- SAMENVOEGEN LOGICA ---
   const handleMergeClick = () => {
     if (window.confirm('Wil je gebreken van een collega toevoegen aan dit rapport?')) {
         mergeInputRef.current?.click();
@@ -259,24 +256,13 @@ export default function App() {
   const handleLocationPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files?.[0]) { const res = await compressImage(e.target.files[0], 'cover'); setMeta({ locationPhotoUrl: res }); e.target.value = ''; } };
   const onDefectPhoto = async (e: React.ChangeEvent<HTMLInputElement>, num: 1 | 2) => { if (e.target.files?.[0]) { const res = await handlePhotoUpload(e.target.files[0]); if (num === 1) setDefectPhoto1(res); else setDefectPhoto2(res); e.target.value = ''; } };
   
-  // --- EXPORT FUNCTIE ---
-  const handleExport = async () => { 
-      const fileName = `Inspectie_${meta.clientName || 'Onbekend'}_${meta.date}.json`;
+  // --- DOWNLOAD FUNCTIE (BACKUP) ---
+  // Slaat direct op, geen share menu.
+  const handleBackupDownload = () => { 
+      const fileName = `Backup_${meta.clientName || 'Klant'}_${meta.date}.json`;
       const data = JSON.stringify({ meta, measurements, defects, customInstruments, exportDate: new Date().toISOString() }, null, 2);
       const blob = new Blob([data], { type: 'application/json' });
-      const file = new File([blob], fileName, { type: 'application/json' });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-              await navigator.share({
-                  files: [file],
-                  title: 'Inspectie Backup',
-                  text: 'Hier is de backup van de inspectie data.'
-              });
-              return; 
-          } catch (e) { }
-      }
-
+      
       const url = URL.createObjectURL(blob); 
       const a = document.createElement('a'); 
       a.href = url; 
@@ -285,6 +271,38 @@ export default function App() {
       a.click(); 
       document.body.removeChild(a); 
       URL.revokeObjectURL(url); 
+  };
+
+  // --- DELEN FUNCTIE (SHARE) ---
+  // Probeert het bestand te delen via AirDrop/Mail
+  const handleShareFindings = async () => {
+      const fileName = `Deelbestand_${meta.projectLocation || 'Project'}_${meta.inspectorName || 'Inspecteur'}.json`;
+      const data = JSON.stringify({ meta, measurements, defects, customInstruments, exportDate: new Date().toISOString() }, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const file = new File([blob], fileName, { type: 'application/json' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+              await navigator.share({
+                  files: [file],
+                  title: 'Inspectie Bevindingen',
+                  text: 'Hier zijn mijn bevindingen voor samenvoeging.'
+              });
+          } catch (e) {
+              console.log('Delen geannuleerd of mislukt', e);
+          }
+      } else {
+          // Fallback als delen niet kan: gewoon downloaden
+          alert("Delen niet ondersteund op dit apparaat, bestand wordt gedownload.");
+          const url = URL.createObjectURL(blob); 
+          const a = document.createElement('a'); 
+          a.href = url; 
+          a.download = fileName; 
+          document.body.appendChild(a); 
+          a.click(); 
+          document.body.removeChild(a); 
+          URL.revokeObjectURL(url); 
+      }
   };
 
   const handleImportClick = () => { if (window.confirm('Overschrijven?')) fileInputRef.current?.click(); };
@@ -296,7 +314,7 @@ export default function App() {
   const usageOptionsLeft: {key: keyof UsageFunctions, label: string}[] = [{ key: 'woonfunctie', label: 'Woonfunctie' }, { key: 'bijeenkomstfunctie', label: 'Bijeenkomstfunctie' }, { key: 'celfunctie', label: 'Celfunctie' }, { key: 'gezondheidszorgfunctie', label: 'Gezondheidszorgfunctie' }, { key: 'industriefunctie', label: 'Industriefunctie' }, { key: 'kantoorfunctie', label: 'Kantoorfunctie' }];
   const usageOptionsRight: {key: keyof UsageFunctions, label: string}[] = [{ key: 'logiesfunctie', label: 'Logiesfunctie' }, { key: 'onderwijsfunctie', label: 'Onderwijsfunctie' }, { key: 'sportfunctie', label: 'Sportfunctie' }, { key: 'winkelfunctie', label: 'Winkelfunctie' }, { key: 'overigeGebruiksfunctie', label: 'Overige gebruiksfunctie' }, { key: 'bouwwerkGeenGebouw', label: 'Bouwwerk geen gebouw zijnde' }];
 
-  // --- PDF DOWNLOAD FUNCTIE (ZONDER file-saver) ---
+  // --- PDF DOWNLOAD FUNCTIE ---
   const handleDownloadPDF = async () => {
     if (!meta.signatureUrl) {
       alert("Let op: Je hebt nog niet getekend.");
@@ -307,10 +325,7 @@ export default function App() {
     const fileName = `Scope10_${meta.clientName || 'Klant'}_${meta.date}.pdf`;
 
     try {
-      // Genereer de PDF blob
       const blob = await pdf(<PDFReport meta={meta} defects={defects} measurements={measurements} />).toBlob();
-      
-      // Download de blob "native" (zonder file-saver)
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -340,13 +355,11 @@ export default function App() {
                <div className="flex gap-2 mb-4">
                  <button onClick={handleImportClick} className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Upload size={16} /><span className="hidden md:inline">Laden</span></button>
                  
-                 {/* AANPASSING 5: De knop Samenvoegen */}
                  <button onClick={handleMergeClick} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><PlusCircle size={16} /><span className="hidden md:inline">Samenvoegen</span></button>
                  
-                 <button onClick={handleExport} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Download size={16} /><span className="hidden md:inline">Backup</span></button>
+                 <button onClick={handleBackupDownload} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Download size={16} /><span className="hidden md:inline">Backup Opslaan</span></button>
                  <button onClick={handleReset} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><RotateCcw size={16} /><span className="hidden md:inline">Leegmaken</span></button>
                  
-                 {/* Inputs voor bestanden */}
                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
                  <input type="file" ref={mergeInputRef} onChange={handleMergeFile} accept=".json" className="hidden" />
                </div>
@@ -539,24 +552,34 @@ export default function App() {
               </div>
               <div className="bg-white p-4 rounded shadow-sm border"><h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Handtekening Inspecteur</h3>{!meta.signatureUrl ? (<div className="border border-gray-300 rounded bg-gray-50"><SignatureCanvas ref={sigPad} canvasProps={{width: 300, height: 150, className: 'mx-auto cursor-crosshair'}} /><div className="border-t flex justify-end p-2 gap-2"><button onClick={clearSignature} className="text-xs text-red-500 font-bold">Wissen</button><button onClick={saveSignature} className="text-xs bg-emerald-600 text-white px-3 py-1 rounded font-bold">Opslaan</button></div></div>) : (<div className="flex flex-col items-center"><img src={meta.signatureUrl} className="border h-24 mb-2" /><button onClick={() => setMeta({signatureUrl: ''})} className="text-xs text-red-500 underline">Opnieuw tekenen</button></div>)}</div>
               
-              {/* DOWNLOAD KNOP (ALLEEN PDF) */}
-              <button 
-                onClick={handleDownloadPDF}
-                disabled={isGenerating || !meta.signatureUrl}
-                className="bg-blue-600 w-full text-white px-6 py-4 rounded-lg font-bold shadow hover:bg-blue-700 flex items-center justify-center gap-3 disabled:bg-gray-400"
-              >
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="animate-spin" size={20} />
-                    <span>Rapport Genereren...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download size={20} />
-                    <span>Download Rapport (PDF)</span>
-                  </>
-                )}
-              </button>
+              {/* DOWNLOAD & SHARE KNOPPEN */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                  <button 
+                      onClick={handleShareFindings}
+                      className="bg-purple-600 text-white px-6 py-4 rounded-lg font-bold shadow hover:bg-purple-700 flex items-center justify-center gap-3"
+                  >
+                      <Share2 size={20} />
+                      <span>Bevindingen Delen (JSON)</span>
+                  </button>
+
+                  <button 
+                      onClick={handleDownloadPDF}
+                      disabled={isGenerating || !meta.signatureUrl}
+                      className="bg-blue-600 text-white px-6 py-4 rounded-lg font-bold shadow hover:bg-blue-700 flex items-center justify-center gap-3 disabled:bg-gray-400"
+                  >
+                      {isGenerating ? (
+                          <>
+                          <RefreshCw className="animate-spin" size={20} />
+                          <span>Genereren...</span>
+                          </>
+                      ) : (
+                          <>
+                          <Download size={20} />
+                          <span>Rapport (PDF)</span>
+                          </>
+                      )}
+                  </button>
+              </div>
 
               {!meta.signatureUrl && <p className="text-xs text-red-500">U moet eerst tekenen en opslaan.</p>}
             </div>
