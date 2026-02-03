@@ -19,13 +19,7 @@ export const COMPANIES: Company[] = [];
 
 export const INSPECTORS: Inspector[] = [];
 
-export const INSTRUMENTS: Instrument[] = [
-  { id: 'INST-01', name: 'Installatietester Metrel 3155', serialNumber: '25213723', calibrationDate: '15-7-2025' },
-  { id: 'INST-02', name: 'Installatietester Metrel 3155', serialNumber: '25270248', calibrationDate: '27-8-2025' },
-  { id: 'INST-03', name: 'Stroomtang Kyoritsu KEW 2300R', serialNumber: '1247093', calibrationDate: 'Indicatief' },
-  { id: 'INST-04', name: 'Stroomtang Chauvin Arnoux MA400D-170', serialNumber: '125172YCH', calibrationDate: 'Indicatief' },
-  { id: 'INST-05', name: 'Thermografische camera Flir E54', serialNumber: '845113869', calibrationDate: '28-5-2025' }
-];
+export const INSTRUMENTS: Instrument[] = [];
 
 // --- DE NIEUWE BIBLIOTHEEK (MET SUBCATEGORIEËN) ---
 export const DEFECT_LIBRARY: LibraryDefect[] = [
