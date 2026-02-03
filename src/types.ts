@@ -86,6 +86,8 @@ export interface InspectionMeta {
   clientPhone: string;
   clientEmail: string;
 
+  supabaseId?: number;
+
   projectLocation: string;
   projectAddress: string;
   projectPostalCode: string;
