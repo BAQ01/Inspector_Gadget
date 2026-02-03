@@ -15,23 +15,9 @@ export const calculateSample = (n: number): number => {
   return 315;
 };
 
-export const COMPANIES: Company[] = [
-  {
-    name: 'Van Gestel Inspectie en Advies B.V.',
-    address: 'Bourgognelaan 1',
-    postalCode: '5627KP',
-    city: 'Eindhoven',
-    phone: '06 291 988 79',
-    email: 'Info@vangestelinspecties.nl'
-  }
-];
+export const COMPANIES: Company[] = [];
 
-export const INSPECTORS: Inspector[] = [
-  {
-    name: 'Dhr. B. van Gestel',
-    sciosNr: 'R 486'
-  }
-];
+export const INSPECTORS: Inspector[] = [];
 
 export const INSTRUMENTS: Instrument[] = [
   { id: 'INST-01', name: 'Installatietester Metrel 3155', serialNumber: '25213723', calibrationDate: '15-7-2025' },

@@ -1,7 +1,9 @@
 // src/types.ts
 
-export type Classification = 'Red' | 'Orange' | 'Yellow' | 'Blue';
+// 1. CLASSIFICATIE: Bevat nu zowel oude ('Orange') als nieuwe ('Amber') termen
+export type Classification = 'Red' | 'Amber' | 'Orange' | 'Yellow' | 'Blue';
 
+// 2. BIBLIOTHEEK ITEM
 export interface LibraryDefect {
   id: string;
   category: string;
@@ -12,6 +14,7 @@ export interface LibraryDefect {
   action: string;
 }
 
+// 3. BEDRIJVEN & INSPECTEURS (Voor de database lijsten)
 export interface Company {
   name: string;
   address: string;
@@ -26,6 +29,7 @@ export interface Inspector {
   sciosNr: string;
 }
 
+// 4. GEBREK (DEFECT)
 export interface Defect {
   id: string;
   libraryId?: string;
@@ -35,8 +39,12 @@ export interface Defect {
   action: string;
   photoUrl?: string;
   photoUrl2?: string;
+  // Deze velden zijn nodig voor CSV import en filtering
+  category?: string;
+  subcategory?: string;
 }
 
+// 5. INSTRUMENT
 export interface Instrument {
   id: string;
   name: string;
@@ -44,10 +52,12 @@ export interface Instrument {
   calibrationDate: string;
 }
 
-export interface MeasurementData {
-  installationType: 'TT' | 'TN-S' | 'TN-C-S';
+// 6. METINGEN
+// We noemen dit 'Measurements' voor het PDF rapport...
+export interface Measurements {
+  installationType: 'TT' | 'TN-S' | 'TN-C-S' | string; // String toegestaan voor flexibiliteit
   mainFuse: string;
-  mainsVoltage: string; // <--- NIEUW: Netspanning veld
+  mainsVoltage: string;
   yearOfConstruction: string;
   insulationResistance: string;
   impedance: string;
@@ -57,6 +67,11 @@ export interface MeasurementData {
   hasSolarSystem: boolean | null;
 }
 
+// ...maar we exporteren OOK de oude naam 'MeasurementData' als alias.
+// DIT VOORKOMT RODE KRINGELS in bestanden die de oude naam nog gebruiken!
+export type MeasurementData = Measurements;
+
+// 7. GEBRUIKSFUNCTIES
 export interface UsageFunctions {
   woonfunctie: boolean;
   bijeenkomstfunctie: boolean;
@@ -72,12 +87,15 @@ export interface UsageFunctions {
   bouwwerkGeenGebouw: boolean;
 }
 
+// 8. INSPECTIE BASIS (NTA/Verzekering)
 export interface InspectionBasis {
   nta8220: boolean;
   verzekering: boolean;
 }
 
+// 9. METADATA (Klant, Project, etc.)
 export interface InspectionMeta {
+  // Klant
   clientName: string;
   clientAddress: string;
   clientPostalCode: string;
@@ -86,8 +104,10 @@ export interface InspectionMeta {
   clientPhone: string;
   clientEmail: string;
 
+  // Cloud ID
   supabaseId?: number;
 
+  // Project
   projectLocation: string;
   projectAddress: string;
   projectPostalCode: string;
@@ -95,43 +115,46 @@ export interface InspectionMeta {
   projectContactPerson: string;
   projectPhone: string;
   projectEmail: string;
-  installationResponsible: string;
+  installationResponsible: string; // IV'er
   idBagviewer: string;
 
   locationPhotoUrl?: string;
 
+  // Inspectiepartij
   inspectionCompany: string;
   inspectionCompanyAddress: string;
   inspectionCompanyPostalCode: string;
   inspectionCompanyCity: string;
   inspectionCompanyPhone: string;
   inspectionCompanyEmail: string;
+  
   inspectorName: string;
   date: string;
   sciosRegistrationNumber: string;
-
   sciosScope?: 'Scope 10'; 
   
   totalComponents: number;
-  signatureUrl?: string;
+  signatureUrl?: string | null; // Null toegestaan voor lege handtekening
   
   usageFunctions: UsageFunctions;
 
-  inspectionInterval: 3 | 5;
+  inspectionInterval: number; // Number is veiliger dan "3 | 5" voor imports
   inspectionBasis: InspectionBasis;
   nextInspectionDate: string;
 }
 
+// 10. DE STORE STATE (Global State)
 export interface InspectionState {
   meta: InspectionMeta;
-  measurements: MeasurementData;
+  measurements: Measurements;
   defects: Defect[];
   customInstruments: Instrument[];
-  customLibrary: LibraryDefect[] | null; // Toegevoegd voor CSV import
+  customLibrary: LibraryDefect[] | null;
 
+  // Actions
   setMeta: (meta: Partial<InspectionMeta>) => void;
   setUsageFunction: (key: keyof UsageFunctions, value: boolean) => void;
-  setMeasurements: (data: Partial<MeasurementData>) => void;
+  setMeasurements: (data: Partial<Measurements>) => void;
   
   addDefect: (defect: Defect) => void;
   updateDefect: (id: string, defect: Defect) => void;
@@ -141,9 +164,9 @@ export interface InspectionState {
   removeInstrument: (id: string) => void;
 
   addCustomInstrument: (instrument: Instrument) => void;
-  setCustomLibrary: (lib: LibraryDefect[] | null) => void; // Toegevoegd voor CSV import
+  setCustomLibrary: (lib: LibraryDefect[] | null) => void;
   
   importState: (data: any) => void;
-  mergeState: (incoming: any) => void; // <--- HIER DE NIEUWE MERGE FUNCTIE
+  mergeState: (incoming: any) => void;
   resetState: () => void;
 }

@@ -1,10 +1,11 @@
 import { Document, Page, Text, View, StyleSheet, Image, Link } from '@react-pdf/renderer';
-import { Defect, InspectionMeta, MeasurementData } from '../types';
+// AANGEPAST: Importeer de juiste types uit de nieuwe types.ts
+import { Defect, InspectionMeta, Measurements } from '../types';
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontFamily: 'Helvetica', fontSize: 10, color: '#333', lineHeight: 1.4, paddingBottom: 60 },
   
-  // --- VOORPAGINA STIJLEN (Ongewijzigd) ---
+  // --- VOORPAGINA STIJLEN ---
   coverPageStyle: { padding: 0, flexDirection: 'column', width: '100%', height: '100%' },
   coverContainer: { flex: 1, position: 'relative', width: '100%', height: '100%' },
   coverBgImage: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: -1 },
@@ -40,10 +41,7 @@ const styles = StyleSheet.create({
   // --- TABEL STIJLEN ---
   tableContainer: { borderWidth: 1, borderColor: '#000', marginBottom: 10, fontSize: 9 },
   tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#000', minHeight: 18, alignItems: 'center' },
-  
-  // Behoud de goede "stretch" rij voor de installatiegegevens tabel
   tableRowStretch: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#000', minHeight: 18, alignItems: 'stretch' },
-
   tableRowLast: { flexDirection: 'row', minHeight: 18, alignItems: 'center' },
   tableCell: { padding: 4, borderRightWidth: 1, borderColor: '#000' },
   tableCellLast: { padding: 4 },
@@ -59,7 +57,6 @@ const styles = StyleSheet.create({
   checkboxLabel: { width: '60%', fontSize: 10 },
   checkboxValue: { width: '40%', fontSize: 10 },
 
-  // STIJLEN VOOR INSTALLATIEGEGEVENS (Deze zijn goed, dus ongewijzigd)
   funcHeaderBlock: { borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 0, borderColor: '#000', backgroundColor: '#dae3f3', padding: 4, fontSize: 9, fontWeight: 'bold' },
   funcTableBlock: { borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderTopWidth: 0, borderColor: '#000', fontSize: 9, marginBottom: 10 },
 
@@ -72,13 +69,10 @@ const styles = StyleSheet.create({
   normColName: { width: '30%', fontSize: 9 }, 
   normColDesc: { width: '65%', fontSize: 9 },
 
-  // --- GEBREKEN TABEL STIJLEN (AANGEPAST) ---
-  // Fix voor Tabel 3 en Tabel 1: borderWidth 1 zorgt voor een kader rondom (ook bovenkant)
+  // --- GEBREKEN TABEL STIJLEN ---
   cTableContainer: { borderWidth: 1, borderColor: '#000', fontSize: 9, marginBottom: 15 },
   cRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#000', minHeight: 18 },
-  // De laatste rij in de container heeft geen borderBottom nodig (container heeft die al)
   cRowLast: { flexDirection: 'row', borderBottomWidth: 0, minHeight: 18 },
-  // Header heeft nu borderBottom voor scheiding met data
   cHeader: { backgroundColor: '#ccc', fontWeight: 'bold', borderBottomWidth: 1, borderColor: '#000' }, 
   cCell: { padding: 4, borderRightWidth: 1, borderColor: '#000' },
   cCellLast: { padding: 4 }, 
@@ -92,11 +86,12 @@ const styles = StyleSheet.create({
   defectHeader: { flexDirection: 'row', padding: 5, backgroundColor: '#fafafa' },
   defectBody: { padding: 8 },
   defectImage: { width: 200, height: 130, objectFit: 'contain', borderRadius: 4, backgroundColor: '#f0f0f0' },
+  
   bgRedLight: { backgroundColor: '#ffebee' },
   bgOrangeLight: { backgroundColor: '#fff3e0' },
   bgYellowLight: { backgroundColor: '#fffde7' },
 
-  // --- STEEKPROEF & MATRIX STIJLEN (Ongewijzigd) ---
+  // --- STEEKPROEF & MATRIX STIJLEN ---
   matrixTable: { borderTopWidth: 1, borderLeftWidth: 1, borderColor: '#000', fontSize: 8 },
   matrixRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#000' },
   matrixCol1: { width: '15%', padding: 3, borderRightWidth: 1, borderColor: '#000', backgroundColor: '#f9f9f9' },
@@ -143,7 +138,7 @@ const styles = StyleSheet.create({
 interface Props {
   meta: InspectionMeta;
   defects: Defect[];
-  measurements: MeasurementData;
+  measurements: Measurements; // AANGEPAST: Was MeasurementData
 }
 
 const getSampleData = (count: number) => {
@@ -192,7 +187,8 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
                     <Text style={styles.coverStandard}>Conform NTA 8220</Text>
                 </View>
 
-                <Image src="/scios-logo.png" style={styles.coverLogoInBlue} />
+                {/* LOGO: Zorg dat dit bestand bestaat in /public/scios-logo.png of pas het pad aan */}
+                {/* <Image src="/scios-logo.png" style={styles.coverLogoInBlue} /> */}
              </View>
 
              <View style={styles.coverFooterInternal}>
@@ -323,14 +319,7 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
         <Text style={styles.headerLevel1}>2. Installatiegegevens</Text>
         <View style={styles.tableContainer}>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Stroomstelsel:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.installationType}</Text></View>
-          
-          {/* AANGEPASTE REGEL VOOR NETSPANNING */}
-          <View style={styles.tableRow}>
-            <Text style={[styles.tableCell, styles.colLabel]}>Netspanning:</Text>
-            <Text style={[styles.tableCellLast, styles.colValue]}>{measurements.mainsVoltage || '400 V ~ 3 fase + N'}</Text>
-          </View>
-          {/* --------------------------------- */}
-
+          <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Netspanning:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.mainsVoltage || '400 V ~ 3 fase + N'}</Text></View>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Voorbeveiliging:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.mainFuse}</Text></View>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Bouwjaar verdeler:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.yearOfConstruction}</Text></View>
           <View style={styles.tableRowLast}><Text style={[styles.tableCell, styles.colLabel]}>Impedantie (Zi):</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.impedance} Ω</Text></View>
@@ -420,7 +409,7 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
         </View>
       </Page>
 
-      {/* PAGINA 9: STEEKPROEF (Ongewijzigd) */}
+      {/* PAGINA 9: STEEKPROEF */}
       <Page size="A4" style={styles.page}>
         <Text style={styles.pageNumber} fixed render={({ pageNumber }) => { return pageNumber > 1 ? `Pagina ${pageNumber - 1}` : ''; }} />
         <Text style={styles.headerLevel1}>STEEKPROEF:</Text>
@@ -528,12 +517,11 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
 
         <Text style={{ fontWeight: 'bold', fontSize: 9, marginBottom: 5 }}>Tabel 3: Actie en richttermijnen n.a.v. constateringen</Text>
 
-        {/* TABEL 3: ACTIE EN RICHTTERMIJNEN (AANGEPAST) */}
+        {/* TABEL 3: ACTIE EN RICHTTERMIJNEN */}
         <View style={styles.cTableContainer}>
           <View style={[styles.cRow, { backgroundColor: '#ccc' }]}>
             <View style={[styles.cCell, { width: '20%' }]}><Text style={{ fontWeight: 'bold' }}>Classificatie van constatering</Text></View>
             <View style={[styles.cCell, { width: '40%' }]}><Text style={{ fontWeight: 'bold' }}>Actie</Text></View>
-            {/* NESTED KOLOM VOOR DE HEADER FIX */}
             <View style={[styles.cCellLast, { width: '40%', padding: 0 }]}>
                <View style={{ borderBottomWidth: 1, borderColor: '#000', padding: 4 }}>
                   <Text style={{ fontWeight: 'bold', textAlign: 'center' }}>Richttermijn</Text>
@@ -597,7 +585,8 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
 
         {defects.length === 0 ? (<Text style={{ fontStyle: 'italic', marginTop: 10 }}>Geen afwijkingen geconstateerd.</Text>) : (defects.map((d, i) => (
             <View key={d.id} wrap={false} style={styles.defectBlock}>
-              <View style={[styles.defectHeader, d.classification === 'Red' ? styles.bgRedLight : d.classification === 'Orange' ? styles.bgOrangeLight : styles.bgYellowLight]}>
+              {/* AANGEPAST: LOGICA VOOR AMBER / ORANJE */}
+              <View style={[styles.defectHeader, d.classification === 'Red' ? styles.bgRedLight : (d.classification === 'Orange' || d.classification === 'Amber') ? styles.bgOrangeLight : styles.bgYellowLight]}>
                 <Text style={{ width: '10%', fontWeight: 'bold' }}>{i + 1}.</Text>
                 <Text style={{ width: '60%', fontWeight: 'bold' }}>{d.location}</Text>
                 <Text style={{ width: '30%', textAlign: 'right', fontWeight: 'bold' }}>{d.classification}</Text>
@@ -614,14 +603,10 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
           )))}
       </Page>
 
-      {/* NIEUW: BIJLAGE 1: HERSTELVERKLARING */}
+      {/* BIJLAGE 1: HERSTELVERKLARING */}
       <Page size="A4" style={styles.page}>
         <Text style={styles.pageNumber} fixed render={({ pageNumber }) => { return pageNumber > 1 ? `Pagina ${pageNumber - 1}` : ''; }} />
-        
-        {/* LEVEL 1 HEADER */}
         <Text style={styles.headerLevel1}>BIJLAGE 1: HERSTELVERKLARING</Text>
-        
-        {/* LEVEL 2 HEADER */}
         <Text style={styles.headerLevel2}>PROJECTGEGEVENS</Text>
         <View style={styles.tableContainer}>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Locatie:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{meta.projectLocation}</Text></View>
@@ -631,7 +616,6 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Telefoon:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{meta.projectPhone}</Text></View>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Email:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{meta.projectEmail}</Text></View>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Installatieverantwoordelijke:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{meta.installationResponsible}</Text></View>
-          {/* HIER ZIT DE KLIKBARE LINK LOGICA */}
           <View style={styles.tableRowLast}>
             <Text style={[styles.tableCell, styles.colLabel]}>ID Bagviewer:</Text>
             <View style={[styles.tableCellLast, styles.colValue, { flexDirection: 'row', gap: 5 }]}>
@@ -641,11 +625,8 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
           </View>
         </View>
 
-        {/* LEVEL 2 HEADER VOOR BIJLAGE */}
         <Text style={styles.headerLevel2}>HERSTELVERKLARING DOOR INSTALLATEUR</Text>
-
         <Text style={styles.textBlock}>Ondergetekende (de installateur) verklaart dat:</Text>
-        
         <View style={{ marginLeft: 5 }}>
           <View style={styles.declRow}>
              <Text style={styles.declBullet}>{'>'}</Text>
@@ -675,7 +656,6 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
         <View style={styles.formRow}><Text style={styles.formLabel}>Naam</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
         <View style={styles.formRow}><Text style={styles.formLabel}>Functie</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
         <View style={{ ...styles.formRow, marginTop: 15 }}><Text style={styles.formLabel}>Handtekening</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
-
       </Page>
 
     </Document>
