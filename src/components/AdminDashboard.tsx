@@ -103,10 +103,27 @@ export default function AdminDashboard() {
   };
   
   const toggleStatus = async (insp: any) => {
-      const newStatus = insp.status === 'completed' ? 'in_progress' : 'completed';
-      if(!window.confirm("Status wijzigen?")) return;
-      await supabase.from('inspections').update({ status: newStatus }).eq('id', insp.id);
-      fetchInspections();
+        let newStatus = '';
+        let confirmMsg = '';
+
+        // Logica: Wat is de volgende logische stap?
+        if (insp.status === 'completed') {
+            newStatus = 'in_progress'; // Heropenen
+            confirmMsg = `Wil je inspectie "${insp.client_name}" heropenen voor wijzigingen?`;
+        } else if (insp.status === 'review_ready') {
+            newStatus = 'completed'; // Goedkeuren
+            confirmMsg = `Wil je inspectie "${insp.client_name}" definitief goedkeuren en afronden?`;
+        } else {
+            // Als hij op 'new' of 'in_progress' staat, zetten we hem handmatig op completed
+            newStatus = 'completed';
+            confirmMsg = `Wil je inspectie "${insp.client_name}" nu al op afgerond zetten?`;
+        }
+
+        if(!window.confirm(confirmMsg)) return;
+        
+        const { error } = await supabase.from('inspections').update({ status: newStatus }).eq('id', insp.id);
+        if(error) alert("Fout: " + error.message);
+        else fetchInspections();
   };
 
   const handleExportAll = async () => {
@@ -206,8 +223,35 @@ export default function AdminDashboard() {
                         <tr key={insp.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 text-sm text-gray-500"><div className="flex items-center gap-2"><Calendar size={16} />{insp.report_data?.meta?.date}</div></td>
                             <td className="px-6 py-4"><div className="text-sm font-bold text-gray-900">{insp.client_name}</div><div className="text-xs text-gray-500"><MapPin size={12} className="inline"/> {insp.report_data?.meta?.projectCity}</div></td>
-                            <td className="px-6 py-4 cursor-pointer" onClick={() => toggleStatus(insp)}>{insp.status === 'completed' ? <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold border border-green-200"><Lock size={12} className="inline"/> Afgerond</span> : <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded font-bold border border-orange-200">Open</span>}</td>
-                            <td className="px-6 py-4 text-sm text-gray-500"><User size={16} className="inline"/> {insp.report_data?.meta?.inspectorName || '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap cursor-pointer select-none" onClick={() => toggleStatus(insp)} title="Klik om status te wijzigen">
+                                {/* STATUS 1: NIEUW (Nog niks mee gedaan) */}
+                                {(!insp.status || insp.status === 'new') && (
+                                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-bold border border-blue-200">
+                                        Nieuw
+                                    </span>
+                                )}
+
+                                {/* STATUS 2: IN UITVOERING (Inspecteur is bezig) */}
+                                {insp.status === 'in_progress' && (
+                                    <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded font-bold border border-orange-200 flex items-center gap-1 w-fit">
+                                        <RefreshCw size={12} className="animate-spin"/> Bezig...
+                                    </span>
+                                )}
+
+                                {/* STATUS 3: REVIEW KLAAR (Ingeleverd door inspecteur) */}
+                                {insp.status === 'review_ready' && (
+                                    <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-bold border border-purple-200 shadow-sm flex items-center gap-1 w-fit">
+                                        <FileText size={12}/> Review Klaar
+                                    </span>
+                                )}
+
+                                {/* STATUS 4: AFGEROND (Op slot) */}
+                                {insp.status === 'completed' && (
+                                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold border border-green-200 flex items-center gap-1 w-fit">
+                                        <Lock size={12}/> Afgerond
+                                    </span>
+                                )}
+                            </td>                            <td className="px-6 py-4 text-sm text-gray-500"><User size={16} className="inline"/> {insp.report_data?.meta?.inspectorName || '-'}</td>
                             <td className="px-6 py-4 text-right text-sm font-medium flex justify-end gap-3">
                                 <button onClick={() => handleDownloadPDF(insp)} disabled={isGeneratingPdf} className="text-red-600 font-bold" title="PDF"><FileText size={16}/></button>
                                 <button onClick={() => downloadJSON(insp)} className="text-indigo-600" title="JSON"><Download size={16}/></button>

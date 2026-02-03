@@ -159,50 +159,138 @@ export default function InspectorApp() {
       setIsLoadingWork(false);
   };
 
-  const loadWorkOrder = (inspection: any) => {
-      if (!inspection || !inspection.report_data) return alert("Fout: Geen data.");
-      let dataToLoad = inspection.report_data;
-      if (typeof dataToLoad === 'string') {
-          try { dataToLoad = JSON.parse(dataToLoad); } catch (e) { return alert("Fout: Data beschadigd."); }
-      }
-      if (!dataToLoad.meta) dataToLoad.meta = {};
-      if (!dataToLoad.meta.usageFunctions) dataToLoad.meta.usageFunctions = { woonfunctie: false, bijeenkomstfunctie: false, celfunctie: false, gezondheidszorgfunctie: false, industriefunctie: false, kantoorfunctie: false, logiesfunctie: false, onderwijsfunctie: false, sportfunctie: false, winkelfunctie: false, overigeGebruiksfunctie: false, bouwwerkGeenGebouw: false };
-      if (!dataToLoad.meta.inspectionBasis) dataToLoad.meta.inspectionBasis = { nta8220: true, verzekering: false };
-      const defaultMeta = { clientName: '', clientAddress: '', clientPostalCode: '', clientCity: '', projectLocation: '', projectAddress: '', projectPostalCode: '', projectCity: '', inspectionCompany: '', inspectorName: '', date: new Date().toISOString().split('T')[0], totalComponents: 0, inspectionInterval: 5 };
-      dataToLoad.meta = { ...defaultMeta, ...dataToLoad.meta };
-      if (!dataToLoad.measurements) dataToLoad.measurements = { installationType: 'TN-S', mainFuse: '3x63A', mainsVoltage: '400 V ~ 3 fase + N', yearOfConstruction: '1990', switchboardTemp: '20', selectedInstruments: [], hasEnergyStorage: null, hasSolarSystem: null };
+const loadWorkOrder = (inspection: any) => {
+      // 1. Veiligheidscheck: is er überhaupt data?
+      if (!inspection) return alert("Fout: Geen inspectie object.");
+      
+      console.log("Proberen te laden:", inspection); // Voor debugging in je console (F12)
 
-      if (window.confirm(`Wil je de gegevens van "${inspection.client_name}" inladen?`)) {
+      let dataToLoad = inspection.report_data || {};
+
+      // 2. Als het een string is (JSON), probeer te parsen
+      if (typeof dataToLoad === 'string') {
+          try { 
+              dataToLoad = JSON.parse(dataToLoad); 
+          } catch (e) { 
+              console.error("JSON Parse error:", e);
+              return alert("Fout: De data in de database is beschadigd (geen geldige JSON)."); 
+          }
+      }
+
+      // 3. CRUCIAAL: Vul ontbrekende gaten op met standaardwaarden
+      // Dit voorkomt het witte scherm omdat we zeker weten dat 'meta' en 'measurements' bestaan.
+      const safeData = {
+          meta: {
+              clientName: '', 
+              projectCity: '', 
+              inspectorName: '',
+              date: new Date().toISOString().split('T')[0],
+              totalComponents: 0,
+              inspectionInterval: 5,
+              usageFunctions: { 
+                  woonfunctie: false, bijeenkomstfunctie: false, celfunctie: false, 
+                  gezondheidszorgfunctie: false, industriefunctie: false, kantoorfunctie: false, 
+                  logiesfunctie: false, onderwijsfunctie: false, sportfunctie: false, 
+                  winkelfunctie: false, overigeGebruiksfunctie: false, bouwwerkGeenGebouw: false 
+              },
+              inspectionBasis: { nta8220: true, verzekering: false },
+              // Overschrijf met wat er in de database staat (als het bestaat)
+              ...(dataToLoad.meta || {})
+          },
+          measurements: {
+              installationType: 'TN-S', 
+              mainFuse: '3x63A', 
+              mainsVoltage: '400 V ~ 3 fase + N', 
+              yearOfConstruction: '1990', 
+              switchboardTemp: '20', 
+              selectedInstruments: [],
+              hasEnergyStorage: null, 
+              hasSolarSystem: null,
+              // Overschrijf met wat er in de database staat
+              ...(dataToLoad.measurements || {})
+          },
+          // Zorg dat arrays altijd arrays zijn
+          defects: Array.isArray(dataToLoad.defects) ? dataToLoad.defects : [],
+          customInstruments: Array.isArray(dataToLoad.customInstruments) ? dataToLoad.customInstruments : [],
+          customLibrary: Array.isArray(dataToLoad.customLibrary) ? dataToLoad.customLibrary : null
+      };
+
+      if (window.confirm(`Wil je de gegevens van "${inspection.client_name || 'Onbekend'}" inladen?`)) {
           if (inspection.status === 'completed') return alert("⛔️ STOP: Deze opdracht is al definitief afgerond.");
+          
           try {
-              dataToLoad.meta.supabaseId = inspection.id;
-              importState(dataToLoad);
-              supabase.from('inspections').update({ status: 'in_progress' }).eq('id', inspection.id).then(() => {});
+              // 4. Laad de veilige data in
+              importState(safeData);
+              
+              // 5. Forceer het ID
+              setMeta({ supabaseId: inspection.id });
+              
+              // 6. Update status in achtergrond
+              supabase.from('inspections')
+                  .update({ status: 'in_progress' })
+                  .eq('id', inspection.id)
+                  .then(({ error }) => {
+                      if(error) console.error("Kon status niet updaten:", error);
+                  });
+
+              // 7. Sluit modal en ga naar start
               setShowWorkModal(false);
               setActiveTab('setup'); 
               setTimeout(() => window.scrollTo(0,0), 100);
-          } catch (err) { console.error(err); alert("Er ging iets mis bij het verwerken."); }
+              
+          } catch (err) { 
+              console.error("CRASH PREVENTED:", err); 
+              alert("Er ging iets mis bij het inladen. Check de console (F12) voor details."); 
+          }
       }
   };
 
-  const handleSyncBack = async () => {
+const handleSyncBack = async () => {
+      // Haal ID op en forceer dat het als nummer/string wordt gezien
       const cloudId = (meta as any).supabaseId;
-      if (!cloudId) return alert("Dit is een lokaal bestand. Gebruik de blauwe upload knop.");
+      
+      if (!cloudId) return alert("❌ FOUT: Het systeem is het ID van deze inspectie kwijt.\n\nGebruik de blauwe knop 'Uploaden als Nieuwe Opdracht' om het te herstellen.");
+      
       if (!meta.signatureUrl) return alert("Graag eerst tekenen voor akkoord.");
+
+      if(!window.confirm("Weet je zeker dat je wilt inleveren bij kantoor?")) return;
+
       setIsGenerating(true);
-      const { data: currentCloudData, error: fetchError } = await supabase.from('inspections').select('*').eq('id', cloudId).single();
+
+      // 1. Data voorbereiden
+      const mergedDefects = smartMergeDefects([], defects); // We overschrijven cloud defects met lokale versie voor consistentie
+      const finalReportData = { 
+          meta: meta, 
+          measurements: measurements, 
+          customInstruments: customInstruments, 
+          defects: mergedDefects 
+      };
+
+      // 2. Update uitvoeren
+      const { error: updateError } = await supabase
+          .from('inspections')
+          .update({ 
+              report_data: finalReportData, 
+              status: 'review_ready' // <--- DIT MOET DE STATUS AANPASSEN
+          })
+          .eq('id', cloudId);
+
       setIsGenerating(false);
-      if (fetchError || !currentCloudData) return alert("Kan geen verbinding maken met de cloud.");
-      if (currentCloudData.status === 'completed') return alert("⛔️ FOUT: Dit rapport is al afgerond.");
-      if(!window.confirm("Weet je zeker dat je wilt inleveren?")) return;
-      setIsGenerating(true);
-      await supabase.from('inspection_versions').insert({ inspection_id: cloudId, report_data: currentCloudData.report_data, saved_by: currentCloudData.report_data?.meta?.inspectorName || 'Onbekend', saved_at: new Date().toISOString() });
-      const cloudDefects = currentCloudData.report_data?.defects || [];
-      const mergedDefects = smartMergeDefects(cloudDefects, defects);
-      const finalReportData = { meta: meta, measurements: measurements, customInstruments: customInstruments, defects: mergedDefects };
-      const { error: updateError } = await supabase.from('inspections').update({ report_data: finalReportData, status: 'review_ready' }).eq('id', cloudId);
-      setIsGenerating(false);
-      if (updateError) alert("Fout: " + updateError.message); else alert(`✅ Succes! ${defects.length} gebreken ingeleverd.`);
+
+      if (updateError) {
+          console.error(updateError);
+          alert("❌ Opslaan mislukt: " + updateError.message + "\n\nCheck of je internet hebt en of je bent ingelogd.");
+      } else {
+          // 3. Maak ook een versie aan (voor de historiek)
+          await supabase.from('inspection_versions').insert({ 
+              inspection_id: cloudId, 
+              report_data: finalReportData, 
+              saved_by: meta.inspectorName || 'Inspecteur', 
+              saved_at: new Date().toISOString() 
+          });
+          
+          alert(`✅ Gelukt! De inspectie is ingeleverd en staat nu op 'Review Klaar' in het dashboard.`);
+      }
   };
 
   // --- NIEUWE FUNCTIE: OUD BESTAND ALS NIEUW UPLOADEN ---
@@ -262,7 +350,65 @@ export default function InspectorApp() {
   const handleSubCategoryChange = (val: string) => { setSelectedSubCategory(val); setSelectedLibId(''); setIsCustomDefect(false); setStaticDescription(''); };
   const handleDefectChange = (val: string) => { if (val === 'CUSTOM') { setIsCustomDefect(true); setSelectedLibId(''); setStaticDescription(''); setCustomComment(''); setCustomAction(''); setCustomClassification('Yellow'); } else { setIsCustomDefect(false); setSelectedLibId(val); const libItem = ACTIVE_LIBRARY.find(d => d.id === val); if (libItem) { setStaticDescription(libItem.description); setCustomClassification(libItem.classification); setCustomAction(libItem.action); } setCustomComment(''); } };
   const handleStartEdit = (d: Defect) => { setLocation(d.location); setDefectPhoto1(d.photoUrl || null); setDefectPhoto2(d.photoUrl2 || null); const libItem = ACTIVE_LIBRARY.find(l => l.id === d.libraryId); if (libItem) { setIsCreatingCategory(false); setIsCustomDefect(false); setSelectedMainCategory(libItem.category); setSelectedSubCategory(libItem.subcategory); setSelectedLibId(libItem.id); setStaticDescription(libItem.description); setCustomClassification(libItem.classification); setCustomAction(libItem.action); if (d.description.startsWith(libItem.description)) { const extra = d.description.replace(libItem.description, '').trim(); setCustomComment(extra.replace(/^\n+/, '')); } else { setCustomComment(''); } } else { setIsCustomDefect(true); setSelectedMainCategory(''); setSelectedSubCategory(''); setStaticDescription(''); setCustomComment(d.description); setCustomClassification(d.classification); setCustomAction(d.action); } setEditingId(d.id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const handleSaveDefect = () => { if (!location) return; let finalDescription = '', finalClassification: Classification = 'Yellow', finalAction = '', finalLibId: string | undefined = undefined; if (isCustomDefect) { finalDescription = customComment; finalClassification = customClassification; finalAction = customAction; } else { const libItem = ACTIVE_LIBRARY.find(d => d.id === selectedLibId); if (!libItem) return; finalDescription = customComment ? `${libItem.description}\n\n${customComment}` : libItem.description; finalClassification = libItem.classification; finalAction = libItem.action; finalLibId = libItem.id; } const defectData: Defect = { id: editingId || generateId(), libraryId: finalLibId, location, description: finalDescription, classification: finalClassification, action: finalAction, photoUrl: defectPhoto1 || undefined, photoUrl2: defectPhoto2 || undefined }; if (editingId) { updateDefect(editingId, defectData); setEditingId(null); } else { addDefect(defectData); } setLocation(''); setCustomComment(''); setStaticDescription(''); setSelectedLibId(''); setDefectPhoto1(null); setDefectPhoto2(null); if (isCustomDefect) { setIsCustomDefect(false); setCustomAction(''); setCustomClassification('Yellow'); } };
+const handleSaveDefect = () => {
+    if (!location) return;
+
+    let finalDescription = '', finalClassification: Classification = 'Yellow', finalAction = '', finalLibId: string | undefined = undefined;
+
+    if (isCustomDefect) {
+      finalDescription = customComment;
+      finalClassification = customClassification;
+      finalAction = customAction;
+    } else {
+      const libItem = ACTIVE_LIBRARY.find(d => d.id === selectedLibId);
+      if (!libItem) return;
+      
+      finalDescription = customComment ? `${libItem.description}\n\n${customComment}` : libItem.description;
+      finalClassification = libItem.classification;
+      finalAction = libItem.action;
+      finalLibId = libItem.id;
+    }
+
+    const defectData: Defect = {
+      id: editingId || generateId(),
+      libraryId: finalLibId,
+      location,
+      description: finalDescription,
+      classification: finalClassification,
+      action: finalAction,
+      photoUrl: defectPhoto1 || undefined,
+      photoUrl2: defectPhoto2 || undefined
+    };
+
+    if (editingId) {
+      updateDefect(editingId, defectData);
+      setEditingId(null);
+    } else {
+      addDefect(defectData);
+    }
+
+    // --- HIER IS DE RESET AANGEPAST ---
+    // Alle velden weer leegmaken voor het volgende gebrek
+    setLocation('');
+    setCustomComment('');
+    setStaticDescription('');
+    
+    // Deze twee regels ontbraken, waardoor de selectie bleef staan:
+    setSelectedMainCategory(''); 
+    setSelectedSubCategory('');
+    
+    setSelectedLibId('');
+    setDefectPhoto1(null);
+    setDefectPhoto2(null);
+
+    // Reset ook de maatwerk vlaggetjes
+    setIsCustomDefect(false);
+    setCustomAction('');
+    setCustomClassification('Yellow');
+    
+    // Scroll terug naar boven in het formulier
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const handleCancelEdit = () => { setEditingId(null); setLocation(''); setSelectedLibId(''); setCustomComment(''); setStaticDescription(''); setDefectPhoto1(null); setDefectPhoto2(null); setIsCustomDefect(false); };
   const handleBagSearch = async () => { if (!meta.projectPostalCode || !meta.projectAddress) { alert("Vul adres in."); return; } setIsSearchingBag(true); try { const q = `${meta.projectPostalCode} ${(meta.projectAddress.match(/\d+/) || [''])[0]}`.trim(); const res = await fetch(`https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${encodeURIComponent(q)}&rows=1`); const d = await res.json(); if (d.response.docs[0]) { setMeta({ idBagviewer: d.response.docs[0].adresseerbaarobject_id || d.response.docs[0].id, projectCity: d.response.docs[0].woonplaatsnaam || meta.projectCity }); } else alert("Niet gevonden."); } catch { alert("Fout."); } finally { setIsSearchingBag(false); } };
   

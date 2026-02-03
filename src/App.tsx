@@ -38,6 +38,11 @@ function App() {
         .eq('id', userId)
         .single();
       
+      // VOEG DEZE REGEL TOE (zodat 'error' gebruikt wordt):
+      if (error) {
+          console.error("Fout bij ophalen rol:", error);
+      }
+      
       if (data) setUserRole(data.role);
       setLoading(false);
   };
