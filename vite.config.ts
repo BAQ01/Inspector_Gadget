@@ -36,7 +36,16 @@ export default defineConfig({
             purpose: 'any maskable'
           }
         ]
+      },
+      // --- FIX: Verhoog cache limiet voor PDF bibliotheken ---
+      workbox: {
+        maximumFileSizeToCacheInBytes: 4000000, // Limiet op 4MB gezet (standaard is 2MB)
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
       }
     })
   ],
+  // --- FIX: Onderdruk waarschuwing over bestandsgrootte ---
+  build: {
+    chunkSizeWarningLimit: 4000, // Waarschuwing pas bij 4MB (4000kB)
+  }
 })
