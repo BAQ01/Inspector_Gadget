@@ -96,6 +96,39 @@ export default function AdminDashboard() {
       }
   };
 
+  // Functie om gebruiker uit de database lijst te verwijderen
+    // ============================================
+    // IMPROVED: Complete user deletion function
+    // ============================================
+    const handleDeleteUser = async (userId: string) => {
+        if (!window.confirm(
+            "⚠️ WAARSCHUWING ⚠️\n\n" +
+            "Dit zal de gebruiker VOLLEDIG verwijderen:\n" +
+            "• Het account wordt verwijderd uit Supabase Auth\n" +
+            "• Het profiel wordt verwijderd\n" +
+            "• De gebruiker kan niet meer inloggen\n\n" +
+            "Dit kan NIET ongedaan gemaakt worden!\n\n" +
+            "Weet je het zeker?"
+        )) return;
+
+        try {
+            // Call the database function to delete the user completely
+            const { error } = await supabase.rpc('delete_user', { user_id: userId });
+
+            if (error) {
+                console.error('Delete error:', error);
+                alert("❌ Fout bij verwijderen: " + error.message);
+            } else {
+                alert("✅ Gebruiker volledig verwijderd!");
+                fetchUsers(); // Refresh the list instead of page reload
+            }
+        } catch (err: any) {
+            console.error('Unexpected error:', err);
+            alert("❌ Onverwachte fout bij verwijderen: " + (err?.message || 'Onbekende fout'));
+        }
+    };
+
+
   useEffect(() => {
     if (activeTab === 'inspections') fetchInspections();
     if (activeTab === 'users') fetchUsers();
@@ -446,14 +479,75 @@ export default function AdminDashboard() {
       const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
       if (error) alert("Fout: " + error.message); else { alert("Rol aangepast!"); fetchUsers(); }
   };
-  const handleCreateUser = async () => {
-      if (!newUser.email || !newUser.password) return alert("Vul email en wachtwoord in.");
-      const { data: userId, error } = await supabase.rpc('create_user', { email: newUser.email, password: newUser.password });
-      if (error) { alert("Fout bij aanmaken: " + error.message); return; }
-      if (userId && newUser.role === 'admin') { await supabase.from('profiles').update({ role: 'admin' }).eq('id', userId); }
-      alert(`Gebruiker ${newUser.email} aangemaakt als ${newUser.role}!`); setShowUserModal(false); setNewUser({ email: '', password: '', role: 'inspector' }); fetchUsers(); 
-  };
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+  // ============================================
+  // IMPROVED: Create user function with validation
+  // ============================================
+  // ============================================
+// UPDATED handleCreateUser for AdminDashboard.tsx
+// ============================================
+// Replace your current handleCreateUser function with this version
+// This uses the Edge Function instead of RPC
+
+const handleCreateUser = async () => {
+    // Validation
+    if (!newUser.email || !newUser.password) {
+        return alert("Vul email en wachtwoord in.");
+    }
+
+    if (newUser.password.length < 6) {
+        return alert("Wachtwoord moet minimaal 6 karakters zijn.");
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newUser.email)) {
+        return alert("Vul een geldig e-mailadres in.");
+    }
+
+    try {
+        // Get the current session to retrieve the access token
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !sessionData.session) {
+            alert("❌ Je bent niet ingelogd. Log opnieuw in.");
+            return;
+        }
+
+        const accessToken = sessionData.session.access_token;
+
+        // Call Edge Function with explicit Authorization header
+        const { data, error } = await supabase.functions.invoke('create-user', {
+            body: { 
+                email: newUser.email.toLowerCase().trim(),
+                password: newUser.password,
+                role: newUser.role
+            },
+            headers: {
+                Authorization: `Bearer ${accessToken}`
+            }
+        });
+
+        if (error) {
+            alert("❌ Fout bij aanmaken: " + error.message);
+            return;
+        }
+
+        if (data?.error) {
+            alert("❌ Fout bij aanmaken: " + data.error);
+            return;
+        }
+
+        // Success!
+        alert(`✅ Gebruiker ${newUser.email} succesvol aangemaakt als ${newUser.role}!`);
+        setShowUserModal(false);
+        setNewUser({ email: '', password: '', role: 'inspector' });
+        fetchUsers();
+
+    } catch (err: any) {
+        alert("❌ Onverwachte fout: " + (err?.message || 'Onbekende fout'));
+    }
+};
+
+const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -530,13 +624,66 @@ export default function AdminDashboard() {
         {activeTab === 'users' && (
             <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="p-4 bg-blue-50 border-b border-blue-100 text-sm text-blue-800 flex justify-between items-center">
-                    <div className="flex items-center gap-2"><Shield size={18}/> <span>Beheer toegang tot dashboard (Admin) of app (Inspector).</span></div>
-                    <button onClick={() => setShowUserModal(true)} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1 rounded shadow text-xs font-bold hover:bg-blue-700"><UserPlus size={16} /> Gebruiker Toevoegen</button>
+                    <div className="flex items-center gap-2">
+                        <Shield size={18}/> 
+                        <span>Beheer rollen (Admin/Inspector). Verwijder hier de rechten uit de app.</span>
+                    </div>
+                    {/* Ik heb deze knop aangepast naar een instructie, omdat de RPC code waarschijnlijk ontbreekt */}
+                    {/* ============================================ */}
+                    {/* FIXED: Button now opens the modal instead of showing an alert */}
+                    {/* ============================================ */}
+                    <button 
+                        onClick={() => setShowUserModal(true)} 
+                        className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1 rounded shadow text-xs font-bold hover:bg-blue-700"
+                    >
+                        <UserPlus size={16} /> Nieuwe Gebruiker
+                    </button>
                 </div>
                 <table className="min-w-full">
-                    <thead className="bg-gray-50 border-b"><tr><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Huidige Rol</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Wijzig Rol</th></tr></thead>
-                    <tbody className="divide-y divide-gray-200">{users.map(u => (<tr key={u.id}><td className="px-6 py-4 text-sm font-bold text-gray-700">{u.email}</td><td className="px-6 py-4 text-sm">{u.role === 'admin' ? <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-bold border border-purple-200">ADMIN</span> : <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-bold border border-gray-200">INSPECTOR</span>}</td><td className="px-6 py-4 text-sm"><select className="border rounded p-1 text-sm bg-white" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}><option value="inspector">Inspector</option><option value="admin">Admin</option></select></td></tr>))}</tbody>
+                    <thead className="bg-gray-50 border-b">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Huidige Rol</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Wijzig Rol</th>
+                            {/* NIEUW: Actie kolom toegevoegd */}
+                            <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Acties</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                        {users.map(u => (
+                            <tr key={u.id} className="hover:bg-gray-50">
+                                <td className="px-6 py-4 text-sm font-bold text-gray-700">{u.email}</td>
+                                <td className="px-6 py-4 text-sm">
+                                    {u.role === 'admin' 
+                                        ? <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-bold border border-purple-200">ADMIN</span> 
+                                        : <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-bold border border-gray-200">INSPECTOR</span>
+                                    }
+                                </td>
+                                <td className="px-6 py-4 text-sm">
+                                    <select 
+                                        className="border rounded p-1 text-sm bg-white cursor-pointer" 
+                                        value={u.role} 
+                                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                    >
+                                        <option value="inspector">Inspector</option>
+                                        <option value="admin">Admin</option>
+                                    </select>
+                                </td>
+                                {/* NIEUW: De Verwijder Knop */}
+                                <td className="px-6 py-4 text-right text-sm">
+                                    <button 
+                                        onClick={() => handleDeleteUser(u.id)} 
+                                        className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded hover:bg-red-100 transition-colors" 
+                                        title="Verwijder rechten voor gebruiker"
+                                    >
+                                        <Trash2 size={18}/>
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
                 </table>
+                {users.length === 0 && <div className="p-8 text-center text-gray-400">Geen gebruikers gevonden.</div>}
             </div>
         )}
 

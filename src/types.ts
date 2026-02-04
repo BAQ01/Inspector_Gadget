@@ -107,6 +107,11 @@ export interface InspectionMeta {
   // Cloud ID
   supabaseId?: number;
 
+  // --- NIEUWE VELDEN VOOR SAMENWERKING (LEAD/CONTRIBUTOR) ---
+  isContributionMode?: boolean; // Is dit een bijdrage van een collega?
+  parentInspectionId?: number | string;  // Het ID van de hoofdopdracht (kan nummer of string zijn uit DB)
+  // ----------------------------------------------------------
+
   // Project
   projectLocation: string;
   projectAddress: string;
