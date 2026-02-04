@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'; 
 import { supabase } from '../supabase';
-import { Calendar, User, Download, RefreshCw, Plus, X, MapPin, Trash2, Lock, FileText, Search, ChevronLeft, ChevronRight, Database, Users, Shield, UserPlus, FileSpreadsheet, Pencil, Settings, Building, Wrench} from 'lucide-react';
+import { Calendar, User, Download, RefreshCw, Plus, X, MapPin, Trash2, Lock, FileText, Search, ChevronLeft, ChevronRight, Database, Users, Shield, UserPlus, FileSpreadsheet, Pencil, Settings, Building, Wrench, Key} from 'lucide-react';
 import { pdf } from '@react-pdf/renderer'; 
 import { PDFReport } from './PDFReport';
 import ExcelJS from 'exceljs';
@@ -40,6 +40,10 @@ export default function AdminDashboard() {
   const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null); // Voor inspecties
+  // --- WACHTWOORD RESET STATE ---
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordResetUser, setPasswordResetUser] = useState<{id: string, email: string} | null>(null);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
   
   // DATA LIBRARIES
   const [users, setUsers] = useState<any[]>([]);
@@ -128,6 +132,42 @@ export default function AdminDashboard() {
         }
     };
 
+    // --- RESET PASSWORD FUNCTIES ---
+  const openPasswordModal = (user: any) => {
+      setPasswordResetUser({ id: user.id, email: user.email });
+      setNewPasswordInput('');
+      setShowPasswordModal(true);
+  };
+
+  const handleResetPassword = async () => {
+      if (!passwordResetUser || !newPasswordInput) return;
+      if (newPasswordInput.length < 6) return alert("Wachtwoord moet minimaal 6 karakters zijn.");
+
+      try {
+          // Token ophalen (nodig voor beveiliging Edge Function)
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
+
+          if (!token) return alert("Je bent niet ingelogd.");
+
+          const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+              body: { userId: passwordResetUser.id, newPassword: newPasswordInput },
+              headers: { Authorization: `Bearer ${token}` }
+          });
+
+          if (error) throw error;
+          if (data && !data.success) throw new Error(data.error);
+
+          alert(`✅ Wachtwoord voor ${passwordResetUser.email} succesvol gewijzigd!`);
+          setShowPasswordModal(false);
+          setPasswordResetUser(null);
+          setNewPasswordInput('');
+
+      } catch (err: any) {
+          console.error('Reset error:', err);
+          alert("❌ Fout bij resetten: " + (err.message || "Onbekende fout"));
+      }
+  };
 
   useEffect(() => {
     if (activeTab === 'inspections') fetchInspections();
@@ -669,15 +709,28 @@ const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
                                         <option value="admin">Admin</option>
                                     </select>
                                 </td>
-                                {/* NIEUW: De Verwijder Knop */}
+                                
+                                {/* HIER ZAT DE FOUT: Nu staan beide knoppen netjes IN de cel (td) */}
                                 <td className="px-6 py-4 text-right text-sm">
-                                    <button 
-                                        onClick={() => handleDeleteUser(u.id)} 
-                                        className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded hover:bg-red-100 transition-colors" 
-                                        title="Verwijder rechten voor gebruiker"
-                                    >
-                                        <Trash2 size={18}/>
-                                    </button>
+                                    <div className="flex justify-end gap-2">
+                                        {/* 1. Wachtwoord Reset Knop */}
+                                        <button 
+                                            onClick={() => openPasswordModal(u)} 
+                                            className="text-orange-400 hover:text-orange-600 bg-orange-50 p-2 rounded hover:bg-orange-100 transition-colors" 
+                                            title="Wachtwoord Resetten"
+                                        >
+                                            <Key size={18}/>
+                                        </button>
+                                        
+                                        {/* 2. Verwijder Knop */}
+                                        <button 
+                                            onClick={() => handleDeleteUser(u.id)} 
+                                            className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded hover:bg-red-100 transition-colors" 
+                                            title="Verwijder rechten voor gebruiker"
+                                        >
+                                            <Trash2 size={18}/>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -920,6 +973,39 @@ const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
                     <div className="flex justify-between items-center mb-4 border-b pb-2"><h2 className="text-lg font-bold text-blue-800 flex items-center gap-2"><UserPlus size={20}/> Nieuwe Gebruiker</h2><button onClick={() => setShowUserModal(false)}><X size={24}/></button></div>
                     <div className="space-y-4"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-mailadres</label><input className="w-full border rounded p-2" type="email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} autoFocus /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Wachtwoord</label><input className="w-full border rounded p-2" type="password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Rol</label><select className="w-full border rounded p-2 bg-white" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}><option value="inspector">Inspector</option><option value="admin">Admin</option></select></div></div>
                     <div className="mt-6 flex gap-3"><button onClick={() => setShowUserModal(false)} className="flex-1 bg-gray-200 py-2 rounded font-bold">Annuleren</button><button onClick={handleCreateUser} className="flex-1 bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">Toevoegen</button></div>
+                </div>
+            </div>
+        )}
+        {/* MODAL: WACHTWOORD RESET */}
+        {showPasswordModal && passwordResetUser && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 animate-fadeIn">
+                    <div className="flex justify-between items-center mb-4 border-b pb-2">
+                        <h2 className="text-lg font-bold text-orange-600 flex items-center gap-2">
+                            <Key size={20}/> Wachtwoord Reset
+                        </h2>
+                        <button onClick={() => setShowPasswordModal(false)}><X size={24}/></button>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                        Stel een nieuw wachtwoord in voor <strong>{passwordResetUser.email}</strong>.
+                    </p>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nieuw Wachtwoord</label>
+                            <input 
+                                className="w-full border rounded p-2" 
+                                type="text" 
+                                placeholder="Bijv. Welkom2025" 
+                                value={newPasswordInput} 
+                                onChange={e => setNewPasswordInput(e.target.value)} 
+                                autoFocus 
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-6 flex gap-3">
+                        <button onClick={() => setShowPasswordModal(false)} className="flex-1 bg-gray-200 py-2 rounded font-bold text-gray-700">Annuleren</button>
+                        <button onClick={handleResetPassword} className="flex-1 bg-orange-500 text-white py-2 rounded font-bold hover:bg-orange-600 shadow">Resetten</button>
+                    </div>
                 </div>
             </div>
         )}
