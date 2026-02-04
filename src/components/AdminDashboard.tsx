@@ -180,6 +180,7 @@ export default function AdminDashboard() {
   // 1. INSPECTEURS
   const startEditInspector = (item: any) => {
       setEditingSettingId(item.id);
+      setEditingCategory('inspector'); // <--- DEZE REGEL MISTE
       setNewInspector({
           name: item.label,
           sciosNr: item.data?.sciosNr || ''
@@ -202,14 +203,14 @@ export default function AdminDashboard() {
           await supabase.from('form_options').insert({ category: 'inspector', ...payload });
       }
       
-      setNewInspector({ name: '', sciosNr: '' });
-      setEditingSettingId(null);
+      cancelEditSettings(); // <--- DIT RESET ALLES IN ÉÉN KEER
       fetchOptions();
   };
 
   // 2. BEDRIJVEN
   const startEditCompany = (item: any) => {
       setEditingSettingId(item.id);
+      setEditingCategory('iv_company'); // <--- DEZE REGEL MISTE
       setNewCompany({
           name: item.label,
           address: item.data?.address || '',
@@ -242,8 +243,7 @@ export default function AdminDashboard() {
           await supabase.from('form_options').insert({ category: 'iv_company', ...payload });
       }
 
-      setNewCompany({ name: '', address: '', postalCode: '', city: '', phone: '', email: '' });
-      setEditingSettingId(null);
+      cancelEditSettings(); // <--- DIT RESET ALLES IN ÉÉN KEER
       fetchOptions();
   };
 
@@ -293,11 +293,11 @@ export default function AdminDashboard() {
 
   const cancelEditSettings = () => {
       setEditingSettingId(null);
+      setEditingCategory(null); // <--- CRUCIAAL: Reset de categorie-lock
       setNewInspector({ name: '', sciosNr: '' });
       setNewCompany({ name: '', address: '', postalCode: '', city: '', phone: '', email: '' });
-      // VOEG DEZE REGEL TOE:
       setNewInstrument({ name: '', serial: '', calibration: '' });
-    };
+  };
 
   // --- ACTIES: INSPECTIES ---
   const handleEdit = (insp: any) => {

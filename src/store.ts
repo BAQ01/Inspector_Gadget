@@ -1,6 +1,9 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware'; // <--- NIEUW
-import { InspectionState, Defect, Instrument } from './types';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { InspectionState, Defect, Instrument, BoardMeasurement } from './types';
+
+// Hulpfunctie voor unieke IDs binnen de store
+const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const initialState = {
   meta: {
@@ -28,7 +31,9 @@ const initialState = {
     inspectionCompanyCity: '',
     inspectionCompanyPhone: '',
     inspectionCompanyEmail: '',
+    
     inspectorName: '',
+    additionalInspectors: [] as string[], // Initialisatie van de array
     date: new Date().toISOString().split('T')[0],
     sciosRegistrationNumber: '',
     
@@ -49,20 +54,26 @@ const initialState = {
       bouwwerkGeenGebouw: false,
     },
 
-    inspectionInterval: 5 as 3 | 5,
+    inspectionInterval: null,
     inspectionBasis: { nta8220: true, verzekering: false },
     nextInspectionDate: '',
     locationPhotoUrl: '',
     signatureUrl: ''
   },
-measurements: {
-    installationType: 'TN-S' as const,
-    mainFuse: '3x63A', // Standaardwaarde (voorkomt dat het lege tekstveld verschijnt)
-    mainsVoltage: '400 V ~ 3 fase + N', // Standaardwaarde
-    yearOfConstruction: '1990', // Standaard schatting
-    insulationResistance: '999', // >999 MOhm is vaak de max weergave (is goed)
-    impedance: '0.35', // Realistische waarde voor Zi
-    switchboardTemp: '20', // Standaard omgevingstemperatuur
+  measurements: {
+    installationType: 'TN-S',
+    mainFuse: '3x63A',
+    mainsVoltage: '400 V ~ 3 fase + N',
+    yearOfConstruction: '1990',
+    boards: [
+      {
+        id: 'initial_hvk',
+        name: 'HVK',
+        switchboardTemp: '20',
+        insulationResistance: '999',
+        impedance: '0.35'
+      }
+    ],
     selectedInstruments: [],
     hasEnergyStorage: null,
     hasSolarSystem: null,
@@ -72,7 +83,6 @@ measurements: {
   customLibrary: null,
 };
 
-// We gebruiken 'persist' om alles automatisch op te slaan
 export const useInspectionStore = create<InspectionState>()(
   persist(
     (set) => ({
@@ -91,6 +101,27 @@ export const useInspectionStore = create<InspectionState>()(
 
       setMeasurements: (data) => set((state) => ({
         measurements: { ...state.measurements, ...data }
+      })),
+
+      addBoard: (board) => set((state) => ({
+        measurements: {
+          ...state.measurements,
+          boards: [...state.measurements.boards, { ...board, id: board.id || generateId() }]
+        }
+      })),
+
+      updateBoard: (id, updatedBoard) => set((state) => ({
+        measurements: {
+          ...state.measurements,
+          boards: state.measurements.boards.map(b => b.id === id ? updatedBoard : b)
+        }
+      })),
+
+      removeBoard: (id) => set((state) => ({
+        measurements: {
+          ...state.measurements,
+          boards: state.measurements.boards.filter(b => b.id !== id)
+        }
       })),
 
       addDefect: (defect) => set((state) => ({ 
@@ -131,27 +162,50 @@ export const useInspectionStore = create<InspectionState>()(
       })),
 
       importState: (data) => set(() => ({
-        meta: data.meta || initialState.meta,
-        measurements: data.measurements || initialState.measurements,
+        meta: { ...initialState.meta, ...(data.meta || {}) },
+        measurements: { ...initialState.measurements, ...(data.measurements || {}) },
         defects: data.defects || [],
         customInstruments: data.customInstruments || [],
         customLibrary: data.customLibrary || null,
       })),
 
       mergeState: (incoming) => set((state) => {
+        const currentMeta = state.meta;
+        const currentMeasurements = state.measurements;
+
+        // 1. Defects mergen
         const incomingDefects = incoming.defects || [];
         const existingDefectIds = new Set(state.defects.map(d => d.id));
         const newDefects = incomingDefects.filter((d: Defect) => !existingDefectIds.has(d.id));
         
+        // 2. Instrumenten mergen
         const incomingInstruments = incoming.measurements?.selectedInstruments || [];
-        const existingInstIds = new Set(state.measurements.selectedInstruments.map(i => i.id));
+        const existingInstIds = new Set(currentMeasurements.selectedInstruments.map(i => i.id));
         const newInstruments = incomingInstruments.filter((i: Instrument) => !existingInstIds.has(i.id));
 
+        // 3. Boards mergen
+        const incomingBoards = incoming.measurements?.boards || [];
+        const existingBoardIds = new Set(currentMeasurements.boards.map(b => b.id));
+        const newBoards = incomingBoards.filter((b: BoardMeasurement) => !existingBoardIds.has(b.id));
+
+        // 4. Namen van inspecteurs verzamelen
+        const contribName = incoming.meta?.inspectorName;
+        let updatedAdditionalInspectors = [...(currentMeta.additionalInspectors || [])];
+        
+        if (contribName && contribName !== currentMeta.inspectorName && !updatedAdditionalInspectors.includes(contribName)) {
+            updatedAdditionalInspectors.push(contribName);
+        }
+
         return {
+          meta: {
+            ...currentMeta,
+            additionalInspectors: updatedAdditionalInspectors
+          },
           defects: [...state.defects, ...newDefects],
           measurements: {
-            ...state.measurements,
-            selectedInstruments: [...state.measurements.selectedInstruments, ...newInstruments]
+            ...currentMeasurements,
+            selectedInstruments: [...currentMeasurements.selectedInstruments, ...newInstruments],
+            boards: [...currentMeasurements.boards, ...newBoards]
           }
         };
       }),
@@ -159,8 +213,8 @@ export const useInspectionStore = create<InspectionState>()(
       resetState: () => set(() => initialState),
     }),
     {
-      name: 'inspection-storage', // De unieke naam in LocalStorage
-      storage: createJSONStorage(() => localStorage), // We slaan op in de browser
+      name: 'inspection-storage',
+      storage: createJSONStorage(() => localStorage),
     }
   )
 );

@@ -52,16 +52,24 @@ export interface Instrument {
   calibrationDate: string;
 }
 
+export interface BoardMeasurement {
+  id: string;
+  name: string;             // Bijv. "HVK", "OVK-1"
+  switchboardTemp: string;  // Temperatuur in °C
+  insulationResistance: string; // Riso in MΩ
+  impedance: string;        // Zi in Ω
+}
+
+
 // 6. METINGEN
 // We noemen dit 'Measurements' voor het PDF rapport...
 export interface Measurements {
-  installationType: 'TT' | 'TN-S' | 'TN-C-S' | string; // String toegestaan voor flexibiliteit
+  installationType: 'TT' | 'TN-S' | 'TN-C-S' | string;
   mainFuse: string;
   mainsVoltage: string;
   yearOfConstruction: string;
-  insulationResistance: string;
-  impedance: string;
-  switchboardTemp: string;
+  // insulationResistance, impedance, switchboardTemp zijn hier weg!
+  boards: BoardMeasurement[]; // De nieuwe lijst
   selectedInstruments: Instrument[];
   hasEnergyStorage: boolean | null;
   hasSolarSystem: boolean | null;
@@ -134,6 +142,7 @@ export interface InspectionMeta {
   inspectionCompanyEmail: string;
   
   inspectorName: string;
+  additionalInspectors: string[];
   date: string;
   sciosRegistrationNumber: string;
   sciosScope?: 'Scope 10'; 
@@ -143,7 +152,7 @@ export interface InspectionMeta {
   
   usageFunctions: UsageFunctions;
 
-  inspectionInterval: number; // Number is veiliger dan "3 | 5" voor imports
+  inspectionInterval: number | null; // Number is veiliger dan "3 | 5" voor imports
   inspectionBasis: InspectionBasis;
   nextInspectionDate: string;
 }
@@ -174,4 +183,9 @@ export interface InspectionState {
   importState: (data: any) => void;
   mergeState: (incoming: any) => void;
   resetState: () => void;
+
+  addBoard: (board: BoardMeasurement) => void;
+  removeBoard: (id: string) => void;
+  updateBoard: (id: string, board: BoardMeasurement) => void;
 }
+

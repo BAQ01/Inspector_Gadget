@@ -1,5 +1,4 @@
 import { Document, Page, Text, View, StyleSheet, Image, Link } from '@react-pdf/renderer';
-// AANGEPAST: Importeer de juiste types uit de nieuwe types.ts
 import { Defect, InspectionMeta, Measurements } from '../types';
 
 const styles = StyleSheet.create({
@@ -17,7 +16,6 @@ const styles = StyleSheet.create({
   coverTitleMain: { fontSize: 26, fontWeight: 'bold', color: '#ffff33', textTransform: 'uppercase', lineHeight: 1.1, marginBottom: 2 },
   coverTitleSub: { fontSize: 12, color: 'white', fontWeight: 'bold', marginBottom: 2 },
   coverStandard: { fontSize: 10, color: 'white', marginTop: 15 },
-  coverLogoInBlue: { width: 160, height: 'auto', objectFit: 'contain', marginTop: 30 },
   coverProjectBox: { position: 'absolute', top: '40%', right: 40, width: 260, backgroundColor: 'white', opacity: 0.85, padding: 25, borderRadius: 4, shadowOpacity: 0.2, shadowRadius: 4 },
   projectBoxLabel: { fontSize: 8, fontWeight: 'bold', color: '#5b82c2', marginBottom: 2, textTransform: 'uppercase' },
   projectBoxValue: { fontSize: 11, marginBottom: 12, color: '#333', fontWeight: 'bold' },
@@ -138,7 +136,7 @@ const styles = StyleSheet.create({
 interface Props {
   meta: InspectionMeta;
   defects: Defect[];
-  measurements: Measurements; // AANGEPAST: Was MeasurementData
+  measurements: Measurements;
 }
 
 const getSampleData = (count: number) => {
@@ -163,6 +161,22 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
 
   const backgroundImageUrl = meta.locationPhotoUrl || 'https://via.placeholder.com/800x1200.png?text=Locatiefoto+Ontbreekt';
 
+  // --- FUNCTIE OM NAMEN SAMEN TE VOEGEN ---
+  // Hoofdinspecteur ALTIJD als eerste, daarna de unieke collega's
+  const getInspectorNames = () => {
+    let names = meta.inspectorName;
+    if (meta.additionalInspectors && meta.additionalInspectors.length > 0) {
+      names += `, ${meta.additionalInspectors.join(', ')}`;
+    }
+    return names;
+  };
+
+  // --- FUNCTIE OM PREFIX TE VERWIJDEREN ---
+  // Verwijdert "[BIJDRAGE NAAM]: " uit de tekst voor de PDF weergave
+  const cleanDescription = (desc: string) => {
+    return desc.replace(/^\[BIJDRAGE\s+.*?\]:\s*/i, '');
+  };
+
   return (
     <Document>
       
@@ -186,9 +200,6 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
                     <Text style={styles.coverTitleSub}>materieel op brandrisico</Text>
                     <Text style={styles.coverStandard}>Conform NTA 8220</Text>
                 </View>
-
-                {/* LOGO: Zorg dat dit bestand bestaat in /public/scios-logo.png of pas het pad aan */}
-                {/* <Image src="/scios-logo.png" style={styles.coverLogoInBlue} /> */}
              </View>
 
              <View style={styles.coverFooterInternal}>
@@ -277,7 +288,8 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Postcode / Plaats:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{meta.inspectionCompanyPostalCode}  {meta.inspectionCompanyCity}</Text></View>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Telefoon:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{meta.inspectionCompanyPhone}</Text></View>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Email:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{meta.inspectionCompanyEmail}</Text></View>
-          <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Inspectie uitgevoerd door:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{meta.inspectorName}</Text></View>
+          {/* HIER WORDEN DE NAMEN NETJES GECOMBINEERD */}
+          <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Inspectie uitgevoerd door:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{getInspectorNames()}</Text></View>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Inspectiedatum:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{meta.date}</Text></View>
           <View style={styles.tableRowLast}><Text style={[styles.tableCell, styles.colLabel]}>SCIOS-registratienummer:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{meta.sciosRegistrationNumber}</Text></View>
         </View>
@@ -321,8 +333,33 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Stroomstelsel:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.installationType}</Text></View>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Netspanning:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.mainsVoltage || '400 V ~ 3 fase + N'}</Text></View>
           <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Voorbeveiliging:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.mainFuse}</Text></View>
-          <View style={styles.tableRow}><Text style={[styles.tableCell, styles.colLabel]}>Bouwjaar verdeler:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.yearOfConstruction}</Text></View>
-          <View style={styles.tableRowLast}><Text style={[styles.tableCell, styles.colLabel]}>Impedantie (Zi):</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.impedance} Ω</Text></View>
+          <View style={styles.tableRowLast}><Text style={[styles.tableCell, styles.colLabel]}>Bouwjaar verdeler:</Text><Text style={[styles.tableCellLast, styles.colValue]}>{measurements.yearOfConstruction}</Text></View>
+        </View>
+
+        {/* NIEUWE SECTIE: METINGEN PER VERDEELINRICHTING */}
+        <Text style={styles.headerLevel2}>Metingen per Verdeelinrichting</Text>
+        <View style={styles.tableContainer}>
+            <View style={[styles.tableRow, { backgroundColor: '#dae3f3' }]}>
+                <Text style={[styles.tableCell, { width: '40%', fontWeight: 'bold' }]}>Verdeelinrichting</Text>
+                <Text style={[styles.tableCell, { width: '20%', fontWeight: 'bold' }]}>Temp (°C)</Text>
+                <Text style={[styles.tableCell, { width: '20%', fontWeight: 'bold' }]}>Riso (MΩ)</Text>
+                <Text style={[styles.tableCellLast, { width: '20%', fontWeight: 'bold' }]}>Zi (Ω)</Text>
+            </View>
+            {measurements.boards && measurements.boards.length > 0 ? (
+                measurements.boards.map((board, i) => (
+                    <View key={board.id || i} style={styles.tableRow}>
+                        {/* HIER WORDT EVENTUEEL [BIJDRAGE...] uit de naam verwijderd als je dat wilt, 
+                            maar meestal wil je bij metingen wél zien van wie de kast was. 
+                            De naam van de kast blijft hier gewoon staan. */}
+                        <Text style={[styles.tableCell, { width: '40%' }]}>{board.name || `Verdeler ${i+1}`}</Text>
+                        <Text style={[styles.tableCell, { width: '20%' }]}>{board.switchboardTemp}</Text>
+                        <Text style={[styles.tableCell, { width: '20%' }]}>{board.insulationResistance}</Text>
+                        <Text style={[styles.tableCellLast, { width: '20%' }]}>{board.impedance}</Text>
+                    </View>
+                ))
+            ) : (
+                <View style={styles.tableRowLast}><Text style={{ padding: 4 }}>Geen verdeelinrichtingen toegevoegd.</Text></View>
+            )}
         </View>
         
         <View style={{ marginTop: 20 }}>
@@ -592,7 +629,8 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
                 <Text style={{ width: '30%', textAlign: 'right', fontWeight: 'bold' }}>{d.classification}</Text>
               </View>
               <View style={styles.defectBody}>
-                 <Text style={{ marginBottom: 5 }}>{d.description}</Text>
+                 {/* HIER GEBRUIKEN WE cleanDescription OM DE PREFIX TE VERWIJDEREN */}
+                 <Text style={{ marginBottom: 5 }}>{cleanDescription(d.description)}</Text>
                  <Text style={{ fontSize: 9, color: '#444', fontStyle: 'italic' }}>Actie: {d.action}</Text>
                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 5 }}>
                     {d.photoUrl && <Image src={d.photoUrl} style={styles.defectImage} />}

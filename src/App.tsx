@@ -1,30 +1,36 @@
 import { useEffect, useState } from 'react';
-import { supabase } from './supabase';
-import InspectorApp from './InspectorApp';
-import AdminDashboard from './components/AdminDashboard';
-import Login from './components/Login';
-import { LogOut, ShieldAlert } from 'lucide-react';
+import { supabase } from './supabase'; //
+import InspectorApp from './InspectorApp'; //
+import AdminDashboard from './components/AdminDashboard'; //
+import Login from './components/Login'; //
+import { LogOut, Settings } from 'lucide-react';
 
-function App() {
+export default function App() {
   const [session, setSession] = useState<any>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'inspector' | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
 
   useEffect(() => {
-    // 1. Check sessie
+    // 1. Controleer de huidige sessie bij het laden
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) fetchUserRole(session.user.id);
-      else setLoading(false);
+      if (session) {
+        fetchUserRole(session.user.id);
+      } else {
+        setLoading(false);
+      }
     });
 
-    // 2. Luister naar auth changes
+    // 2. Luister naar wijzigingen in de authenticatie-status
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) fetchUserRole(session.user.id);
-      else {
-          setUserRole(null);
-          setLoading(false);
+      if (session) {
+        fetchUserRole(session.user.id);
+      } else {
+        setUserRole(null);
+        setShowAdminDashboard(false);
+        setLoading(false);
       }
     });
 
@@ -32,69 +38,79 @@ function App() {
   }, []);
 
   const fetchUserRole = async (userId: string) => {
+    try {
       const { data, error } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', userId)
         .single();
-      
-      // VOEG DEZE REGEL TOE (zodat 'error' gebruikt wordt):
-      if (error) {
-          console.error("Fout bij ophalen rol:", error);
-      }
-      
-      if (data) setUserRole(data.role);
+
+      if (error) throw error;
+      if (data) setUserRole(data.role); //
+    } catch (err) {
+      console.error("Fout bij ophalen rol:", err);
+    } finally {
       setLoading(false);
+    }
   };
 
   const handleLogout = async () => {
-      await supabase.auth.signOut();
-      setUserRole(null);
+    await supabase.auth.signOut(); //
   };
 
-  if (loading) return <div className="text-center mt-20 text-gray-500">Toegangsrechten controleren...</div>;
+  // --- RENDERING LOGICA ---
 
-  if (!session) return <Login />;
-
-  // --- ROUTING LOGICA ---
-  const path = window.location.pathname;
-
-  // Als je naar /admin wilt, MAAR je bent geen admin:
-  if (path === '/admin' && userRole !== 'admin') {
-      return (
-          <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-              <div className="bg-white p-8 rounded-lg shadow-xl text-center max-w-md">
-                  <ShieldAlert className="mx-auto text-red-500 mb-4" size={48} />
-                  <h2 className="text-xl font-bold text-gray-800 mb-2">Geen Toegang</h2>
-                  <p className="text-gray-600 mb-6">Je hebt geen rechten om het admin dashboard te bekijken. Je kunt alleen inspecties uitvoeren.</p>
-                  <button onClick={() => window.location.href = '/'} className="bg-emerald-600 text-white px-4 py-2 rounded font-bold hover:bg-emerald-700">Naar Inspectie App</button>
-                  <button onClick={handleLogout} className="block w-full mt-4 text-sm text-gray-400 hover:text-red-500">Uitloggen</button>
-              </div>
-          </div>
-      );
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-500 font-medium italic">Systeem laden...</div>
+      </div>
+    );
   }
 
-  return (
-    <div>
-        <div className="absolute top-2 right-2 z-50 flex gap-2">
-            {userRole === 'admin' && path !== '/admin' && (
-                <button onClick={() => window.location.href = '/admin'} className="text-xs bg-gray-800 text-white px-3 py-1 rounded font-bold shadow-sm hover:bg-black">
-                    Naar Dashboard
-                </button>
-            )}
-            {userRole === 'admin' && path === '/admin' && (
-                <button onClick={() => window.location.href = '/'} className="text-xs bg-emerald-600 text-white px-3 py-1 rounded font-bold shadow-sm hover:bg-emerald-700">
-                    Naar App
-                </button>
-            )}
-            <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 bg-white/80 p-1 rounded shadow-sm border">
-                <LogOut size={12}/> Uitloggen ({userRole})
-            </button>
-        </div>
+  // Toon inlogscherm als er geen sessie is
+  if (!session) {
+    return <Login />;
+  }
 
-        {path === '/admin' ? <AdminDashboard /> : <InspectorApp />}
+  // Toon het AdminDashboard als de admin daarop heeft geklikt
+  if (showAdminDashboard && userRole === 'admin') {
+    return (
+      <div className="relative">
+        <button 
+          onClick={() => setShowAdminDashboard(false)}
+          className="fixed top-4 right-4 z-50 bg-emerald-600 text-white px-4 py-2 rounded-full shadow-lg font-bold hover:bg-emerald-700 transition flex items-center gap-2"
+        >
+          Terug naar Inspecties
+        </button>
+        <AdminDashboard />
+      </div>
+    );
+  }
+
+  // De standaard view: De Hoofdapplicatie voor zowel Admin als Inspecteur
+  return (
+    <div className="relative">
+      {/* Admin Navigatie Knop & Uitloggen */}
+      <div className="fixed top-2 right-2 z-50 flex items-center gap-2">
+        {userRole === 'admin' && (
+          <button 
+            onClick={() => setShowAdminDashboard(true)}
+            className="bg-gray-800 text-white px-3 py-1.5 rounded shadow-sm text-xs font-bold hover:bg-black transition flex items-center gap-2"
+          >
+            <Settings size={14} /> Beheer
+          </button>
+        )}
+        <button 
+          onClick={handleLogout}
+          className="bg-white/90 text-gray-500 px-3 py-1.5 rounded shadow-sm text-xs font-bold hover:text-red-600 transition flex items-center gap-2 border border-gray-200"
+        >
+          <LogOut size={14} /> Uitloggen
+        </button>
+      </div>
+
+      {/* De Inspectie App krijgt de rol mee voor interne logica */}
+      <InspectorApp /> 
     </div>
   );
 }
-
-export default App;
