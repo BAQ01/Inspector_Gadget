@@ -5,7 +5,7 @@ import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './components/PDFReport';
 import { compressImage, uploadPhotoToCloud } from './utils';
 import SignatureCanvas from 'react-signature-canvas';
-import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, AlertTriangle, Info, FileText, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck } from 'lucide-react';
+import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, FileText, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown} from 'lucide-react';
 import { UsageFunctions, Defect, Classification, LibraryDefect, Instrument, InspectionMeta, BoardMeasurement } from './types';
 import { supabase } from './supabase';
 
@@ -129,6 +129,11 @@ export default function InspectorApp() {
   const [showWorkModal, setShowWorkModal] = useState(false);
   const [availableWork, setAvailableWork] = useState<any[]>([]);
   const [isLoadingWork, setIsLoadingWork] = useState(false);
+
+// --- NIEUW: Zoeken & Sorteren in Werkvoorraad ---
+  const [workSearch, setWorkSearch] = useState('');
+  const [workSort, setWorkSort] = useState<{key: 'date' | 'client' | 'city', dir: 'asc' | 'desc'}>({ key: 'date', dir: 'asc' });
+  // ------------------------------------------------
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [location, setLocation] = useState('');
@@ -627,6 +632,47 @@ export default function InspectorApp() {
   const usageOptionsLeft: {key: keyof UsageFunctions, label: string}[] = [{ key: 'woonfunctie', label: 'Woonfunctie' }, { key: 'bijeenkomstfunctie', label: 'Bijeenkomstfunctie' }, { key: 'celfunctie', label: 'Celfunctie' }, { key: 'gezondheidszorgfunctie', label: 'Gezondheidszorgfunctie' }, { key: 'industriefunctie', label: 'Industriefunctie' }, { key: 'kantoorfunctie', label: 'Kantoorfunctie' }];
   const usageOptionsRight: {key: keyof UsageFunctions, label: string}[] = [{ key: 'logiesfunctie', label: 'Logiesfunctie' }, { key: 'onderwijsfunctie', label: 'Onderwijsfunctie' }, { key: 'sportfunctie', label: 'Sportfunctie' }, { key: 'winkelfunctie', label: 'Winkelfunctie' }, { key: 'overigeGebruiksfunctie', label: 'Overige gebruiksfunctie' }, { key: 'bouwwerkGeenGebouw', label: 'Bouwwerk geen gebouw zijnde' }];
 
+  // --- NIEUWE LOGICA: Werkvoorraad Filteren & Sorteren ---
+  const processedWork = availableWork
+    .filter(job => {
+        const term = workSearch.toLowerCase();
+        const client = (job.client_name || '').toLowerCase();
+        const city = (job.report_data?.meta?.projectCity || '').toLowerCase();
+        const date = (job.report_data?.meta?.date || '').toLowerCase();
+        const id = (job.inspection_number || '').toLowerCase();
+        
+        return client.includes(term) || city.includes(term) || date.includes(term) || id.includes(term);
+    })
+    .sort((a, b) => {
+        let valA = '';
+        let valB = '';
+
+        if (workSort.key === 'client') {
+            valA = a.client_name || '';
+            valB = b.client_name || '';
+        } else if (workSort.key === 'city') {
+            valA = a.report_data?.meta?.projectCity || '';
+            valB = b.report_data?.meta?.projectCity || '';
+        } else {
+            // Default: Date
+            valA = a.report_data?.meta?.date || '';
+            valB = b.report_data?.meta?.date || '';
+        }
+
+        return workSort.dir === 'asc' 
+            ? valA.localeCompare(valB) 
+            : valB.localeCompare(valA);
+    });
+
+  const handleSortClick = (key: 'date' | 'client' | 'city') => {
+      setWorkSort(curr => ({
+          key,
+          dir: curr.key === key && curr.dir === 'asc' ? 'desc' : 'asc'
+      }));
+  };
+  // -------------------------------------------------------
+
+
   const handleDownloadPDF = async () => { 
     if (!meta.signatureUrl) return alert("Teken eerst."); 
     setIsGenerating(true); 
@@ -688,14 +734,103 @@ export default function InspectorApp() {
                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json,application/json" className="hidden" />
                </div>
 
-               {showWorkModal && (
-                   <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]">
-                           <div className="p-4 border-b flex justify-between items-center bg-gray-50"><h3 className="font-bold text-lg flex items-center gap-2 text-blue-800"><Cloud size={20}/> Beschikbare Opdrachten</h3><button onClick={() => setShowWorkModal(false)}><X className="text-gray-400 hover:text-gray-600"/></button></div>
-                           <div className="p-0 overflow-y-auto flex-grow">{isLoadingWork ? (<div className="p-8 text-center text-gray-500">Laden van server...</div>) : (<div className="divide-y">{availableWork.map(job => (<button key={job.id} onClick={() => loadWorkOrder(job)} className="w-full text-left p-4 hover:bg-blue-50 transition flex justify-between items-center group"><div><div className="font-bold text-gray-800">{job.client_name}</div><div className="text-sm text-gray-500 flex items-center gap-2"><Calendar size={12}/> {job.report_data?.meta?.date} <MapPin size={12}/> {job.report_data?.meta?.projectCity}</div></div><div className="text-blue-600 opacity-0 group-hover:opacity-100 font-bold text-sm">Starten →</div></button>))}</div>)}</div>
-                       </div>
-                   </div>
-               )}
+               {/* VERNIEUWDE WERKVOORRAAD MODAL */}
+        {showWorkModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]">
+                    
+                    {/* Header */}
+                    <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                        <h3 className="font-bold text-lg flex items-center gap-2 text-blue-800">
+                            <Cloud size={20}/> Beschikbare Opdrachten
+                        </h3>
+                        <button onClick={() => setShowWorkModal(false)}>
+                            <X className="text-gray-400 hover:text-gray-600"/>
+                        </button>
+                    </div>
+
+                    {/* --- NIEUW: Zoek & Sorteer Balk --- */}
+                    <div className="p-4 bg-gray-100 border-b space-y-3">
+                        {/* Zoekveld */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                            <input 
+                                type="text" 
+                                placeholder="Zoek op naam, plaats, datum of ID..." 
+                                className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                value={workSearch}
+                                onChange={(e) => setWorkSearch(e.target.value)}
+                            />
+                        </div>
+                        
+                        {/* Sorteer Knoppen */}
+                        <div className="flex gap-2 text-xs">
+                            <button 
+                                onClick={() => handleSortClick('date')} 
+                                className={`flex-1 py-1.5 rounded border flex items-center justify-center gap-1 font-bold transition-colors ${workSort.key === 'date' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                            >
+                                Datum {workSort.key === 'date' && (workSort.dir === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}
+                            </button>
+                            <button 
+                                onClick={() => handleSortClick('client')} 
+                                className={`flex-1 py-1.5 rounded border flex items-center justify-center gap-1 font-bold transition-colors ${workSort.key === 'client' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                            >
+                                Klant {workSort.key === 'client' && (workSort.dir === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}
+                            </button>
+                            <button 
+                                onClick={() => handleSortClick('city')} 
+                                className={`flex-1 py-1.5 rounded border flex items-center justify-center gap-1 font-bold transition-colors ${workSort.key === 'city' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                            >
+                                Plaats {workSort.key === 'city' && (workSort.dir === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}
+                            </button>
+                        </div>
+                    </div>
+                    {/* ---------------------------------- */}
+
+                    {/* De Lijst */}
+                    <div className="p-0 overflow-y-auto flex-grow bg-gray-50">
+                        {isLoadingWork ? (
+                            <div className="p-8 text-center text-gray-500 flex flex-col items-center gap-2">
+                                <RefreshCw className="animate-spin text-blue-600" size={24}/>
+                                <span>Opdrachten ophalen...</span>
+                            </div>
+                        ) : processedWork.length === 0 ? (
+                            <div className="p-8 text-center text-gray-400 italic">
+                                Geen opdrachten gevonden.
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-200 bg-white">
+                                {processedWork.map(job => (
+                                    <button 
+                                        key={job.id} 
+                                        onClick={() => loadWorkOrder(job)} 
+                                        className="w-full text-left p-4 hover:bg-blue-50 transition flex justify-between items-center group"
+                                    >
+                                        <div className="flex-grow min-w-0 pr-4">
+                                            <div className="flex justify-between items-start">
+                                                <div className="font-bold text-gray-800 truncate">{job.client_name}</div>
+                                                {job.inspection_number && <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded border text-gray-500 font-mono ml-2 shrink-0">{job.inspection_number}</span>}
+                                            </div>
+                                            <div className="text-sm text-gray-500 flex items-center gap-3 mt-1">
+                                                <span className="flex items-center gap-1"><Calendar size={12}/> {job.report_data?.meta?.date || 'N.t.b.'}</span>
+                                                <span className="flex items-center gap-1 truncate"><MapPin size={12}/> {job.report_data?.meta?.projectCity || job.report_data?.meta?.clientCity || 'Onbekend'}</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-blue-600 opacity-0 group-hover:opacity-100 font-bold text-sm whitespace-nowrap bg-blue-50 px-2 py-1 rounded">
+                                            Starten →
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="p-3 bg-gray-100 text-xs text-center text-gray-400 border-t">
+                        Totaal: {processedWork.length} opdracht(en)
+                    </div>
+                </div>
+            </div>
+        )}
 
                <div className={`bg-gray-50 p-4 rounded border ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
                  <h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Opdrachtgever</h2>
@@ -804,9 +939,25 @@ export default function InspectorApp() {
                        </div>
                    </div>
                </div>
+               {/* TOTAAL AANTAL COMPONENTEN (MOET NOG BINNEN DE SETUP TAB) */}
+               <div className="bg-blue-50 p-4 rounded border border-blue-100">
+                   <label className="text-xs font-bold text-blue-800 uppercase">Totaal aantal componenten</label>
+                   <input 
+                       type="number" 
+                       className="border rounded p-3 w-full mt-1 bg-white" 
+                       value={meta.totalComponents || ''} 
+                       onChange={(e) => setMeta({ totalComponents: parseInt(e.target.value) || 0 })} 
+                       placeholder="0"
+                   />
+                   {meta.totalComponents > 0 && (
+                       <p className="text-xs text-blue-600 mt-2 font-bold">
+                           Steekproef: inspecteer {sampleSize} items.
+                       </p>
+                   )}
+               </div>
             </div>
           )}
-
+          
           {activeTab === 'measure' && (
             <div className="space-y-4">
                 <h2 className="text-lg font-bold text-gray-700 border-b pb-2">Metingen & Beproevingen</h2>
@@ -820,6 +971,51 @@ export default function InspectorApp() {
                     </select>
                     <button onClick={() => setShowNewInstrumentForm(true)} className="bg-blue-600 text-white p-2 rounded whitespace-nowrap flex items-center gap-1 text-sm font-bold"><PlusCircle size={16} /> Nieuw</button>
                 </div>
+            {showNewInstrumentForm && (
+                    <div className="bg-white p-3 rounded border border-blue-200 mb-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                            <input 
+                                className="border p-1 rounded text-sm" 
+                                placeholder="Naam" 
+                                value={newInstName} 
+                                onChange={e => setNewInstName(e.target.value)} 
+                            />
+                            <input 
+                                className="border p-1 rounded text-sm" 
+                                placeholder="Serienummer" 
+                                value={newInstSn} 
+                                onChange={e => setNewInstSn(e.target.value)} 
+                            />
+                            <input 
+                                className="border p-1 rounded text-sm" 
+                                placeholder="Datum" 
+                                value={newInstDate} 
+                                onChange={e => setNewInstDate(e.target.value)} 
+                            />
+                        </div>
+                        <button 
+                            onClick={() => { 
+                                if (!newInstName) return; 
+                                const newInst = { 
+                                    id: generateId(), 
+                                    name: newInstName, 
+                                    serialNumber: newInstSn || 'N.v.t.', 
+                                    calibrationDate: newInstDate || 'N.v.t.' 
+                                }; 
+                                addCustomInstrument(newInst); 
+                                addInstrument(newInst); 
+                                setNewInstName(''); 
+                                setNewInstSn(''); 
+                                setNewInstDate(''); 
+                                setShowNewInstrumentForm(false); 
+                            }} 
+                            className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold w-full"
+                        >
+                            Toevoegen en Opslaan
+                        </button>
+                    </div>
+                )}
+
                 <div className="space-y-1">
                     {measurements.selectedInstruments.map(inst => (
                     <div key={inst.id} className="flex justify-between items-center bg-white p-2 rounded border border-blue-200 shadow-sm">
