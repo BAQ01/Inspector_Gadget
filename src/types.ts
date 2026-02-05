@@ -1,6 +1,6 @@
 // src/types.ts
 
-// 1. CLASSIFICATIE: Bevat nu zowel oude ('Orange') als nieuwe ('Amber') termen
+// 1. CLASSIFICATIE
 export type Classification = 'Red' | 'Amber' | 'Orange' | 'Yellow' | 'Blue';
 
 // 2. BIBLIOTHEEK ITEM
@@ -14,7 +14,7 @@ export interface LibraryDefect {
   action: string;
 }
 
-// 3. BEDRIJVEN & INSPECTEURS (Voor de database lijsten)
+// 3. BEDRIJVEN & INSPECTEURS
 export interface Company {
   name: string;
   address: string;
@@ -39,7 +39,6 @@ export interface Defect {
   action: string;
   photoUrl?: string;
   photoUrl2?: string;
-  // Deze velden zijn nodig voor CSV import en filtering
   category?: string;
   subcategory?: string;
 }
@@ -54,29 +53,25 @@ export interface Instrument {
 
 export interface BoardMeasurement {
   id: string;
-  name: string;             // Bijv. "HVK", "OVK-1"
-  switchboardTemp: string;  // Temperatuur in °C
-  insulationResistance: string; // Riso in MΩ
-  impedance: string;        // Zi in Ω
+  name: string;             
+  switchboardTemp: string;  
+  insulationResistance: string; 
+  impedance: string;        
 }
 
-
 // 6. METINGEN
-// We noemen dit 'Measurements' voor het PDF rapport...
 export interface Measurements {
   installationType: 'TT' | 'TN-S' | 'TN-C-S' | string;
   mainFuse: string;
   mainsVoltage: string;
   yearOfConstruction: string;
-  // insulationResistance, impedance, switchboardTemp zijn hier weg!
-  boards: BoardMeasurement[]; // De nieuwe lijst
+  boards: BoardMeasurement[]; 
   selectedInstruments: Instrument[];
   hasEnergyStorage: boolean | null;
   hasSolarSystem: boolean | null;
 }
 
-// ...maar we exporteren OOK de oude naam 'MeasurementData' als alias.
-// DIT VOORKOMT RODE KRINGELS in bestanden die de oude naam nog gebruiken!
+// Alias voor compatibiliteit
 export type MeasurementData = Measurements;
 
 // 7. GEBRUIKSFUNCTIES
@@ -95,13 +90,13 @@ export interface UsageFunctions {
   bouwwerkGeenGebouw: boolean;
 }
 
-// 8. INSPECTIE BASIS (NTA/Verzekering)
+// 8. INSPECTIE BASIS
 export interface InspectionBasis {
   nta8220: boolean;
   verzekering: boolean;
 }
 
-// 9. METADATA (Klant, Project, etc.)
+// 9. METADATA (Hier stonden waarschijnlijk de rode kringels)
 export interface InspectionMeta {
   // Klant
   clientName: string;
@@ -112,13 +107,15 @@ export interface InspectionMeta {
   clientPhone: string;
   clientEmail: string;
 
-  // Cloud ID
+  // Cloud & Identificatie (NIEUWE VELDEN)
   supabaseId?: number;
-
-  // --- NIEUWE VELDEN VOOR SAMENWERKING (LEAD/CONTRIBUTOR) ---
-  isContributionMode?: boolean; // Is dit een bijdrage van een collega?
-  parentInspectionId?: number | string;  // Het ID van de hoofdopdracht (kan nummer of string zijn uit DB)
-  // ----------------------------------------------------------
+  inspectionNumber?: string; // Het unieke ID (bijv. IP10260204-1)
+  scopeType?: string;        // Bijv. '10'
+  
+  // Samenwerking (NIEUWE VELDEN)
+  isContributionMode?: boolean; 
+  parentInspectionId?: number | string;  
+  parentInspectionNumber?: string; // Toegevoegd om rode kringels in InspectorApp te voorkomen
 
   // Project
   projectLocation: string;
@@ -128,7 +125,7 @@ export interface InspectionMeta {
   projectContactPerson: string;
   projectPhone: string;
   projectEmail: string;
-  installationResponsible: string; // IV'er
+  installationResponsible: string;
   idBagviewer: string;
 
   locationPhotoUrl?: string;
@@ -143,21 +140,41 @@ export interface InspectionMeta {
   
   inspectorName: string;
   additionalInspectors: string[];
-  date: string;
+  
+  // Datums
+  date: string; 
+  finalizedDate?: string | null; // NIEUW: Datum van afronding
+
   sciosRegistrationNumber: string;
   sciosScope?: 'Scope 10'; 
   
   totalComponents: number;
-  signatureUrl?: string | null; // Null toegestaan voor lege handtekening
+  signatureUrl?: string | null;
   
   usageFunctions: UsageFunctions;
 
-  inspectionInterval: number | null; // Number is veiliger dan "3 | 5" voor imports
+  inspectionInterval: number | null; 
   inspectionBasis: InspectionBasis;
   nextInspectionDate: string;
 }
 
-// 10. DE STORE STATE (Global State)
+// 10. DATABASE RIJ (Voor Admin Dashboard ondersteuning)
+export interface InspectionDbRow {
+  id: number;
+  created_at: string;
+  client_name: string;
+  status: string;
+  inspection_number?: string; 
+  scope_type?: string;        
+  report_data: {
+    meta: InspectionMeta;
+    measurements: Measurements;
+    defects: Defect[];
+    customInstruments?: Instrument[];
+  };
+}
+
+// 11. DE STORE STATE
 export interface InspectionState {
   meta: InspectionMeta;
   measurements: Measurements;
@@ -165,7 +182,6 @@ export interface InspectionState {
   customInstruments: Instrument[];
   customLibrary: LibraryDefect[] | null;
 
-  // Actions
   setMeta: (meta: Partial<InspectionMeta>) => void;
   setUsageFunction: (key: keyof UsageFunctions, value: boolean) => void;
   setMeasurements: (data: Partial<Measurements>) => void;
@@ -188,4 +204,3 @@ export interface InspectionState {
   removeBoard: (id: string) => void;
   updateBoard: (id: string, board: BoardMeasurement) => void;
 }
-

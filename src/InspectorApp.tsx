@@ -223,10 +223,12 @@ export default function InspectorApp() {
   const loadWorkOrder = async (inspection: any) => {
     if (!inspection) return;
 
+    // Data parsen (soms is het al JSON, soms een string)
     let dataToLoad = typeof inspection.report_data === 'string' 
       ? JSON.parse(inspection.report_data) 
       : inspection.report_data;
 
+    // Keuze aan de gebruiker
     const userChoice = window.prompt(
       `Opdracht: "${inspection.client_name}"\n\n` +
       `Kies je rol:\n` +
@@ -240,18 +242,31 @@ export default function InspectorApp() {
 
     const baseMeta = dataToLoad.meta || {};
     
+    // De data voorbereiden
     const safeData = {
       ...dataToLoad,
       meta: {
         ...baseMeta,
+        // Als collega: maak inspecteur gegevens leeg (vult eigen naam in)
         inspectorName: isContribution ? '' : (baseMeta.inspectorName || ''),
         sciosRegistrationNumber: isContribution ? '' : (baseMeta.sciosRegistrationNumber || ''),
+        
+        // Contributie modus instellen
         isContributionMode: isContribution,
+        
+        // Koppel het ID van de hoofdopdracht (belangrijk voor de SQL trigger!)
         parentInspectionId: isContribution ? inspection.id : undefined,
+        
+        // Koppel het nummer van de hoofdopdracht (voor weergave: "Bijdrage aan IP...-1")
+        parentInspectionNumber: isContribution ? inspection.inspection_number : undefined,
+        
+        // Reset cloud ID zodat hij als NIEUW wordt opgeslagen, niet als update van het origineel
         supabaseId: isContribution ? undefined : inspection.id,
-        // FIX: Zet datum altijd op VANDAAG bij starten opdracht, ongeacht de planning
+
+        // Zet datum altijd op VANDAAG bij starten uitvoering
         date: new Date().toISOString().split('T')[0]
       },
+      // Als collega: begin met lege lijsten
       defects: isContribution ? [] : (dataToLoad.defects || []),
       measurements: {
         ...(isContribution ? { boards: [] } : (dataToLoad.measurements || { boards: [] })),
@@ -260,8 +275,10 @@ export default function InspectorApp() {
     };
 
     try {
+      // Laad de data in de store
       importState(safeData);
       
+      // Als hoofdinspecteur: zet status in DB op 'in_progress'
       if (!isContribution) {
         await supabase.from('inspections')
           .update({ status: 'in_progress' })
@@ -270,7 +287,14 @@ export default function InspectorApp() {
 
       setShowWorkModal(false);
       setActiveTab('setup');
-      alert(isContribution ? "Modus: COLLEGA. Je bijdrage wordt later samengevoegd." : "Modus: HOOFDINSPECTEUR.");
+      
+      // Feedback aan gebruiker
+      if (isContribution) {
+          alert(`Modus: COLLEGA.\nJe werkt aan een bijdrage voor project ${inspection.inspection_number || '...'}.\nJe ID wordt straks automatisch gegenereerd (bijv. ...-1A).`);
+      } else {
+          alert("Modus: HOOFDINSPECTEUR.\nJe beheert het volledige rapport.");
+      }
+
     } catch (err) {
       console.error("Fout bij laden:", err);
       alert("Er ging iets mis bij het laden van de data.");
@@ -386,27 +410,49 @@ export default function InspectorApp() {
     if (!meta.clientName) return alert("Vul eerst een klantnaam in.");
 
     const isContrib = meta.isContributionMode && meta.parentInspectionId;
+    
+    // Bevestiging vragen
     if (!window.confirm(isContrib ? "Bijdrage uploaden naar Hoofdinspecteur?" : "Opslaan als nieuwe opdracht?")) return;
 
     setIsGenerating(true);
     const reportData = { meta, measurements, defects, customInstruments };
     
+    // Naamgeving bepalen voor in de lijst
+    let uploadClientName = meta.clientName;
+    if (isContrib) {
+        // Zorgt voor titel: "Bakkerij Jansen (Bijdrage aan IP10260204-1)"
+        // De SQL trigger zorgt straks voor het unieke ID (IP10260204-1A)
+        const parentRef = meta.parentInspectionNumber ? ` ${meta.parentInspectionNumber}` : '';
+        uploadClientName += ` (Bijdrage aan${parentRef})`;
+    }
+
     const payload: any = {
-        client_name: meta.clientName + (isContrib ? ` (Bijdrage ${meta.inspectorName})` : ''),
+        client_name: uploadClientName,
+        // Status bepalen: Bijdrage is klaar voor merge, Hoofdinspectie is klaar voor review
         status: isContrib ? 'contribution_ready' : 'review_ready',
         report_data: reportData,
-        parent_id: isContrib ? meta.parentInspectionId : null
+        // CRUCIAAL: Dit vertelt de database of het een Hoofd (NULL) of Kind (ID) is
+        parent_id: isContrib ? meta.parentInspectionId : null,
+        // CRUCIAAL: Dit zorgt dat de nummer-generator afgaat
+        scope_type: '10'
     };
 
+    // Insert in database
     const { data, error } = await supabase.from('inspections').insert(payload).select().single();
 
     setIsGenerating(false);
 
     if (error) {
-        alert("Fout: " + error.message);
+        alert("Fout bij opslaan: " + error.message);
     } else {
-        setMeta({ supabaseId: data.id });
-        alert(isContrib ? "✅ Bijdrage verzonden!" : "✅ Opgeslagen in de cloud.");
+        // Update lokale state met het nieuwe ID
+        setMeta({ supabaseId: data.id, inspectionNumber: data.inspection_number });
+        
+        if (isContrib) {
+            alert(`✅ Bijdrage verzonden!\nJe unieke nummer is: ${data.inspection_number}`);
+        } else {
+            alert(`✅ Opgeslagen in de cloud.\nProject nummer: ${data.inspection_number}`);
+        }
     }
   };
 
