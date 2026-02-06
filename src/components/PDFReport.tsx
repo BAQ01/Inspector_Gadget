@@ -8,7 +8,12 @@ const styles = StyleSheet.create({
   coverPageStyle: { padding: 0, flexDirection: 'column', width: '100%', height: '100%' },
   coverContainer: { flex: 1, position: 'relative', width: '100%', height: '100%' },
   coverBgImage: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: -1 },
-  coverOverlayLeft: { position: 'absolute', top: 0, left: 0, width: '40%', height: '100%', backgroundColor: '#5b82c2', opacity: 0.85, padding: 30, paddingTop: 120, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
+  coverOverlayLeft: { position: 'absolute', top: 0, left: 0, width: '40%', height: '100%', backgroundColor: '#5b82c2', opacity: 0.85, padding: 30, paddingTop: 80, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
+  coverLogo: {
+    width: 180,       // Breedte van het logo
+    height: 'auto',
+    marginTop: 60,    // Zorgt voor witruimte tussen de tekst "NTA 8220" en het logo
+  },
   coverBranding: { marginTop: 0, marginBottom: 40 },
   coverBrandMain: { fontSize: 42, fontWeight: 'bold', color: 'white', lineHeight: 1 },
   coverBrandSub: { fontSize: 24, fontWeight: 'bold', color: 'white', opacity: 0.9 },
@@ -185,6 +190,7 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
         <View style={styles.coverContainer}>
           <Image src={backgroundImageUrl} style={styles.coverBgImage} />
           
+          {/* DE BLAUWE BALK LINKS */}
           <View style={styles.coverOverlayLeft}>
              <View>
                 <View style={styles.coverBranding}>
@@ -199,6 +205,12 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
                     <Text style={styles.coverTitleSub}>Beoordeling elektrisch</Text>
                     <Text style={styles.coverTitleSub}>materieel op brandrisico</Text>
                     <Text style={styles.coverStandard}>Conform NTA 8220</Text>
+
+                    {/* HIER STAAT HET LOGO NU VEILIG IN DE BLAUWE BALK */}
+                    <Image 
+                      src={window.location.origin + "/scios-logo.png"} 
+                      style={styles.coverLogo} 
+                    />
                 </View>
              </View>
 
@@ -214,6 +226,7 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
              </View>
           </View>
 
+          {/* HET WITTE PROJECT BLOK RECHTS */}
           <View style={styles.coverProjectBox}>
             <Text style={styles.projectBoxLabel}>Betreft:</Text>
             <Text style={styles.projectBoxValue}>Inspectie SCIOS Scope 10</Text>
@@ -224,6 +237,8 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
             <Text style={styles.projectBoxLabel}>Datum:</Text>
             <Text style={styles.projectBoxValue}>{meta.date}</Text>
           </View>
+
+     
         </View>
       </Page>
 

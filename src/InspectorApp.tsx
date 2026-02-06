@@ -132,8 +132,8 @@ export default function InspectorApp() {
 
 // --- NIEUW: Zoeken & Sorteren in Werkvoorraad ---
   const [workSearch, setWorkSearch] = useState('');
-  const [workSort, setWorkSort] = useState<{key: 'date' | 'client' | 'city', dir: 'asc' | 'desc'}>({ key: 'date', dir: 'asc' });
-  // ------------------------------------------------
+  const [workSort, setWorkSort] = useState<{key: 'date' | 'client' | 'city' | 'project', dir: 'asc' | 'desc'}>({ key: 'date', dir: 'asc' });
+  const [filterToday, setFilterToday] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [location, setLocation] = useState('');
@@ -632,16 +632,27 @@ export default function InspectorApp() {
   const usageOptionsLeft: {key: keyof UsageFunctions, label: string}[] = [{ key: 'woonfunctie', label: 'Woonfunctie' }, { key: 'bijeenkomstfunctie', label: 'Bijeenkomstfunctie' }, { key: 'celfunctie', label: 'Celfunctie' }, { key: 'gezondheidszorgfunctie', label: 'Gezondheidszorgfunctie' }, { key: 'industriefunctie', label: 'Industriefunctie' }, { key: 'kantoorfunctie', label: 'Kantoorfunctie' }];
   const usageOptionsRight: {key: keyof UsageFunctions, label: string}[] = [{ key: 'logiesfunctie', label: 'Logiesfunctie' }, { key: 'onderwijsfunctie', label: 'Onderwijsfunctie' }, { key: 'sportfunctie', label: 'Sportfunctie' }, { key: 'winkelfunctie', label: 'Winkelfunctie' }, { key: 'overigeGebruiksfunctie', label: 'Overige gebruiksfunctie' }, { key: 'bouwwerkGeenGebouw', label: 'Bouwwerk geen gebouw zijnde' }];
 
-  // --- NIEUWE LOGICA: Werkvoorraad Filteren & Sorteren ---
+  // --- BIJGEWERKT: Werkvoorraad Filteren & Sorteren ---
   const processedWork = availableWork
     .filter(job => {
         const term = workSearch.toLowerCase();
         const client = (job.client_name || '').toLowerCase();
-        const city = (job.report_data?.meta?.projectCity || '').toLowerCase();
-        const date = (job.report_data?.meta?.date || '').toLowerCase();
+        const meta = job.report_data?.meta || {};
+        const project = (meta.projectLocation || '').toLowerCase();
+        const city = (meta.projectCity || '').toLowerCase();
+        const date = (meta.date || '').toLowerCase();
         const id = (job.inspection_number || '').toLowerCase();
         
-        return client.includes(term) || city.includes(term) || date.includes(term) || id.includes(term);
+        // Check of het aan de zoekterm voldoet
+        const matchesSearch = client.includes(term) || project.includes(term) || city.includes(term) || date.includes(term) || id.includes(term);
+        
+        // Check of het "Vandaag" filter aan staat
+        if (filterToday) {
+            const today = new Date().toISOString().split('T')[0];
+            return matchesSearch && date === today;
+        }
+
+        return matchesSearch;
     })
     .sort((a, b) => {
         let valA = '';
@@ -650,6 +661,9 @@ export default function InspectorApp() {
         if (workSort.key === 'client') {
             valA = a.client_name || '';
             valB = b.client_name || '';
+        } else if (workSort.key === 'project') {
+            valA = a.report_data?.meta?.projectLocation || '';
+            valB = b.report_data?.meta?.projectLocation || '';
         } else if (workSort.key === 'city') {
             valA = a.report_data?.meta?.projectCity || '';
             valB = b.report_data?.meta?.projectCity || '';
@@ -664,13 +678,12 @@ export default function InspectorApp() {
             : valB.localeCompare(valA);
     });
 
-  const handleSortClick = (key: 'date' | 'client' | 'city') => {
+  const handleSortClick = (key: 'date' | 'client' | 'city' | 'project') => {
       setWorkSort(curr => ({
           key,
           dir: curr.key === key && curr.dir === 'asc' ? 'desc' : 'asc'
       }));
   };
-  // -------------------------------------------------------
 
 
   const handleDownloadPDF = async () => { 
@@ -749,45 +762,49 @@ export default function InspectorApp() {
                         </button>
                     </div>
 
-                    {/* --- NIEUW: Zoek & Sorteer Balk --- */}
+                    {/* --- BIJGEWERKT: Zoek & Sorteer Balk --- */}
                     <div className="p-4 bg-gray-100 border-b space-y-3">
-                        {/* Zoekveld */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                            <input 
-                                type="text" 
-                                placeholder="Zoek op naam, plaats, datum of ID..." 
-                                className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                value={workSearch}
-                                onChange={(e) => setWorkSearch(e.target.value)}
-                            />
+                        {/* Zoekveld en Vandaag Filter */}
+                        <div className="flex gap-2 items-center">
+                            <div className="relative flex-grow">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                                <input 
+                                    type="text" 
+                                    placeholder="Zoek op naam, project, plaats..." 
+                                    className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={workSearch}
+                                    onChange={(e) => setWorkSearch(e.target.value)}
+                                />
+                            </div>
+                            <label className="flex items-center gap-2 bg-white px-3 py-2 border rounded-lg cursor-pointer hover:bg-blue-50 transition-colors shrink-0">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 text-blue-600 rounded" 
+                                    checked={filterToday}
+                                    onChange={(e) => setFilterToday(e.target.checked)}
+                                />
+                                <span className="text-xs font-bold text-gray-700">Vandaag</span>
+                            </label>
                         </div>
                         
                         {/* Sorteer Knoppen */}
-                        <div className="flex gap-2 text-xs">
-                            <button 
-                                onClick={() => handleSortClick('date')} 
-                                className={`flex-1 py-1.5 rounded border flex items-center justify-center gap-1 font-bold transition-colors ${workSort.key === 'date' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                            >
+                        <div className="grid grid-cols-4 gap-2 text-[10px] md:text-xs">
+                            <button onClick={() => handleSortClick('date')} className={`py-1.5 rounded border flex items-center justify-center gap-1 font-bold ${workSort.key === 'date' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600'}`}>
                                 Datum {workSort.key === 'date' && (workSort.dir === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}
                             </button>
-                            <button 
-                                onClick={() => handleSortClick('client')} 
-                                className={`flex-1 py-1.5 rounded border flex items-center justify-center gap-1 font-bold transition-colors ${workSort.key === 'client' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                            >
+                            <button onClick={() => handleSortClick('client')} className={`py-1.5 rounded border flex items-center justify-center gap-1 font-bold ${workSort.key === 'client' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600'}`}>
                                 Klant {workSort.key === 'client' && (workSort.dir === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}
                             </button>
-                            <button 
-                                onClick={() => handleSortClick('city')} 
-                                className={`flex-1 py-1.5 rounded border flex items-center justify-center gap-1 font-bold transition-colors ${workSort.key === 'city' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                            >
+                            <button onClick={() => handleSortClick('project')} className={`py-1.5 rounded border flex items-center justify-center gap-1 font-bold ${workSort.key === 'project' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600'}`}>
+                                Project {workSort.key === 'project' && (workSort.dir === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}
+                            </button>
+                            <button onClick={() => handleSortClick('city')} className={`py-1.5 rounded border flex items-center justify-center gap-1 font-bold ${workSort.key === 'city' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600'}`}>
                                 Plaats {workSort.key === 'city' && (workSort.dir === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/>)}
                             </button>
                         </div>
                     </div>
-                    {/* ---------------------------------- */}
 
-                    {/* De Lijst */}
+                    {/* De Lijst (Bijgewerkt met Projectnaam) */}
                     <div className="p-0 overflow-y-auto flex-grow bg-gray-50">
                         {isLoadingWork ? (
                             <div className="p-8 text-center text-gray-500 flex flex-col items-center gap-2">
@@ -808,15 +825,20 @@ export default function InspectorApp() {
                                     >
                                         <div className="flex-grow min-w-0 pr-4">
                                             <div className="flex justify-between items-start">
-                                                <div className="font-bold text-gray-800 truncate">{job.client_name}</div>
+                                                <div className="font-bold text-gray-800 truncate">
+                                                    {job.client_name}
+                                                    <span className="block text-xs font-normal text-blue-600 italic truncate">
+                                                        {job.report_data?.meta?.projectLocation || 'Geen projectnaam'}
+                                                    </span>
+                                                </div>
                                                 {job.inspection_number && <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded border text-gray-500 font-mono ml-2 shrink-0">{job.inspection_number}</span>}
                                             </div>
-                                            <div className="text-sm text-gray-500 flex items-center gap-3 mt-1">
+                                            <div className="text-[11px] text-gray-500 flex items-center gap-3 mt-1">
                                                 <span className="flex items-center gap-1"><Calendar size={12}/> {job.report_data?.meta?.date || 'N.t.b.'}</span>
-                                                <span className="flex items-center gap-1 truncate"><MapPin size={12}/> {job.report_data?.meta?.projectCity || job.report_data?.meta?.clientCity || 'Onbekend'}</span>
+                                                <span className="flex items-center gap-1 truncate"><MapPin size={12}/> {job.report_data?.meta?.projectCity || 'Onbekend'}</span>
                                             </div>
                                         </div>
-                                        <div className="text-blue-600 opacity-0 group-hover:opacity-100 font-bold text-sm whitespace-nowrap bg-blue-50 px-2 py-1 rounded">
+                                        <div className="text-blue-600 opacity-0 group-hover:opacity-100 font-bold text-xs whitespace-nowrap bg-blue-50 px-2 py-1 rounded">
                                             Starten →
                                         </div>
                                     </button>
