@@ -101,7 +101,8 @@ export default function AdminDashboard() {
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'inspector' });
   
   const excelInputRef = useRef<HTMLInputElement>(null);
-  
+  const restoreInputRef = useRef<HTMLInputElement>(null);
+
   // --- FETCHERS ---
   const fetchInspections = async () => {
     setLoading(true);
@@ -194,28 +195,34 @@ export default function AdminDashboard() {
        }
   };
 
-  const handleBulkDownloadPDFs = async () => {
+    const handleBulkDownloadPDFs = async () => {
     if (selectedIds.length === 0) return;
     
-    // Zoek de volledige data op voor de geselecteerde IDs
     const selectedInspections = inspections.filter(insp => selectedIds.includes(insp.id));
     
     for (const insp of selectedInspections) {
       try {
+        const { meta, defects, measurements } = insp.report_data;
+        
+        // Naming Convention: [Datum]_[Klant]_[Project]_[Plaats].pdf
+        const fileName = `${meta.date || 'Datum'}_${meta.clientName || 'Klant'}_${meta.projectLocation || 'Project'}_${meta.projectCity || 'Plaats'}.pdf`;
+
         const doc = <PDFReport 
-          meta={insp.report_data.meta} 
-          measurements={insp.report_data.measurements} 
-          defects={insp.report_data.defects} 
+          meta={meta} 
+          measurements={measurements} 
+          defects={defects || []} 
         />;
+        
         const blob = await pdf(doc).toBlob();
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `Inspectierapport_${insp.report_data.meta.clientName || 'Onbekend'}_${insp.id}.pdf`;
+        link.download = fileName;
         link.click();
         URL.revokeObjectURL(url);
-        // Kleine pauze tussen downloads om browser-blocking te voorkomen
-        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Wachttijd om browser-blocking te voorkomen
+        await new Promise(resolve => setTimeout(resolve, 600));
       } catch (err) {
         console.error(`Fout bij genereren PDF voor ID ${insp.id}:`, err);
       }
@@ -347,7 +354,11 @@ export default function AdminDashboard() {
         const { meta, defects, measurements } = inspection.report_data;
         const blob = await pdf(<PDFReport meta={meta} defects={defects || []} measurements={measurements} />).toBlob();
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = `${meta?.clientName || 'Rapport'}.pdf`;
+        const a = document.createElement('a'); a.href = url;
+        
+        // Naming Convention: [Datum]_[Klant]_[Project]_[Plaats].pdf
+        a.download = `${meta.date || 'Datum'}_${meta.clientName || 'Klant'}_${meta.projectLocation || 'Project'}_${meta.projectCity || 'Plaats'}.pdf`;
+        
         document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       } catch (e) { console.error(e); alert("Fout bij genereren"); } finally { setIsGeneratingPdf(false); }
   };
@@ -379,6 +390,63 @@ export default function AdminDashboard() {
       const a = document.createElement('a'); a.href = url; 
       a.download = `FULL_BACKUP_${new Date().toISOString()}.json`; 
       document.body.appendChild(a); a.click(); document.body.removeChild(a); 
+  };
+  // --- NIEUWE FUNCTIE: RESTORE BACKUP ---
+  const handleRestoreBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm("⚠️ WAARSCHUWING: DATABASE HERSTEL ⚠️\n\nJe staat op het punt een volledige backup terug te zetten.\n- Bestaande inspecties met hetzelfde ID worden OVERSCHREVEN.\n- Inspecties die niet in de backup staan, blijven bestaan.\n\nWeet je zeker dat je wilt doorgaan?")) {
+        if (restoreInputRef.current) restoreInputRef.current.value = '';
+        return;
+    }
+
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        try {
+            const json = JSON.parse(event.target?.result as string);
+            
+            // Validatie: Is het een array? (Full Backup formaat)
+            if (!Array.isArray(json)) {
+                alert("Fout: Dit bestand wordt niet herkend als een 'Volledige Backup'.\n(Verwacht een lijst met inspecties, [ {...}, {...} ])");
+                setLoading(false);
+                return;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // We sorteren op ID om te zorgen dat 'oudere' records (zoals parents) eerst komen, 
+            // om Foreign Key fouten bij contributions te voorkomen.
+            const sortedJson = json.sort((a: any, b: any) => (a.id || 0) - (b.id || 0));
+
+            for (const item of sortedJson) {
+                // Upsert: Maak aan als niet bestaat, update als ID bestaat
+                const { error } = await supabase
+                    .from('inspections')
+                    .upsert(item); 
+
+                if (error) {
+                    console.error("Fout bij terugzetten item ID " + item.id, error);
+                    failCount++;
+                } else {
+                    successCount++;
+                }
+            }
+
+            alert(`Restore proces voltooid!\n\n✅ ${successCount} items succesvol hersteld/geüpdatet.\n❌ ${failCount} items mislukt (zie console voor details).`);
+            fetchInspections();
+
+        } catch (err: any) {
+            console.error(err);
+            alert("Fout bij lezen bestand: " + err.message);
+        } finally {
+            setLoading(false);
+            if (restoreInputRef.current) restoreInputRef.current.value = '';
+        }
+    };
+    reader.readAsText(file);
   };
 
   const handleExcelExport = async () => { 
@@ -617,8 +685,12 @@ export default function AdminDashboard() {
                     <input type="file" ref={excelInputRef} onChange={handleExcelImport} accept=".xlsx, .xls" className="hidden" />
                     <button onClick={handleExcelExport} className="flex items-center gap-2 bg-white px-4 py-2 rounded shadow text-green-700 hover:bg-green-50 font-bold whitespace-nowrap border border-green-200"><Download size={18} /> Export Excel</button>
                     <button onClick={handleExportAll} className="flex items-center gap-2 bg-gray-700 px-4 py-2 rounded shadow text-white hover:bg-gray-800 font-bold border border-gray-600"><Database size={18} /> Backup</button>
+                    
+                    <button onClick={() => restoreInputRef.current?.click()} className="flex items-center gap-2 bg-orange-600 px-4 py-2 rounded shadow text-white hover:bg-orange-700 font-bold border border-orange-700 whitespace-nowrap" title="Zet een FULL_BACKUP.json terug"><RefreshCw size={18} /> Herstel</button>
+                    <input type="file" ref={restoreInputRef} onChange={handleRestoreBackup} accept=".json,application/json" className="hidden" />
+
                     {selectedIds.length > 0 && (
-                    <>
+                      <>
                         <button onClick={handleBulkDownloadPDFs} className="flex items-center gap-2 bg-blue-600 px-4 py-2 rounded shadow text-white hover:bg-blue-700 font-bold whitespace-nowrap border border-blue-700">
                           <FileText size={18} /> PDF Rapport ({selectedIds.length})
                         </button>
