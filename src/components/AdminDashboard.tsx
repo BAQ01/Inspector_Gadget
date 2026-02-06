@@ -77,6 +77,7 @@ export default function AdminDashboard() {
   const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'created_at', direction: 'desc' });
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   // SETTINGS & AUTH STATES
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -100,8 +101,7 @@ export default function AdminDashboard() {
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'inspector' });
   
   const excelInputRef = useRef<HTMLInputElement>(null);
-
-  // --- FETCHERS ---
+  
   // --- FETCHERS ---
   const fetchInspections = async () => {
     setLoading(true);
@@ -180,6 +180,31 @@ export default function AdminDashboard() {
       setSortConfig(current => ({ key, direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc' }));
       setPage(1);
   };
+    const handleBulkDelete = async () => {
+        if (selectedIds.length === 0) return;
+        if (window.confirm(`Weet je zeker dat je ${selectedIds.length} inspecties wilt verwijderen?`)) {
+            const { error } = await supabase.from('inspections').delete().in('id', selectedIds);
+            if (error) {
+                alert("Fout bij bulkverwijdering: " + error.message);
+            } else {
+                alert(`${selectedIds.length} inspecties verwijderd.`);
+                setSelectedIds([]);
+                fetchInspections();
+            }
+        }
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === inspections.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(inspections.map(insp => insp.id));
+        }
+    };
+
+    const toggleSelectRow = (id: number) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(rowId => rowId !== id) : [...prev, id]);
+    };
 
   const SortableHeader = ({ label, sortKey, width }: { label: string, sortKey: string, width?: string }) => (
       <th className={`px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors select-none ${width}`} onClick={() => handleSort(sortKey)}>
@@ -563,8 +588,10 @@ export default function AdminDashboard() {
                     <input type="file" ref={excelInputRef} onChange={handleExcelImport} accept=".xlsx, .xls" className="hidden" />
                     <button onClick={handleExcelExport} className="flex items-center gap-2 bg-white px-4 py-2 rounded shadow text-green-700 hover:bg-green-50 font-bold whitespace-nowrap border border-green-200"><Download size={18} /> Export Excel</button>
                     <button onClick={handleExportAll} className="flex items-center gap-2 bg-gray-700 px-4 py-2 rounded shadow text-white hover:bg-gray-800 font-bold border border-gray-600"><Database size={18} /> Backup</button>
-                    <button onClick={() => { setNewOrder(EMPTY_ORDER); setShowOrderModal(true); }} className="flex items-center gap-2 bg-emerald-600 px-4 py-2 rounded shadow text-white hover:bg-emerald-700 font-bold whitespace-nowrap"><Plus size={18} /> Nieuw</button>
-                 </>
+                    {selectedIds.length > 0 && (
+                    <button onClick={handleBulkDelete} className="flex items-center gap-2 bg-red-600 px-4 py-2 rounded shadow text-white hover:bg-red-700 font-bold whitespace-nowrap animate-pulse border border-red-700"><Trash2 size={18} /> Verwijder geselecteerde ({selectedIds.length})</button>
+                    )}
+                    <button onClick={() => { setNewOrder(EMPTY_ORDER); setShowOrderModal(true); }} className="flex items-center gap-2 bg-emerald-600 px-4 py-2 rounded shadow text-white hover:bg-emerald-700 font-bold whitespace-nowrap"><Plus size={18} /> Nieuw</button>                 </>
              )}
           </div>
         </div>
@@ -597,6 +624,14 @@ export default function AdminDashboard() {
                     <table className="min-w-full">
                     <thead className="bg-gray-50 border-b">
                         <tr>
+                            <th className="px-4 py-3 text-left w-10">
+                                <input 
+                                    type="checkbox" 
+                                    className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                    checked={inspections.length > 0 && selectedIds.length === inspections.length}
+                                    onChange={toggleSelectAll}
+                                />
+                            </th>
                             <SortableHeader label="Aangemaakt" sortKey="created_at" width="w-28" />
                             <SortableHeader label="Geüpdatet" sortKey="updated_at" width="w-40" />
                             <SortableHeader label="Start" sortKey="date_start" width="w-28" />
@@ -613,8 +648,15 @@ export default function AdminDashboard() {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                         {inspections.map((insp) => (
-                        <tr key={insp.id} className="hover:bg-gray-50">
-                            {/* 1. Aangemaakt */}
+                        <tr key={insp.id} className={`hover:bg-gray-50 ${selectedIds.includes(insp.id) ? 'bg-emerald-50/50' : ''}`}>
+                            <td className="px-4 py-3">
+                                <input 
+                                    type="checkbox" 
+                                    className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                    checked={selectedIds.includes(insp.id)}
+                                    onChange={() => toggleSelectRow(insp.id)}
+                                />
+                            </td>
                             <td className="px-4 py-3 text-xs text-gray-500"><div className="flex items-center gap-1"><Clock size={14} className="text-gray-400"/> {normalizeDate(insp.created_at)}</div></td>
                             {/* 2. Updated */}
                             <td className="px-4 py-3 text-xs text-blue-600 font-medium whitespace-nowrap">{formatDateTime(insp.updated_at)}</td>                            
