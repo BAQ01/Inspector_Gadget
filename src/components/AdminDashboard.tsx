@@ -37,6 +37,20 @@ const normalizeDate = (input: any): string => {
     return text; // Geef origineel terug als we het niet snappen (voorkomt wissen data)
 };
 
+// HELPER: Volledige datum en tijd voor de 'Geupdate' kolom
+const formatDateTime = (input: any): string => {
+    if (!input) return '-';
+    const d = new Date(input);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleString('nl-NL', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+};
+
 // Standaard waarden
 const EMPTY_ORDER = {
     inspectorName: '', sciosRegistrationNumber: '',
@@ -101,10 +115,11 @@ export default function AdminDashboard() {
         query = query.or(`client_name.ilike.%${searchTerm}%, inspection_number.ilike.%${searchTerm}%, report_data->meta->>projectCity.ilike.%${searchTerm}%, report_data->meta->>projectLocation.ilike.%${searchTerm}%, report_data->meta->>inspectorName.ilike.%${searchTerm}%`);
     }
 
-    // 2. SERVER-SIDE SORTERING (Voor de standaard gevallen)
-    // We laten de database het zware werk doen voor datums en simpele strings
+    // 2. SERVER-SIDE SORTERING
     if (sortConfig.key === 'created_at') {
         query = query.order('created_at', { ascending: sortConfig.direction === 'asc' });
+    } else if (sortConfig.key === 'updated_at') {
+        query = query.order('updated_at', { ascending: sortConfig.direction === 'asc' });
     } else if (sortConfig.key === 'date_start') {
         query = query.order('report_data->meta->>date', { ascending: sortConfig.direction === 'asc' });
     } else if (sortConfig.key === 'date_finalized') {
@@ -116,7 +131,6 @@ export default function AdminDashboard() {
     } else if (sortConfig.key === 'project_city') {
         query = query.order('report_data->meta->>projectCity', { ascending: sortConfig.direction === 'asc' });
     } else if (sortConfig.key !== 'inspection_number' && sortConfig.key !== 'inspector') {
-        // Fallback voor alles behalve ID en Inspecteur (die doen we lokaal)
         query = query.order('created_at', { ascending: false });
     }
 
@@ -324,6 +338,7 @@ export default function AdminDashboard() {
         { header: 'Inspectie ID', key: 'id', width: 20 },
         { header: 'Status', key: 'status', width: 15 },
         { header: 'Aangemaakt op', key: 'createdAt', width: 15 },
+        { header: 'Geupdate op', key: 'updatedAt', width: 20 },
         { header: 'Datum Uitvoering', key: 'date', width: 15 },
         { header: 'Datum Afgerond', key: 'finalizedDate', width: 15 },
         
@@ -359,6 +374,7 @@ export default function AdminDashboard() {
             status: item.status,
             // HIER IS DE FIX VOOR EXPORT: Uniform YYYY-MM-DD
             createdAt: normalizeDate(item.created_at),
+            updatedAt: formatDateTime(item.updated_at),
             date: normalizeDate(meta.date),
             finalizedDate: normalizeDate(meta.finalizedDate) || '-',
             
@@ -582,6 +598,7 @@ export default function AdminDashboard() {
                     <thead className="bg-gray-50 border-b">
                         <tr>
                             <SortableHeader label="Aangemaakt" sortKey="created_at" width="w-28" />
+                            <SortableHeader label="Geüpdatet" sortKey="updated_at" width="w-40" />
                             <SortableHeader label="Start" sortKey="date_start" width="w-28" />
                             <SortableHeader label="Afgerond" sortKey="date_finalized" width="w-28" />
                             {/* ID breder gemaakt zodat het op 1 regel past */}
@@ -599,6 +616,8 @@ export default function AdminDashboard() {
                         <tr key={insp.id} className="hover:bg-gray-50">
                             {/* 1. Aangemaakt */}
                             <td className="px-4 py-3 text-xs text-gray-500"><div className="flex items-center gap-1"><Clock size={14} className="text-gray-400"/> {normalizeDate(insp.created_at)}</div></td>
+                            {/* 2. Updated */}
+                            <td className="px-4 py-3 text-xs text-blue-600 font-medium whitespace-nowrap">{formatDateTime(insp.updated_at)}</td>                            
                             {/* 2. Start */}
                             <td className="px-4 py-3 text-sm font-bold text-gray-700"><div className="flex items-center gap-1"><Calendar size={14} className="text-emerald-600"/>{normalizeDate(insp.report_data?.meta?.date) || '-'}</div></td>
                             {/* 3. Afgerond */}
