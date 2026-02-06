@@ -191,8 +191,37 @@ export default function AdminDashboard() {
                 setSelectedIds([]);
                 fetchInspections();
             }
-        }
-    };
+       }
+  };
+
+  const handleBulkDownloadPDFs = async () => {
+    if (selectedIds.length === 0) return;
+    
+    // Zoek de volledige data op voor de geselecteerde IDs
+    const selectedInspections = inspections.filter(insp => selectedIds.includes(insp.id));
+    
+    for (const insp of selectedInspections) {
+      try {
+        const doc = <PDFReport 
+          meta={insp.report_data.meta} 
+          measurements={insp.report_data.measurements} 
+          defects={insp.report_data.defects} 
+        />;
+        const blob = await pdf(doc).toBlob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Inspectierapport_${insp.report_data.meta.clientName || 'Onbekend'}_${insp.id}.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
+        // Kleine pauze tussen downloads om browser-blocking te voorkomen
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (err) {
+        console.error(`Fout bij genereren PDF voor ID ${insp.id}:`, err);
+      }
+    }
+  };
+    
 
     const toggleSelectAll = () => {
         if (selectedIds.length === inspections.length) {
@@ -589,7 +618,14 @@ export default function AdminDashboard() {
                     <button onClick={handleExcelExport} className="flex items-center gap-2 bg-white px-4 py-2 rounded shadow text-green-700 hover:bg-green-50 font-bold whitespace-nowrap border border-green-200"><Download size={18} /> Export Excel</button>
                     <button onClick={handleExportAll} className="flex items-center gap-2 bg-gray-700 px-4 py-2 rounded shadow text-white hover:bg-gray-800 font-bold border border-gray-600"><Database size={18} /> Backup</button>
                     {selectedIds.length > 0 && (
-                    <button onClick={handleBulkDelete} className="flex items-center gap-2 bg-red-600 px-4 py-2 rounded shadow text-white hover:bg-red-700 font-bold whitespace-nowrap animate-pulse border border-red-700"><Trash2 size={18} /> Verwijder geselecteerde ({selectedIds.length})</button>
+                    <>
+                        <button onClick={handleBulkDownloadPDFs} className="flex items-center gap-2 bg-blue-600 px-4 py-2 rounded shadow text-white hover:bg-blue-700 font-bold whitespace-nowrap border border-blue-700">
+                          <FileText size={18} /> PDF Rapport ({selectedIds.length})
+                        </button>
+                        <button onClick={handleBulkDelete} className="flex items-center gap-2 bg-red-600 px-4 py-2 rounded shadow text-white hover:bg-red-700 font-bold whitespace-nowrap animate-pulse border border-red-700">
+                          <Trash2 size={18} /> Verwijder ({selectedIds.length})
+                        </button>
+                      </>
                     )}
                     <button onClick={() => { setNewOrder(EMPTY_ORDER); setShowOrderModal(true); }} className="flex items-center gap-2 bg-emerald-600 px-4 py-2 rounded shadow text-white hover:bg-emerald-700 font-bold whitespace-nowrap"><Plus size={18} /> Nieuw</button>                 </>
              )}
