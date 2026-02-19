@@ -627,8 +627,30 @@ const handleCloudMerge = async () => {
               instruments: userProfile.instruments // Zorgt dat de koffer wordt opgeslagen
           }).eq('id', session.user.id);
           
-          if (error) alert("Fout bij opslaan: " + error.message);
-          else alert("✅ Profiel en koffer succesvol opgeslagen!");
+          if (error) {
+              alert("Fout bij opslaan: " + error.message);
+          } else {
+              // Als bedrijfsnaam nieuw is (staat nog niet in de admin-lijst), voeg toe aan form_options
+              const companyName = userProfile.company_name?.trim();
+              const alreadyExists = dbCompanies.some(c => c.label === companyName);
+              if (companyName && !alreadyExists) {
+                  const { data: inserted } = await supabase.from('form_options').insert({
+                      category: 'iv_company',
+                      label: companyName,
+                      data: {
+                          address: userProfile.company_address || '',
+                          postalCode: userProfile.company_postal_code || '',
+                          city: userProfile.company_city || '',
+                          phone: userProfile.company_phone || '',
+                          email: userProfile.company_email || '',
+                      }
+                  }).select().single();
+                  if (inserted) {
+                      setDbCompanies(prev => [...prev, inserted]);
+                  }
+              }
+              alert("✅ Profiel en koffer succesvol opgeslagen!");
+          }
       }
       setIsGenerating(false);
   };
@@ -1300,15 +1322,16 @@ const handleCloudMerge = async () => {
                   </div>
               )}
 
+              {!meta.isContributionMode && (
+                <button onClick={handleCloudMerge} className="bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded font-bold shadow flex items-center justify-center gap-2 text-sm w-full mb-6"><CloudDownload size={16} /> Zoek Cloud Bijdragen</button>
+              )}
+
               <div className="bg-orange-50 p-4 rounded border border-orange-200 mb-6 text-left">
                   <h3 className="font-bold text-orange-800 mb-3 flex items-center gap-2 uppercase text-sm"><Download size={18}/> Data & Backup</h3>
                   <div className="grid grid-cols-2 gap-4">
                       <button onClick={handleBackupDownload} className="bg-orange-600 hover:bg-orange-700 text-white py-3 rounded font-bold shadow flex items-center justify-center gap-2 text-sm"><Download size={16} /> Backup Opslaan</button>
                       <button onClick={handleMergeClick} className="bg-purple-600 hover:bg-purple-700 text-white py-3 rounded font-bold shadow flex items-center justify-center gap-2 text-sm"><PlusCircle size={16} /> Samenvoegen (Lokaal)</button>
                   </div>
-                  {!meta.isContributionMode && (
-                    <button onClick={handleCloudMerge} className="bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded font-bold shadow flex items-center justify-center gap-2 text-sm w-full mt-2"><CloudDownload size={16} /> Zoek Cloud Bijdragen</button>
-                  )}
                   <input type="file" ref={mergeInputRef} onChange={handleMergeFile} accept=".json,application/json" className="hidden" />
               </div>
 
@@ -1366,7 +1389,35 @@ const handleCloudMerge = async () => {
                             </div>
                         )}                        {profileTab === 'bedrijf' && (
                             <div className="space-y-4">
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bedrijfsnaam</label><input className="w-full border rounded p-3 font-bold" value={userProfile.company_name} onChange={e => setUserProfile({...userProfile, company_name: e.target.value})} /></div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bedrijfsnaam</label>
+                                    <ClearableInput
+                                        list="profile-companies-list"
+                                        className="w-full border rounded p-3 font-bold"
+                                        value={userProfile.company_name}
+                                        placeholder="Kies of typ een nieuw bedrijf..."
+                                        onChange={(e: any) => {
+                                            const val = e.target.value;
+                                            const match = dbCompanies.find(c => c.label === val);
+                                            if (match?.data) {
+                                                setUserProfile({
+                                                    ...userProfile,
+                                                    company_name: val,
+                                                    company_address: match.data.address || '',
+                                                    company_postal_code: match.data.postalCode || '',
+                                                    company_city: match.data.city || '',
+                                                    company_phone: match.data.phone || '',
+                                                    company_email: match.data.email || '',
+                                                });
+                                            } else {
+                                                setUserProfile({...userProfile, company_name: val});
+                                            }
+                                        }}
+                                    />
+                                    <datalist id="profile-companies-list">
+                                        {dbCompanies.map((c, i) => <option key={i} value={c.label} />)}
+                                    </datalist>
+                                </div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adres</label><input className="w-full border rounded p-3" value={userProfile.company_address} onChange={e => setUserProfile({...userProfile, company_address: e.target.value})} /></div>
                                 <div className="flex gap-4"><div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-3" value={userProfile.company_postal_code} onChange={e => setUserProfile({...userProfile, company_postal_code: e.target.value})} /></div><div className="w-2/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label><input className="w-full border rounded p-3" value={userProfile.company_city} onChange={e => setUserProfile({...userProfile, company_city: e.target.value})} /></div></div>
                                 <div className="flex gap-4"><div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoon</label><input className="w-full border rounded p-3" value={userProfile.company_phone} onChange={e => setUserProfile({...userProfile, company_phone: e.target.value})} /></div><div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-mail</label><input className="w-full border rounded p-3" value={userProfile.company_email} onChange={e => setUserProfile({...userProfile, company_email: e.target.value})} /></div></div>
