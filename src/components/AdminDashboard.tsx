@@ -1039,8 +1039,7 @@ const handleLoadDefaultLibrary = async () => {
                 </table>
             </div>
         )}
-
-        {/* TAB SETTINGS (Ongewijzigd) */}
+{/* TAB SETTINGS */}
         {activeTab === 'settings' && (
              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                  {/* Inspecteurs */}
@@ -1053,26 +1052,88 @@ const handleLoadDefaultLibrary = async () => {
                      </div>
                      <ul className="divide-y max-h-[400px] overflow-y-auto">{inspectorsList.map((item) => (<li key={item.id} className="py-3 flex justify-between items-start text-gray-700"><div><div className="font-bold">{item.label}</div><div className="text-xs text-gray-500">SCIOS: {item.data.sciosNr}</div></div><div className="flex gap-2"><button onClick={() => startEditInspector(item)} className="text-blue-400 hover:text-blue-600"><Pencil size={16}/></button><button onClick={() => deleteOption(item.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button></div></li>))}</ul>
                  </div>
-                 {/* Bedrijven */}
+                 
+                 {/* Inspectiebedrijf */}
                  <div className="bg-white rounded-lg shadow p-6 h-fit">
-                     <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><Building size={20}/> Bedrijven</h2>
+                     <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><Building size={20}/> Inspectiebedrijf</h2>
                      <div className="bg-gray-50 p-4 rounded border mb-4 space-y-3">
-                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Naam</label><input className="w-full border rounded p-2 text-sm font-bold" value={newCompany.name} onChange={e => setNewCompany({...newCompany, name: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div>
-                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label><input className="w-full border rounded p-2 text-sm" value={newCompany.city} onChange={e => setNewCompany({...newCompany, city: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div>
+                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bedrijfsnaam</label><input className="w-full border rounded p-2 text-sm font-bold" value={newCompany.name} onChange={e => setNewCompany({...newCompany, name: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div>
+                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adres</label><input className="w-full border rounded p-2 text-sm" value={newCompany.address} onChange={e => setNewCompany({...newCompany, address: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} placeholder="Straat + Nr" /></div>
+                         <div className="flex gap-2"><div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-2 text-sm" value={newCompany.postalCode} onChange={e => setNewCompany({...newCompany, postalCode: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div><div className="w-2/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label><input className="w-full border rounded p-2 text-sm" value={newCompany.city} onChange={e => setNewCompany({...newCompany, city: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div></div>
+                         <div className="flex gap-2"><div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoon</label><input className="w-full border rounded p-2 text-sm" value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div><div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-mail</label><input className="w-full border rounded p-2 text-sm" value={newCompany.email} onChange={e => setNewCompany({...newCompany, email: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div></div>
                          <div className="flex gap-2 pt-2"><button onClick={handleSaveCompany} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} className={`w-full py-2 rounded font-bold text-sm text-white ${editingSettingId && editingCategory === 'iv_company' ? 'bg-blue-600' : 'bg-emerald-600 disabled:opacity-50'}`}>{editingSettingId && editingCategory === 'iv_company' ? 'Opslaan' : 'Toevoegen'}</button>{editingSettingId && editingCategory === 'iv_company' && <button onClick={cancelEditSettings} className="w-auto px-4 bg-gray-300 rounded font-bold text-xs">X</button>}</div>
                      </div>
-                     <ul className="divide-y max-h-[400px] overflow-y-auto">{companiesList.map((item) => (<li key={item.id} className="py-3 flex justify-between items-start text-gray-700"><div><div className="font-bold text-sm">{item.label}</div><div className="text-xs text-gray-500">{item.data?.city}</div></div><div className="flex gap-2"><button onClick={() => startEditCompany(item)} className="text-blue-400 hover:text-blue-600"><Pencil size={16}/></button><button onClick={() => deleteOption(item.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button></div></li>))}</ul>
+                     <ul className="divide-y max-h-[400px] overflow-y-auto">{companiesList.map((item) => (<li key={item.id} className="py-3 flex justify-between items-start text-gray-700"><div><div className="font-bold text-sm">{item.label}</div><div className="text-xs text-gray-500">{item.data?.address ? `${item.data.address}, ` : ''}{item.data?.city}</div></div><div className="flex gap-2"><button onClick={() => startEditCompany(item)} className="text-blue-400 hover:text-blue-600"><Pencil size={16}/></button><button onClick={() => deleteOption(item.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button></div></li>))}</ul>
                  </div>
+
                  {/* Instrumenten */}
                  <div className="bg-white rounded-lg shadow p-6 h-fit">
                      <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><Wrench size={20}/> Instrumenten</h2>
                      <div className="bg-gray-50 p-4 rounded border mb-4 space-y-3">
-                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Naam</label><input className="w-full border rounded p-2 text-sm font-bold" value={newInstrument.name} onChange={e => setNewInstrument({...newInstrument, name: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'instrument'} /></div>
-                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Serienr</label><input className="w-full border rounded p-2 text-sm" value={newInstrument.serial} onChange={e => setNewInstrument({...newInstrument, serial: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'instrument'} /></div>
+                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Naam</label><input className="w-full border rounded p-2 text-sm font-bold" value={newInstrument.name} onChange={e => setNewInstrument({...newInstrument, name: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'instrument'} placeholder="Bijv. Fluke 1664" /></div>
+                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Serienummer</label><input className="w-full border rounded p-2 text-sm" value={newInstrument.serial} onChange={e => setNewInstrument({...newInstrument, serial: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'instrument'} /></div>
+                         <div>
+                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Kalibratie-/ controledatum</label>
+                             <div className="flex gap-1 w-full">
+                                 <input 
+                                     className="border p-2 rounded text-sm bg-white flex-grow min-w-0" 
+                                     type={(newInstrument.calibration === 'Indicatief' || newInstrument.calibration === 'n.v.t.') ? 'text' : 'date'} 
+                                     placeholder="Kies datum" 
+                                     value={newInstrument.calibration} 
+                                     max="2100-12-31"
+                                     onChange={e => {
+                                         const val = e.target.value;
+                                         if (val.length <= 10) setNewInstrument({...newInstrument, calibration: val});
+                                     }}
+                                     onBlur={(e) => {
+                                         if (e.target.value.startsWith('000')) setNewInstrument({...newInstrument, calibration: ''});
+                                     }}
+                                     disabled={(editingSettingId !== null && editingCategory !== 'instrument') || newInstrument.calibration === 'Indicatief' || newInstrument.calibration === 'n.v.t.'}
+                                 />
+                                 <select 
+                                     className="border p-2 rounded text-sm bg-white cursor-pointer shrink-0" 
+                                     onChange={e => {
+                                         if (e.target.value === 'date') setNewInstrument({...newInstrument, calibration: ''});
+                                         else setNewInstrument({...newInstrument, calibration: e.target.value});
+                                     }}
+                                     value={(newInstrument.calibration === 'Indicatief' || newInstrument.calibration === 'n.v.t.') ? newInstrument.calibration : 'date'}
+                                     disabled={editingSettingId !== null && editingCategory !== 'instrument'}
+                                 >
+                                     <option value="date">Datum</option>
+                                     <option value="Indicatief">Indicatief</option>
+                                     <option value="n.v.t.">n.v.t.</option>
+                                 </select>
+                             </div>
+                         </div>
                          <div className="flex gap-2 pt-2"><button onClick={handleSaveInstrument} disabled={editingSettingId !== null && editingCategory !== 'instrument'} className={`flex-1 py-2 rounded font-bold text-sm text-white ${editingSettingId && editingCategory === 'instrument' ? 'bg-blue-600' : 'bg-emerald-600 disabled:opacity-50'}`}>{editingSettingId && editingCategory === 'instrument' ? 'Opslaan' : 'Toevoegen'}</button>{editingSettingId && editingCategory === 'instrument' && <button onClick={cancelEditSettings} className="px-4 bg-gray-300 rounded font-bold text-sm">X</button>}</div>
                      </div>
-                     <ul className="divide-y max-h-[400px] overflow-y-auto">{instrumentsList.map((item) => (<li key={item.id} className="py-3 flex justify-between items-start text-gray-700"><div><div className="font-bold text-sm">{item.label}</div><div className="text-xs text-gray-500">{item.data?.serialNumber}</div></div>
-                         <div className="flex gap-2"><button onClick={() => startEditInstrument(item)} className="text-blue-400 hover:text-blue-600"><Pencil size={16}/></button><button onClick={() => deleteOption(item.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button></div></li>))}</ul>
+                     <ul className="divide-y max-h-[400px] overflow-y-auto">
+                         {instrumentsList.map((item) => {
+                             const status = (!item.data?.calibrationDate || item.data.calibrationDate === 'Indicatief' || item.data.calibrationDate === 'n.v.t.') ? 'ok' : (() => {
+                                 const d = new Date(item.data.calibrationDate);
+                                 if (isNaN(d.getTime())) return 'unknown';
+                                 const diff = Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+                                 if (diff < 0) return 'expired';
+                                 if (diff <= 30) return 'warning';
+                                 return 'ok';
+                             })();
+                             
+                             return (
+                                 <li key={item.id} className="py-3 flex justify-between items-start text-gray-700">
+                                     <div>
+                                         <div className="font-bold text-sm">{item.label}</div>
+                                         <div className="text-xs text-gray-500">
+                                             SN: {item.data?.serialNumber || 'Onbekend'} | Kalibratie: <span className={status === 'expired' ? 'text-red-600 font-bold' : status === 'warning' ? 'text-orange-600 font-bold' : ''}>{item.data?.calibrationDate || 'Onbekend'}</span>
+                                         </div>
+                                     </div>
+                                     <div className="flex gap-2">
+                                         <button onClick={() => startEditInstrument(item)} className="text-blue-400 hover:text-blue-600"><Pencil size={16}/></button>
+                                         <button onClick={() => deleteOption(item.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+                                     </div>
+                                 </li>
+                             );
+                         })}
+                     </ul>
                  </div>
              </div>
         )}
