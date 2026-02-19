@@ -5,7 +5,7 @@ import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './components/PDFReport';
 import { compressImage, uploadPhotoToCloud } from './utils';
 import SignatureCanvas from 'react-signature-canvas';
-import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown} from 'lucide-react';
+import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown, UserCircle, Save} from 'lucide-react';
 import { UsageFunctions, Defect, Classification, Instrument, InspectionMeta, BoardMeasurement } from './types';
 import { supabase } from './supabase';
 
@@ -58,6 +58,32 @@ const ClearableInput = ({ value, onChange, placeholder, list, disabled, classNam
 );
 
 export default function InspectorApp() {
+  // --- PROFIEL STATES ---
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileTab, setProfileTab] = useState<'persoonlijk' | 'bedrijf' | 'handtekening' | 'instrumenten'>('persoonlijk');
+  const [userProfile, setUserProfile] = useState<any>({
+      full_name: '', scios_nr: '', company_name: '', company_address: '', 
+      company_postal_code: '', company_city: '', company_phone: '', company_email: '', signature_url: '', instruments: []
+  });
+  const profileSigPad = useRef<SignatureCanvas>(null);
+  
+  // Voor het toevoegen van een instrument aan je profiel
+  const [newProfInst, setNewProfInst] = useState({ name: '', serialNumber: '', calibrationDate: '' });
+  const [editingInstId, setEditingInstId] = useState<string | null>(null); // NIEUW: Onthoudt welk instrument we bewerken
+
+  const getCalibrationStatus = (dateString: string) => {
+      // Direct 'ok' teruggeven voor niet-datum waarden om rode/oranje kleuren te voorkomen
+      if (!dateString || dateString === 'Indicatief' || dateString === 'n.v.t.') return 'ok';
+      
+      const calDate = new Date(dateString);
+      if (isNaN(calDate.getTime())) return 'unknown';
+      const diffDays = Math.ceil((calDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) return 'expired';
+      if (diffDays <= 30) return 'warning';
+      return 'ok';
+  };
+
   const { 
     meta, defects, measurements, customInstruments, customLibrary, 
     setMeta, setUsageFunction, setMeasurements, addDefect, updateDefect, 
@@ -82,7 +108,7 @@ export default function InspectorApp() {
       calibrationDate: item.data?.calibrationDate || 'Onbekend'
   }));
   
-  const ALL_INSTRUMENTS_OPTIONS = [...mappedDbInstruments, ...INSTRUMENTS, ...customInstruments];
+  const ALL_INSTRUMENTS_OPTIONS = [...(userProfile.instruments || []), ...mappedDbInstruments, ...INSTRUMENTS, ...customInstruments];
 
   const [showWorkModal, setShowWorkModal] = useState(false);
   const [availableWork, setAvailableWork] = useState<any[]>([]);
@@ -136,6 +162,27 @@ export default function InspectorApp() {
           const { data: libraryData } = await supabase.from('defect_library').select('*');
           if (libraryData && libraryData.length > 0) {
               setCustomLibrary(libraryData);
+          }
+          // NIEUW: Haal het persoonlijke profiel op & AUTO-FILL
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+              const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+              if (profileData) {
+                  setUserProfile({ ...userProfile, ...profileData });
+                  
+                  // AUTO-FILL: Vul het rapport in als deze velden nog leeg zijn!
+                  useInspectionStore.getState().setMeta({
+                      inspectorName: useInspectionStore.getState().meta.inspectorName || profileData.full_name || '',
+                      sciosRegistrationNumber: useInspectionStore.getState().meta.sciosRegistrationNumber || profileData.scios_nr || '',
+                      inspectionCompany: useInspectionStore.getState().meta.inspectionCompany || profileData.company_name || '',
+                      inspectionCompanyAddress: useInspectionStore.getState().meta.inspectionCompanyAddress || profileData.company_address || '',
+                      inspectionCompanyPostalCode: useInspectionStore.getState().meta.inspectionCompanyPostalCode || profileData.company_postal_code || '',
+                      inspectionCompanyCity: useInspectionStore.getState().meta.inspectionCompanyCity || profileData.company_city || '',
+                      inspectionCompanyPhone: useInspectionStore.getState().meta.inspectionCompanyPhone || profileData.company_phone || '',
+                      inspectionCompanyEmail: useInspectionStore.getState().meta.inspectionCompanyEmail || profileData.company_email || '',
+                      signatureUrl: useInspectionStore.getState().meta.signatureUrl || profileData.signature_url || ''
+                  });
+              }
           }
       };
       fetchOptions();
@@ -551,6 +598,32 @@ const handleCloudMerge = async () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleSaveProfile = async () => {
+      setIsGenerating(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+          const { error } = await supabase.from('profiles').update({
+              full_name: userProfile.full_name, 
+              scios_nr: userProfile.scios_nr,
+              company_name: userProfile.company_name, 
+              company_address: userProfile.company_address,
+              company_postal_code: userProfile.company_postal_code, 
+              company_city: userProfile.company_city,
+              company_phone: userProfile.company_phone, 
+              company_email: userProfile.company_email,
+              signature_url: userProfile.signature_url,
+              instruments: userProfile.instruments // Zorgt dat de koffer wordt opgeslagen
+          }).eq('id', session.user.id);
+          
+          if (error) alert("Fout bij opslaan: " + error.message);
+          else alert("✅ Profiel en koffer succesvol opgeslagen!");
+      }
+      setIsGenerating(false);
+  };
+
+  const saveProfileSignature = () => { if (profileSigPad.current) setUserProfile({ ...userProfile, signature_url: profileSigPad.current.getCanvas().toDataURL('image/png') }); };
+  const clearProfileSignature = () => { profileSigPad.current?.clear(); setUserProfile({ ...userProfile, signature_url: '' }); };
+
   const handleBagSearch = async () => { 
     if (!meta.projectPostalCode || !meta.projectAddress) { alert("Vul adres in."); return; } 
     setIsSearchingBag(true); 
@@ -713,8 +786,11 @@ const handleCloudMerge = async () => {
         <div className="bg-emerald-700 p-4 text-white flex justify-between items-center shadow-md">
             <h1 className="font-bold text-xl">SCIOS Scope 10</h1>
             <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 text-[10px] bg-emerald-800/50 px-2 py-1 rounded text-emerald-100 animate-pulse"><RefreshCw size={10} /> Autosave aan</div>
-                <div className="text-xs font-mono bg-emerald-900/50 px-3 py-1 rounded">{meta.date}</div>
+                <div className="items-center gap-1 text-[10px] bg-emerald-800/50 px-2 py-1 rounded text-emerald-100 hidden md:flex animate-pulse"><RefreshCw size={10} /> Autosave</div>
+                <div className="text-xs font-mono bg-emerald-900/50 px-3 py-1 rounded hidden md:block">{meta.date}</div>
+                <button onClick={() => setShowProfile(true)} className="flex items-center gap-2 bg-emerald-800 hover:bg-emerald-900 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm border border-emerald-600">
+                    <UserCircle size={18} /> <span className="hidden md:inline">Mijn Profiel</span>
+                </button>
             </div>
         </div>
 
@@ -977,57 +1053,67 @@ const handleCloudMerge = async () => {
                     <button onClick={() => setShowNewInstrumentForm(true)} className="bg-blue-600 text-white p-2 rounded whitespace-nowrap flex items-center gap-1 text-sm font-bold"><PlusCircle size={16} /> Nieuw</button>
                 </div>
             {showNewInstrumentForm && (
-                    <div className="bg-white p-3 rounded border border-blue-200 mb-3">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                <div className="bg-white p-3 rounded border border-blue-200 mb-3 animate-fadeIn">
+                    <h3 className="text-[10px] font-bold text-blue-800 uppercase mb-2">Eenmalig instrument toevoegen</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
+                        <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Naam" value={newInstName} onChange={e => setNewInstName(e.target.value)} />
+                        <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Serienummer" value={newInstSn} onChange={e => setNewInstSn(e.target.value)} />
+                        <div className="flex gap-1 w-full md:col-span-2">
                             <input 
-                                className="border p-1 rounded text-sm" 
-                                placeholder="Naam" 
-                                value={newInstName} 
-                                onChange={e => setNewInstName(e.target.value)} 
-                            />
-                            <input 
-                                className="border p-1 rounded text-sm" 
-                                placeholder="Serienummer" 
-                                value={newInstSn} 
-                                onChange={e => setNewInstSn(e.target.value)} 
-                            />
-                            <input 
-                                className="border p-1 rounded text-sm" 
-                                placeholder="Datum" 
+                                className="border p-2 rounded text-sm bg-white flex-grow min-w-0" 
+                                type={(newInstDate === 'Indicatief' || newInstDate === 'n.v.t.') ? 'text' : 'date'} 
+                                placeholder="Kalibratie-/ controledatum" 
                                 value={newInstDate} 
-                                onChange={e => setNewInstDate(e.target.value)} 
+                                max="2100-12-31"
+                                onChange={e => { const val = e.target.value; if (val.length <= 10) setNewInstDate(val); }}
+                                onBlur={e => { if (e.target.value.startsWith('000')) setNewInstDate(''); }}
+                                disabled={newInstDate === 'Indicatief' || newInstDate === 'n.v.t.'}
+                                title="Kalibratie-/ controledatum"
                             />
+                            <select className="border p-2 rounded text-sm bg-white cursor-pointer shrink-0" onChange={e => { if (e.target.value === 'date') setNewInstDate(''); else setNewInstDate(e.target.value); }} value={(newInstDate === 'Indicatief' || newInstDate === 'n.v.t.') ? newInstDate : 'date'}>
+                                <option value="date">Datum</option>
+                                <option value="Indicatief">Indicatief</option>
+                                <option value="n.v.t.">n.v.t.</option>
+                            </select>
                         </div>
-                        <button 
-                            onClick={() => { 
-                                if (!newInstName) return; 
-                                const newInst = { 
-                                    id: generateId(), 
-                                    name: newInstName, 
-                                    serialNumber: newInstSn || 'N.v.t.', 
-                                    calibrationDate: newInstDate || 'N.v.t.' 
-                                }; 
-                                addCustomInstrument(newInst); 
-                                addInstrument(newInst); 
-                                setNewInstName(''); 
-                                setNewInstSn(''); 
-                                setNewInstDate(''); 
-                                setShowNewInstrumentForm(false); 
-                            }} 
-                            className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold w-full"
-                        >
-                            Toevoegen en Opslaan
-                        </button>
                     </div>
-                )}
-
-                <div className="space-y-1">
-                    {measurements.selectedInstruments.map(inst => (
-                    <div key={inst.id} className="flex justify-between items-center bg-white p-2 rounded border border-blue-200 shadow-sm">
-                        <div className="flex items-center gap-2"><CheckSquare size={16} className="text-emerald-600" /><div><div className="font-bold text-sm">{inst.name}</div><div className="text-xs text-gray-500">Sn: {inst.serialNumber}</div></div></div>
-                        <button onClick={() => removeInstrument(inst.id)} className="text-red-400"><X size={18} /></button>
-                    </div>))}
+                    <div className="flex gap-2">
+                        <button onClick={() => { setShowNewInstrumentForm(false); setNewInstName(''); setNewInstSn(''); setNewInstDate(''); }} className="flex-1 bg-gray-100 text-gray-600 py-2 rounded text-xs font-bold hover:bg-gray-200 transition-colors">Annuleren</button>
+                        <button onClick={() => { 
+                            if (!newInstName) return; 
+                            const newInst = { id: 'custom_' + generateId(), name: newInstName, serialNumber: newInstSn || 'Onbekend', calibrationDate: newInstDate || 'n.v.t.' }; 
+                            addCustomInstrument(newInst); addInstrument(newInst); setNewInstName(''); setNewInstSn(''); setNewInstDate(''); setShowNewInstrumentForm(false); 
+                        }} className="flex-[2] bg-green-600 text-white py-2 rounded text-xs font-bold hover:bg-green-700 shadow-sm transition-colors">Toevoegen aan meting</button>
+                    </div>
                 </div>
+            )}
+
+                <div className="space-y-2 mt-2">
+                    {measurements.selectedInstruments.map(inst => {
+                        const status = getCalibrationStatus(inst.calibrationDate);
+                        return (
+                            <div key={inst.id} className={`flex justify-between items-center p-3 rounded border shadow-sm transition-colors ${status === 'expired' ? 'bg-red-50 border-red-200' : status === 'warning' ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}>
+                                <div className="flex items-center gap-3">
+                                    <CheckSquare size={18} className={status === 'expired' ? 'text-red-600' : 'text-emerald-600'} />
+                                    <div>
+                                        <div className="font-bold text-sm text-gray-800">{inst.name}</div>
+                                        <div className="text-xs text-gray-500 italic">
+                                            SN: {inst.serialNumber || 'Onbekend'} | Kalibratie-/ controledatum: <span className={status === 'expired' ? 'text-red-600 font-bold' : status === 'warning' ? 'text-orange-600 font-bold' : 'text-gray-700'}>{inst.calibrationDate || 'Onbekend'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => removeInstrument(inst.id)} 
+                                    className="text-red-400 hover:text-red-600 p-2 transition-colors"
+                                    title="Instrument verwijderen"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+                
                 </div>
 
                 <div className={`grid grid-cols-2 gap-4 p-4 rounded border ${meta.isContributionMode ? 'bg-gray-50 border-gray-200' : 'bg-white border-emerald-100'}`}>
@@ -1234,6 +1320,170 @@ const handleCloudMerge = async () => {
           {currentStepIndex < STEPS.length - 1 ? (<button onClick={goNext} className="flex items-center gap-2 px-6 py-2 rounded font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm">Volgende <ChevronRight size={18} /></button>) : (<span className="text-sm font-bold text-emerald-700 flex items-center gap-2">Klaar om te exporteren</span>)}
         </div>
       </div>
+      {/* MODAL: MIJN PROFIEL */}
+        {showProfile && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="p-4 border-b bg-emerald-50 flex justify-between items-center">
+                        <h2 className="text-lg font-bold text-emerald-800 flex items-center gap-2"><UserCircle size={20}/> Persoonlijke Instellingen</h2>
+                        <button onClick={() => setShowProfile(false)} className="text-gray-400 hover:text-gray-600"><X size={24}/></button>
+                    </div>
+                    
+                    <div className="flex border-b bg-gray-100 overflow-x-auto">
+                        <button onClick={() => setProfileTab('persoonlijk')} className={`flex-1 px-2 whitespace-nowrap py-3 text-sm font-bold ${profileTab === 'persoonlijk' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Persoonlijk</button>
+                        <button onClick={() => setProfileTab('bedrijf')} className={`flex-1 px-2 whitespace-nowrap py-3 text-sm font-bold ${profileTab === 'bedrijf' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Mijn Bedrijf</button>
+                        <button onClick={() => setProfileTab('handtekening')} className={`flex-1 px-2 whitespace-nowrap py-3 text-sm font-bold ${profileTab === 'handtekening' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Handtekening</button>
+                        <button onClick={() => setProfileTab('instrumenten')} className={`flex-1 px-2 whitespace-nowrap py-3 text-sm font-bold ${profileTab === 'instrumenten' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>De Koffer</button>
+                    </div>
+
+                    <div className="p-6 overflow-y-auto flex-grow bg-white">
+                        {profileTab === 'persoonlijk' && (
+                            <div className="space-y-4">
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4 text-sm text-blue-800">Vul hier je gegevens in. We kunnen deze straks automatisch invullen bij elke nieuwe inspectie!</div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Volledige Naam</label><input className="w-full border rounded p-3" value={userProfile.full_name} onChange={e => setUserProfile({...userProfile, full_name: e.target.value})} placeholder="Bijv. Jan de Vries" /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">SCIOS Registratienummer</label><input className="w-full border rounded p-3" value={userProfile.scios_nr} onChange={e => setUserProfile({...userProfile, scios_nr: e.target.value})} placeholder="Bijv. R 12345" /></div>
+                            </div>
+                        )}
+                        {profileTab === 'bedrijf' && (
+                            <div className="space-y-4">
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bedrijfsnaam</label><input className="w-full border rounded p-3 font-bold" value={userProfile.company_name} onChange={e => setUserProfile({...userProfile, company_name: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adres</label><input className="w-full border rounded p-3" value={userProfile.company_address} onChange={e => setUserProfile({...userProfile, company_address: e.target.value})} /></div>
+                                <div className="flex gap-4"><div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-3" value={userProfile.company_postal_code} onChange={e => setUserProfile({...userProfile, company_postal_code: e.target.value})} /></div><div className="w-2/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label><input className="w-full border rounded p-3" value={userProfile.company_city} onChange={e => setUserProfile({...userProfile, company_city: e.target.value})} /></div></div>
+                                <div className="flex gap-4"><div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoon</label><input className="w-full border rounded p-3" value={userProfile.company_phone} onChange={e => setUserProfile({...userProfile, company_phone: e.target.value})} /></div><div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-mail</label><input className="w-full border rounded p-3" value={userProfile.company_email} onChange={e => setUserProfile({...userProfile, company_email: e.target.value})} /></div></div>
+                            </div>
+                        )}
+                        {profileTab === 'handtekening' && (
+                            <div className="space-y-4 text-center">
+                                <p className="text-sm text-gray-600 mb-4">Sla één keer je handtekening op, zodat je deze straks met één druk op de knop onder rapporten kunt plaatsen.</p>
+                                {!userProfile.signature_url ? (
+                                  <div className="border-2 border-dashed border-gray-300 rounded bg-gray-50 p-2 w-fit mx-auto">
+                                    <SignatureCanvas ref={profileSigPad} canvasProps={{width: 400, height: 200, className: 'cursor-crosshair bg-white rounded shadow-inner border border-gray-100'}} />
+                                    <div className="border-t flex justify-end p-2 gap-2 mt-2"><button onClick={clearProfileSignature} className="text-xs text-red-500 font-bold px-3 py-1">Wissen</button><button onClick={saveProfileSignature} className="text-xs bg-emerald-600 text-white px-3 py-2 rounded font-bold hover:bg-emerald-700 shadow-sm">Bevestig Handtekening</button></div>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-center"><img src={userProfile.signature_url} className="border-2 border-emerald-200 rounded-lg h-32 mb-4 bg-white p-2 shadow-sm" alt="Opgeslagen handtekening" /><button onClick={() => setUserProfile({...userProfile, signature_url: ''})} className="text-sm text-red-500 font-bold underline hover:text-red-700">Nieuwe handtekening tekenen</button></div>
+                                )}
+                            </div>
+                        )}
+                        {profileTab === 'instrumenten' && (
+                            <div className="space-y-4">
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm text-blue-800 mb-4">
+                                    Beheer hier je persoonlijke meetinstrumenten. Deze verschijnen automatisch bovenaan je keuzelijst tijdens een inspectie!
+                                </div>
+                                
+                                {/* Instrument Toevoegen / Bewerken */}
+                                <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                                    <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">
+                                        {editingInstId ? 'Instrument Bewerken' : 'Nieuw Instrument Toevoegen'}
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
+                                        <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Naam (bijv. Fluke 1664)" value={newProfInst.name} onChange={e => setNewProfInst({...newProfInst, name: e.target.value})} />
+                                        <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Serienummer" value={newProfInst.serialNumber} onChange={e => setNewProfInst({...newProfInst, serialNumber: e.target.value})} />
+                                        
+                                        {/* Datumveld met type-kiezer en lengte-beveiliging */}
+                                        <div className="flex gap-1 w-full md:col-span-2">
+                                            <input 
+                                                className="border p-2 rounded text-sm bg-white flex-grow min-w-0" 
+                                                type={(newProfInst.calibrationDate === 'Indicatief' || newProfInst.calibrationDate === 'n.v.t.') ? 'text' : 'date'} 
+                                                placeholder="Kalibratie-/ controledatum" 
+                                                value={newProfInst.calibrationDate} 
+                                                max="2100-12-31"
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    // Blokkeert invoer langer dan een standaard datum (YYYY-MM-DD = 10 tekens)
+                                                    if (val.length <= 10) {
+                                                        setNewProfInst({...newProfInst, calibrationDate: val});
+                                                    }
+                                                }}
+                                                onBlur={(e) => {
+                                                    // Herstelt veld als browser 0001-01-01 oid invult bij incomplete typactie
+                                                    if (e.target.value.startsWith('000')) {
+                                                        setNewProfInst({...newProfInst, calibrationDate: ''});
+                                                    }
+                                                }}
+                                                disabled={newProfInst.calibrationDate === 'Indicatief' || newProfInst.calibrationDate === 'n.v.t.'}
+                                                title="Kalibratie-/ controledatum"
+                                            />
+                                            <select 
+                                                className="border p-2 rounded text-sm bg-white cursor-pointer shrink-0" 
+                                                onChange={e => {
+                                                    if (e.target.value === 'date') setNewProfInst({...newProfInst, calibrationDate: ''});
+                                                    else setNewProfInst({...newProfInst, calibrationDate: e.target.value});
+                                                }}
+                                                value={(newProfInst.calibrationDate === 'Indicatief' || newProfInst.calibrationDate === 'n.v.t.') ? newProfInst.calibrationDate : 'date'}
+                                            >
+                                                <option value="date">Datum</option>
+                                                <option value="Indicatief">Indicatief</option>
+                                                <option value="n.v.t.">n.v.t.</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {editingInstId && (
+                                            <button onClick={() => {
+                                                setEditingInstId(null);
+                                                setNewProfInst({ name: '', serialNumber: '', calibrationDate: '' });
+                                            }} className="bg-gray-400 text-white px-4 py-2 rounded text-xs font-bold hover:bg-gray-500 w-full md:w-auto">Annuleren</button>
+                                        )}
+                                        <button onClick={() => {
+                                            if(!newProfInst.name) return;
+                                            if (editingInstId) {
+                                                const updated = (userProfile.instruments || []).map((i: any) => 
+                                                    i.id === editingInstId ? { ...i, ...newProfInst } : i
+                                                );
+                                                setUserProfile({...userProfile, instruments: updated});
+                                                setEditingInstId(null);
+                                            } else {
+                                                const updated = [...(userProfile.instruments || []), { ...newProfInst, id: 'prof_' + generateId() }];
+                                                setUserProfile({...userProfile, instruments: updated});
+                                            }
+                                            setNewProfInst({ name: '', serialNumber: '', calibrationDate: '' });
+                                        }} className="bg-emerald-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-emerald-700 w-full md:w-auto flex-1 md:flex-none">
+                                            {editingInstId ? 'Wijziging Opslaan' : 'Toevoegen aan Koffer'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Lijst met instrumenten */}
+                                <div className="space-y-2">
+                                    {(userProfile.instruments || []).length === 0 && <div className="text-sm text-gray-400 italic text-center p-4">Je koffer is nog leeg.</div>}
+                                    {(userProfile.instruments || []).map((inst: any) => {
+                                        const status = getCalibrationStatus(inst.calibrationDate);
+                                        return (
+                                            <div key={inst.id} className={`flex justify-between items-center p-3 rounded border shadow-sm ${status === 'expired' ? 'bg-red-50 border-red-200' : status === 'warning' ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}>
+                                                <div>
+                                                    <div className="font-bold text-sm text-gray-800">{inst.name}</div>
+                                                    <div className="text-xs text-gray-500">SN: {inst.serialNumber || 'Onbekend'} | Kalibratie-/ controledatum: <span className={status === 'expired' ? 'text-red-600 font-bold' : status === 'warning' ? 'text-orange-600 font-bold' : ''}>{inst.calibrationDate || 'Onbekend'}</span></div>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    <button onClick={() => {
+                                                        setEditingInstId(inst.id);
+                                                        setNewProfInst({ name: inst.name, serialNumber: inst.serialNumber || '', calibrationDate: inst.calibrationDate || '' });
+                                                    }} className="text-blue-400 hover:text-blue-600 p-2"><Pencil size={18}/></button>
+                                                    <button onClick={() => {
+                                                        const updated = (userProfile.instruments || []).filter((i: any) => i.id !== inst.id);
+                                                        setUserProfile({...userProfile, instruments: updated});
+                                                        if (editingInstId === inst.id) {
+                                                            setEditingInstId(null);
+                                                            setNewProfInst({ name: '', serialNumber: '', calibrationDate: '' });
+                                                        }
+                                                    }} className="text-red-400 hover:text-red-600 p-2"><Trash2 size={18}/></button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="p-4 border-t bg-gray-50 flex gap-3">
+                        <button onClick={() => setShowProfile(false)} className="flex-1 bg-white border border-gray-300 text-gray-700 py-3 rounded font-bold hover:bg-gray-100 transition-colors">Sluiten</button>
+                        <button onClick={handleSaveProfile} disabled={isGenerating} className="flex-1 bg-emerald-600 text-white py-3 rounded font-bold hover:bg-emerald-700 transition-colors flex justify-center items-center gap-2 shadow"><Save size={18}/> {isGenerating ? 'Opslaan...' : 'Profiel Opslaan in Cloud'}</button>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
   );
 }
