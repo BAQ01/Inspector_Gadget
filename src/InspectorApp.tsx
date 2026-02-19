@@ -61,12 +61,13 @@ export default function InspectorApp() {
   // --- PROFIEL STATES ---
   const [showProfile, setShowProfile] = useState(false);
   const [profileTab, setProfileTab] = useState<'persoonlijk' | 'bedrijf' | 'handtekening' | 'instrumenten'>('persoonlijk');
-  const [userProfile, setUserProfile] = useState<any>({
-      full_name: '', scios_nr: '', company_name: '', company_address: '', 
+const [userProfile, setUserProfile] = useState<any>({
+      full_name: '', scios_nr: '', phone: '', contact_email: '', company_name: '', company_address: '', 
       company_postal_code: '', company_city: '', company_phone: '', company_email: '', signature_url: '', instruments: []
   });
+  const [loginEmail, setLoginEmail] = useState('');
   const profileSigPad = useRef<SignatureCanvas>(null);
-  
+
   // Voor het toevoegen van een instrument aan je profiel
   const [newProfInst, setNewProfInst] = useState({ name: '', serialNumber: '', calibrationDate: '' });
   const [editingInstId, setEditingInstId] = useState<string | null>(null); // NIEUW: Onthoudt welk instrument we bewerken
@@ -163,13 +164,13 @@ export default function InspectorApp() {
           if (libraryData && libraryData.length > 0) {
               setCustomLibrary(libraryData);
           }
-          // NIEUW: Haal het persoonlijke profiel op & AUTO-FILL
+        // NIEUW: Haal het persoonlijke profiel op & AUTO-FILL
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
+              setLoginEmail(session.user.email || '');
               const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
               if (profileData) {
-                  setUserProfile({ ...userProfile, ...profileData });
-                  
+                  setUserProfile({ ...userProfile, ...profileData });                  
                   // AUTO-FILL: Vul het rapport in als deze velden nog leeg zijn!
                   useInspectionStore.getState().setMeta({
                       inspectorName: useInspectionStore.getState().meta.inspectorName || profileData.full_name || '',
@@ -598,15 +599,16 @@ const handleCloudMerge = async () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSaveProfile = async () => {
+    const handleSaveProfile = async () => {
       setIsGenerating(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
           const { error } = await supabase.from('profiles').update({
               full_name: userProfile.full_name, 
               scios_nr: userProfile.scios_nr,
-              company_name: userProfile.company_name, 
-              company_address: userProfile.company_address,
+              phone: userProfile.phone,
+              contact_email: userProfile.contact_email,
+              company_name: userProfile.company_name,              company_address: userProfile.company_address,
               company_postal_code: userProfile.company_postal_code, 
               company_city: userProfile.company_city,
               company_phone: userProfile.company_phone, 
@@ -1340,11 +1342,14 @@ const handleCloudMerge = async () => {
                         {profileTab === 'persoonlijk' && (
                             <div className="space-y-4">
                                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4 text-sm text-blue-800">Vul hier je gegevens in. We kunnen deze straks automatisch invullen bij elke nieuwe inspectie!</div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Volledige Naam</label><input className="w-full border rounded p-3" value={userProfile.full_name} onChange={e => setUserProfile({...userProfile, full_name: e.target.value})} placeholder="Bijv. Jan de Vries" /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">SCIOS Registratienummer</label><input className="w-full border rounded p-3" value={userProfile.scios_nr} onChange={e => setUserProfile({...userProfile, scios_nr: e.target.value})} placeholder="Bijv. R 12345" /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Volledige Naam</label><input className="w-full border rounded p-3" value={userProfile.full_name || ''} onChange={e => setUserProfile({...userProfile, full_name: e.target.value})} placeholder="Bijv. Jan de Vries" /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">SCIOS Registratienummer</label><input className="w-full border rounded p-3" value={userProfile.scios_nr || ''} onChange={e => setUserProfile({...userProfile, scios_nr: e.target.value})} placeholder="Bijv. R 12345" /></div>
+                                <div className="flex gap-4">
+                                    <div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoonnummer</label><input className="w-full border rounded p-3" value={userProfile.phone || ''} onChange={e => setUserProfile({...userProfile, phone: e.target.value})} placeholder="Bijv. 06 12345678" /></div>
+                                    <div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contact E-mailadres</label><input className="w-full border rounded p-3" value={userProfile.contact_email || ''} onChange={e => setUserProfile({...userProfile, contact_email: e.target.value})} placeholder={loginEmail || "Bijv. info@bedrijf.nl"} title="Laat leeg om je inlog e-mailadres te gebruiken" /></div>
+                                </div>
                             </div>
-                        )}
-                        {profileTab === 'bedrijf' && (
+                        )}                        {profileTab === 'bedrijf' && (
                             <div className="space-y-4">
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bedrijfsnaam</label><input className="w-full border rounded p-3 font-bold" value={userProfile.company_name} onChange={e => setUserProfile({...userProfile, company_name: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adres</label><input className="w-full border rounded p-3" value={userProfile.company_address} onChange={e => setUserProfile({...userProfile, company_address: e.target.value})} /></div>

@@ -104,7 +104,7 @@ export default function AdminDashboard() {
   const [editingSettingId, setEditingSettingId] = useState<number | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
-  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '' });
+  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '', phone: '', contact_email: '' });
 
   const excelInputRef = useRef<HTMLInputElement>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
@@ -431,7 +431,7 @@ const handleLoadDefaultLibrary = async () => {
 
   const deleteOption = async (id: number) => { if (window.confirm("Verwijderen?")) { await supabase.from('form_options').delete().eq('id', id); cancelEditSettings(); fetchOptions(); } };
   const cancelEditSettings = () => { setEditingSettingId(null); setEditingCategory(null); setNewCompany({ name: '', address: '', postalCode: '', city: '', phone: '', email: '' }); setNewInstrument({ name: '', serial: '', calibration: '' }); };
-  
+
   // --- ORDER HANDLERS ---
   const handleEdit = (insp: any) => {
       const meta = insp.report_data?.meta || {};
@@ -850,8 +850,8 @@ const handleLoadDefaultLibrary = async () => {
 
   const handleRoleChange = async (userId: string, newRole: string) => { if (!window.confirm(`Rol wijzigen?`)) return; const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId); if (error) alert("Fout: " + error.message); else { alert("Aangepast!"); fetchUsers(); } };
 
-  // NIEUW: Inline update functie voor Profielen (Naam & SCIOS)
-  const handleUpdateProfile = async (userId: string, field: 'full_name' | 'scios_nr', value: string) => {
+// NIEUW: Inline update functie voor Profielen (Naam, SCIOS, Tel, Email)
+  const handleUpdateProfile = async (userId: string, field: 'full_name' | 'scios_nr' | 'phone' | 'contact_email', value: string) => {
       const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', userId);
       if (error) alert("Fout bij opslaan: " + error.message); else fetchUsers();
   };
@@ -866,13 +866,23 @@ const handleLoadDefaultLibrary = async () => {
         });
         if (error || data?.error) throw new Error(error?.message || data?.error);
         
-        // Koppel direct de naam en SCIOS aan het nieuwe profiel
-        if (newUser.full_name || newUser.scios_nr) {
+        // Koppel direct alle gegevens aan het nieuwe profiel
+        if (newUser.full_name || newUser.scios_nr || newUser.phone || newUser.contact_email) {
             const { data: profile } = await supabase.from('profiles').select('id').eq('email', newUser.email.trim()).single();
-            if (profile) await supabase.from('profiles').update({ full_name: newUser.full_name, scios_nr: newUser.scios_nr }).eq('id', profile.id);
+            if (profile) {
+                await supabase.from('profiles').update({ 
+                    full_name: newUser.full_name, 
+                    scios_nr: newUser.scios_nr,
+                    phone: newUser.phone,
+                    contact_email: newUser.contact_email
+                }).eq('id', profile.id);
+            }
         }
         
-        alert(`✅ ${newUser.email} aangemaakt!`); setShowUserModal(false); setNewUser({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '' }); fetchUsers();
+        alert(`✅ ${newUser.email} aangemaakt!`); 
+        setShowUserModal(false); 
+        setNewUser({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '', phone: '', contact_email: '' }); 
+        fetchUsers();
     } catch (err: any) { alert("Fout: " + err.message); }
   };
 
@@ -1014,30 +1024,33 @@ const handleLoadDefaultLibrary = async () => {
             </>
         )}
 
-        {/* TAB USERS */}
+{/* TAB USERS */}
         {activeTab === 'users' && (
             <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="p-4 bg-blue-50 border-b border-blue-100 text-sm text-blue-800 flex justify-between items-center">
-                    <div className="flex items-center gap-2"><Shield size={18}/><span>Beheer inlogaccounts, namen en SCIOS-nummers. (Wijzigingen direct opslaan door buiten het veld te klikken)</span></div>
+                    <div className="flex items-center gap-2"><Shield size={18}/><span>Beheer accounts en profielgegevens. (Wijzigingen direct opslaan door buiten het veld te klikken)</span></div>
                     <button onClick={() => setShowUserModal(true)} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1 rounded shadow text-xs font-bold hover:bg-blue-700"><UserPlus size={16} /> Nieuwe Gebruiker</button>
                 </div>
-                <table className="min-w-full">
-                    <thead className="bg-gray-50 border-b"><tr><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Volledige Naam</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">SCIOS Nr</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Rol</th><th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Acties</th></tr></thead>
-                    <tbody className="divide-y divide-gray-200">
-                        {users.map(u => (
-                            <tr key={u.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 text-sm font-bold text-gray-700">{u.email}</td>
-                                <td className="px-6 py-4 text-sm"><input className="border rounded p-1 w-full text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.full_name || ''} onBlur={(e) => { if(e.target.value !== (u.full_name||'')) handleUpdateProfile(u.id, 'full_name', e.target.value); }} placeholder="Vul naam in..." /></td>
-                                <td className="px-6 py-4 text-sm"><input className="border rounded p-1 w-24 text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.scios_nr || ''} onBlur={(e) => { if(e.target.value !== (u.scios_nr||'')) handleUpdateProfile(u.id, 'scios_nr', e.target.value); }} placeholder="Optioneel" /></td>
-                                <td className="px-6 py-4 text-sm"><select className="border rounded p-1 text-sm bg-white cursor-pointer" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}><option value="inspector">Inspector</option><option value="admin">Admin</option></select></td>
-                                <td className="px-6 py-4 text-right text-sm"><div className="flex justify-end gap-2"><button onClick={() => openPasswordModal(u)} className="text-orange-400 hover:text-orange-600 bg-orange-50 p-2 rounded hover:bg-orange-100 transition-colors" title="Wachtwoord Resetten"><Key size={18}/></button><button onClick={() => handleDeleteUser(u.id)} className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded hover:bg-red-100 transition-colors" title="Verwijder"><Trash2 size={18}/></button></div></td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full">
+                        <thead className="bg-gray-50 border-b"><tr><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Login Email</th><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Volledige Naam</th><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Telefoon</th><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Contact Email</th><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">SCIOS Nr</th><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Rol</th><th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Acties</th></tr></thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {users.map(u => (
+                                <tr key={u.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-sm font-bold text-gray-700">{u.email}</td>
+                                    <td className="px-4 py-3 text-sm"><input className="border rounded p-1 w-full text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.full_name || ''} onBlur={(e) => { if(e.target.value !== (u.full_name||'')) handleUpdateProfile(u.id, 'full_name', e.target.value); }} placeholder="Naam..." /></td>
+                                    <td className="px-4 py-3 text-sm"><input className="border rounded p-1 w-28 text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.phone || ''} onBlur={(e) => { if(e.target.value !== (u.phone||'')) handleUpdateProfile(u.id, 'phone', e.target.value); }} placeholder="06-..." /></td>
+                                    <td className="px-4 py-3 text-sm"><input className="border rounded p-1 w-full text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.contact_email || ''} onBlur={(e) => { if(e.target.value !== (u.contact_email||'')) handleUpdateProfile(u.id, 'contact_email', e.target.value); }} placeholder={u.email} /></td>
+                                    <td className="px-4 py-3 text-sm"><input className="border rounded p-1 w-24 text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.scios_nr || ''} onBlur={(e) => { if(e.target.value !== (u.scios_nr||'')) handleUpdateProfile(u.id, 'scios_nr', e.target.value); }} placeholder="Optioneel" /></td>
+                                    <td className="px-4 py-3 text-sm"><select className="border rounded p-1 text-sm bg-white cursor-pointer" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}><option value="inspector">Inspector</option><option value="admin">Admin</option></select></td>
+                                    <td className="px-4 py-3 text-right text-sm"><div className="flex justify-end gap-2"><button onClick={() => openPasswordModal(u)} className="text-orange-400 hover:text-orange-600 bg-orange-50 p-2 rounded hover:bg-orange-100 transition-colors" title="Wachtwoord Resetten"><Key size={18}/></button><button onClick={() => handleDeleteUser(u.id)} className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded hover:bg-red-100 transition-colors" title="Verwijder"><Trash2 size={18}/></button></div></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         )}
-
 {/* TAB SETTINGS */}
         {activeTab === 'settings' && (
              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">            
@@ -1283,7 +1296,26 @@ const handleLoadDefaultLibrary = async () => {
             </div>
         )}
         
-        {showUserModal && (<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6"><h2 className="text-lg font-bold mb-4">Nieuwe Gebruiker</h2><input className="w-full border rounded p-2 mb-2" type="text" placeholder="Volledige Naam" value={newUser.full_name} onChange={e => setNewUser({...newUser, full_name: e.target.value})} /><input className="w-full border rounded p-2 mb-2" type="text" placeholder="SCIOS Nummer (optioneel)" value={newUser.scios_nr} onChange={e => setNewUser({...newUser, scios_nr: e.target.value})} /><input className="w-full border rounded p-2 mb-2" type="email" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} /><input className="w-full border rounded p-2 mb-4" type="password" placeholder="Wachtwoord" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} /><div className="flex gap-2"><button onClick={() => setShowUserModal(false)} className="flex-1 bg-gray-200 py-2 rounded font-bold text-gray-700">Annuleren</button><button onClick={handleCreateUser} className="flex-1 bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">Toevoegen</button></div></div></div>)}
+        {showUserModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                        <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
+                            <h2 className="text-lg font-bold mb-4">Nieuwe Gebruiker</h2>
+                            <div className="space-y-2 mb-4 max-h-[60vh] overflow-y-auto pr-1">
+                                <input className="w-full border rounded p-2" type="text" placeholder="Volledige Naam" value={newUser.full_name} onChange={e => setNewUser({...newUser, full_name: e.target.value})} />
+                                <input className="w-full border rounded p-2" type="text" placeholder="Telefoonnummer" value={newUser.phone} onChange={e => setNewUser({...newUser, phone: e.target.value})} />
+                                <input className="w-full border rounded p-2" type="email" placeholder="Contact Email (optioneel)" value={newUser.contact_email} onChange={e => setNewUser({...newUser, contact_email: e.target.value})} />
+                                <input className="w-full border rounded p-2" type="text" placeholder="SCIOS Nummer (optioneel)" value={newUser.scios_nr} onChange={e => setNewUser({...newUser, scios_nr: e.target.value})} />
+                                <hr className="my-2 border-gray-100" />
+                                <input className="w-full border rounded p-2" type="email" placeholder="Login Email (Verplicht)" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
+                                <input className="w-full border rounded p-2" type="password" placeholder="Wachtwoord (Verplicht)" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => setShowUserModal(false)} className="flex-1 bg-gray-100 py-2 rounded font-bold text-gray-600 hover:bg-gray-200">Annuleren</button>
+                                <button onClick={handleCreateUser} className="flex-1 bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 shadow-md">Toevoegen</button>
+                            </div>
+                        </div>
+                    </div>
+                )} 
         {showPasswordModal && (<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6"><h2 className="text-lg font-bold mb-4">Wachtwoord Reset</h2><input className="w-full border rounded p-2 mb-4" type="text" placeholder="Nieuw Wachtwoord" value={newPasswordInput} onChange={e => setNewPasswordInput(e.target.value)} /><div className="flex gap-2"><button onClick={() => setShowPasswordModal(false)} className="flex-1 bg-gray-200 py-2 rounded">Annuleren</button><button onClick={handleResetPassword} className="flex-1 bg-orange-500 text-white py-2 rounded">Resetten</button></div></div></div>)}
       </div>
     </div>
