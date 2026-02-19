@@ -1342,8 +1342,16 @@ const handleCloudMerge = async () => {
                         {profileTab === 'persoonlijk' && (
                             <div className="space-y-4">
                                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4 text-sm text-blue-800">Vul hier je gegevens in. We kunnen deze straks automatisch invullen bij elke nieuwe inspectie!</div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Volledige Naam</label><input className="w-full border rounded p-3" value={userProfile.full_name || ''} onChange={e => setUserProfile({...userProfile, full_name: e.target.value})} placeholder="Bijv. Jan de Vries" /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">SCIOS Registratienummer</label><input className="w-full border rounded p-3" value={userProfile.scios_nr || ''} onChange={e => setUserProfile({...userProfile, scios_nr: e.target.value})} placeholder="Bijv. R 12345" /></div>
+                                <div className="flex gap-4">
+                                    <div className="w-1/2">
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Volledige Naam</label>
+                                        <input className="w-full border rounded p-3" value={userProfile.full_name || ''} onChange={e => setUserProfile({...userProfile, full_name: e.target.value})} placeholder="Bijv. Jan de Vries" />
+                                    </div>
+                                    <div className="w-1/2">
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Inlog E-mailadres</label>
+                                        <input className="w-full border rounded p-3 bg-gray-100 text-gray-500 cursor-not-allowed" value={loginEmail} readOnly title="Het inlog e-mailadres kan niet zelfstandig gewijzigd worden." />
+                                    </div>
+                                </div>                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">SCIOS Registratienummer</label><input className="w-full border rounded p-3" value={userProfile.scios_nr || ''} onChange={e => setUserProfile({...userProfile, scios_nr: e.target.value})} placeholder="Bijv. R 12345" /></div>
                                 <div className="flex gap-4">
                                     <div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoonnummer</label><input className="w-full border rounded p-3" value={userProfile.phone || ''} onChange={e => setUserProfile({...userProfile, phone: e.target.value})} placeholder="Bijv. 06 12345678" /></div>
                                     <div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contact E-mailadres</label><input className="w-full border rounded p-3" value={userProfile.contact_email || ''} onChange={e => setUserProfile({...userProfile, contact_email: e.target.value})} placeholder={loginEmail || "Bijv. info@bedrijf.nl"} title="Laat leeg om je inlog e-mailadres te gebruiken" /></div>
