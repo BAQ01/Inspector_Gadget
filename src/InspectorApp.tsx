@@ -5,8 +5,8 @@ import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './components/PDFReport';
 import { compressImage, uploadPhotoToCloud } from './utils';
 import SignatureCanvas from 'react-signature-canvas';
-import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, FileText, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown} from 'lucide-react';
-import { UsageFunctions, Defect, Classification, LibraryDefect, Instrument, InspectionMeta, BoardMeasurement } from './types';
+import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown} from 'lucide-react';
+import { UsageFunctions, Defect, Classification, Instrument, InspectionMeta, BoardMeasurement } from './types';
 import { supabase } from './supabase';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -32,48 +32,6 @@ const addYearsSafe = (dateString: string, yearsToAdd: number) => {
   }
 
   return `${newYear}-${month}-${day}`;
-};
-
-const parseCSV = (text: string): string[][] => {
-  const rows: string[][] = [];
-  let currentRow: string[] = [];
-  let currentCell = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const nextChar = text[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        currentCell += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    }
-    else if (char === ';' && !inQuotes) {
-      currentRow.push(currentCell.trim());
-      currentCell = '';
-    }
-    else if ((char === '\n' || (char === '\r' && nextChar === '\n')) && !inQuotes) {
-      currentRow.push(currentCell.trim());
-      if (currentRow.length > 1 || (currentRow.length === 1 && currentRow[0] !== '')) {
-        rows.push(currentRow);
-      }
-      currentRow = [];
-      currentCell = '';
-      if (char === '\r') i++;
-    }
-    else {
-      if (char !== '\r') currentCell += char;
-    }
-  }
-  if (currentCell || currentRow.length > 0) {
-    currentRow.push(currentCell.trim());
-    rows.push(currentRow);
-  }
-  return rows;
 };
 
 // HELPER COMPONENT: Input met Clear Button (X) voor Datalists
@@ -160,22 +118,28 @@ export default function InspectorApp() {
 
   const sigPad = useRef<SignatureCanvas>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const csvInputRef = useRef<HTMLInputElement>(null);
   const mergeInputRef = useRef<HTMLInputElement>(null);
 
   const currentStepIndex = STEPS.indexOf(activeTab);
 
   useEffect(() => {
       const fetchOptions = async () => {
-          const { data } = await supabase.from('form_options').select('*');
-          if (data) {
-              setDbInspectors(data.filter(x => x.category === 'inspector'));
-              setDbCompanies(data.filter(x => x.category === 'iv_company'));
-              setDbInstruments(data.filter(x => x.category === 'instrument'));
+          // Haal de bestaande opties op
+          const { data: optionsData } = await supabase.from('form_options').select('*');
+          if (optionsData) {
+              setDbInspectors(optionsData.filter(x => x.category === 'inspector'));
+              setDbCompanies(optionsData.filter(x => x.category === 'iv_company'));
+              setDbInstruments(optionsData.filter(x => x.category === 'instrument'));
+          }
+
+          // NIEUW: Haal de centrale bibliotheek op
+          const { data: libraryData } = await supabase.from('defect_library').select('*');
+          if (libraryData && libraryData.length > 0) {
+              setCustomLibrary(libraryData);
           }
       };
       fetchOptions();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // in src/InspectorApp.tsx
   useEffect(() => {
@@ -510,36 +474,6 @@ const handleCloudMerge = async () => {
     }
   };
 
-  const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const rows = parseCSV(text);
-      const newLib: LibraryDefect[] = [];
-      let idCounter = 1;
-      for (let i = 1; i < rows.length; i++) {
-        const cols = rows[i];
-        if (cols.length >= 4) { 
-            const cl = (cols[4] || 'Yellow') as Classification; 
-            newLib.push({ 
-              id: `cust_${idCounter++}`, 
-              category: cols[0], 
-              subcategory: cols[1] || 'Algemeen', 
-              shortName: cols[2] || cols[3].substring(0, 20) + '...', 
-              description: cols[3], 
-              classification: ['Red', 'Orange', 'Yellow', 'Blue', 'Amber'].includes(cl) ? cl : 'Yellow', 
-              action: cols[5] || 'Herstellen' 
-            });
-        }
-      }
-      if (newLib.length > 0) { setCustomLibrary(newLib); alert(`Succes! ${newLib.length} items geïmporteerd.`); }
-    };
-    reader.readAsText(file);
-  };
-
-  const resetLibrary = () => { if (window.confirm("Standaard bibliotheek herstellen?")) setCustomLibrary(null); };
   const handleMergeClick = () => { if (window.confirm('Bestand lokaal samenvoegen?')) mergeInputRef.current?.click(); };
   
   const handleMergeFile = (e: React.ChangeEvent<HTMLInputElement>) => { 
@@ -1171,15 +1105,6 @@ const handleCloudMerge = async () => {
 
           {activeTab === 'inspect' && (
             <div className="space-y-6">
-              <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
-                 <h2 className="text-sm font-bold text-yellow-800 uppercase border-b border-yellow-300 pb-2 mb-3 flex items-center gap-2"><FileText size={16}/> Bibliotheek Beheer</h2>
-                 <div className="flex gap-2 items-center">
-                    <button onClick={() => csvInputRef.current?.click()} className="bg-yellow-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-yellow-700 flex items-center gap-2"><Upload size={14}/> CSV Importeren</button>
-                    <input type="file" ref={csvInputRef} onChange={handleCsvImport} accept=".csv" className="hidden" />
-                    {customLibrary && (<button onClick={resetLibrary} className="text-red-500 text-xs font-bold underline hover:text-red-700 flex items-center gap-1"><RefreshCw size={12}/> Herstel Standaard</button>)}
-                 </div>
-               </div>
-
               <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-5">
                 <h3 className="font-bold text-gray-800 mb-4">{editingId ? 'Gebrek Bewerken' : 'Nieuw Gebrek Melden'}</h3>
                 <div className="space-y-4">

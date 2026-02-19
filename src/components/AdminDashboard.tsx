@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from 'react'; 
 import { supabase } from '../supabase';
-import { Calendar, User, Download, RefreshCw, Plus, X, MapPin, Trash2, Lock, FileText, Search, ChevronLeft, ChevronRight, Database, Users, Shield, UserPlus, FileSpreadsheet, Pencil, Settings, Building, Wrench, Key, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Hash, Mail, Phone, Briefcase, Clock } from 'lucide-react';
+import { Calendar, User, Download, RefreshCw, Plus, X, MapPin, Trash2, Lock, FileText, Search, ChevronLeft, ChevronRight, Database, Users, Shield, UserPlus, FileSpreadsheet, Pencil, Settings, Building, Wrench, Key, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Hash, Mail, Phone, Briefcase, Clock, BookOpen, UploadCloud } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer'; 
 import { PDFReport } from './PDFReport';
 import ExcelJS from 'exceljs';
+import { DEFECT_LIBRARY } from '../constants'; // NIEUW: Importeer de hardcoded lijst
 
 const ITEMS_PER_PAGE = 20;
 
@@ -61,7 +62,14 @@ const EMPTY_ORDER = {
 };
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'inspections' | 'users' | 'settings'>('inspections');
+  const [activeTab, setActiveTab] = useState<'inspections' | 'users' | 'settings' | 'library'>('inspections');
+  
+  // LIBRARY STATES
+  const [libraryItems, setLibraryItems] = useState<any[]>([]);
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [editingLibraryId, setEditingLibraryId] = useState<string | null>(null);
+  const [newLibraryItem, setNewLibraryItem] = useState({ category: '', subcategory: '', shortName: '', description: '', classification: 'Yellow', action: '' });
+  const libraryCsvInputRef = useRef<HTMLInputElement>(null);
   const [inspections, setInspections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -267,11 +275,138 @@ export default function AdminDashboard() {
       if (error) alert("Fout: " + error.message); else { alert("✅ Gewijzigd!"); setShowPasswordModal(false); }
   };
 
+  const fetchLibrary = async () => {
+      const { data } = await supabase.from('defect_library').select('*').order('category').order('subcategory');
+      setLibraryItems(data || []);
+  };
+
   useEffect(() => {
     if (activeTab === 'inspections') fetchInspections();
     if (activeTab === 'users') fetchUsers();
     if (activeTab === 'settings' || showOrderModal) fetchOptions(); 
+    if (activeTab === 'library') fetchLibrary();
   }, [page, searchTerm, activeTab, showOrderModal, sortConfig]);
+
+  // --- LIBRARY HANDLERS ---
+  const handleEditLibraryItem = (item: any) => {
+      setEditingLibraryId(item.id);
+      setNewLibraryItem({ category: item.category, subcategory: item.subcategory, shortName: item.shortName || item["shortName"], description: item.description, classification: item.classification, action: item.action });
+      setShowLibraryModal(true);
+  };
+
+  const handleSaveLibraryItem = async () => {
+      if (!newLibraryItem.category || !newLibraryItem.shortName) return alert("Categorie en Korte Naam verplicht.");
+      const payload = { category: newLibraryItem.category, subcategory: newLibraryItem.subcategory, "shortName": newLibraryItem.shortName, description: newLibraryItem.description, classification: newLibraryItem.classification, action: newLibraryItem.action };
+      
+      if (editingLibraryId) await supabase.from('defect_library').update(payload).eq('id', editingLibraryId);
+      else await supabase.from('defect_library').insert(payload);
+      
+      setShowLibraryModal(false); setEditingLibraryId(null);
+      setNewLibraryItem({ category: '', subcategory: '', shortName: '', description: '', classification: 'Yellow', action: '' });
+      fetchLibrary();
+  };
+
+  const handleDeleteLibraryItem = async (id: string) => {
+      if (window.confirm("Gebrek definitief verwijderen? Oude rapporten blijven intact.")) {
+          await supabase.from('defect_library').delete().eq('id', id);
+          fetchLibrary();
+      }
+  };
+
+  const handleLibraryCsvImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!window.confirm("Wil je deze CSV toevoegen aan de database? Bestaande items worden niet overschreven.")) return;
+      
+      setLoading(true);
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+          try {
+              const text = event.target?.result as string;
+              const rows: string[][] = [];
+              let currentRow: string[] = []; let currentCell = ''; let inQuotes = false;
+              for (let i = 0; i < text.length; i++) {
+                  const char = text[i]; const nextChar = text[i + 1];
+                  if (char === '"') { if (inQuotes && nextChar === '"') { currentCell += '"'; i++; } else { inQuotes = !inQuotes; } }
+                  else if (char === ';' && !inQuotes) { currentRow.push(currentCell.trim()); currentCell = ''; }
+                  else if ((char === '\n' || (char === '\r' && nextChar === '\n')) && !inQuotes) {
+                      currentRow.push(currentCell.trim());
+                      if (currentRow.length > 1 || (currentRow.length === 1 && currentRow[0] !== '')) rows.push(currentRow);
+                      currentRow = []; currentCell = '';
+                      if (char === '\r') i++;
+                  } else { if (char !== '\r') currentCell += char; }
+              }
+              if (currentCell || currentRow.length > 0) { currentRow.push(currentCell.trim()); rows.push(currentRow); }
+
+              const { data: existing } = await supabase.from('defect_library').select('shortName');
+              const existingNames = existing?.map(e => e.shortName || e["shortName"]) || [];
+
+              let insertData = [];
+              for (let i = 0; i < rows.length; i++) {
+                  const cols = rows[i];
+                  if (cols.length < 5) continue; 
+                  if (i === 0 && cols[0].toLowerCase().includes('categor')) continue; 
+                  
+                  const shortName = cols[2] || 'Naamloos';
+                  // Ontdubbelen: Sla over als de naam al in de cloud bestaat
+                  if (existingNames.includes(shortName)) continue;
+                  
+                  insertData.push({
+                      category: cols[0] || 'Overig', subcategory: cols[1] || 'Algemeen', "shortName": shortName,
+                      description: cols[3] || '', classification: cols[4] || 'Yellow', action: cols[5] || 'Herstellen'
+                  });
+              }
+              
+              if (insertData.length > 0) {
+                  const { error } = await supabase.from('defect_library').insert(insertData);
+                  if (error) throw error;
+                  alert(`${insertData.length} gebreken succesvol toegevoegd aan de cloud!`);
+                  fetchLibrary();
+              } else alert("Geen geldige data gevonden.");
+          } catch (err: any) { alert("Fout bij importeren: " + err.message); } finally { setLoading(false); if (libraryCsvInputRef.current) libraryCsvInputRef.current.value = ''; }
+      };
+      reader.readAsText(file);
+  };
+
+const handleLoadDefaultLibrary = async () => {
+      if (!window.confirm("Wil je de standaard ingebouwde NTA8220 bibliotheek naar de cloud kopiëren?")) return;
+      
+      setLoading(true);
+      try {
+          // 1. Haal eerst op wat er al in de cloud staat
+          const { data: existing } = await supabase.from('defect_library').select('shortName');
+          const existingNames = existing?.map(e => e.shortName || e["shortName"]) || [];
+
+          // 2. Filter de standaardlijst: behoud alleen de items die nog NIET bestaan
+          const newItems = DEFECT_LIBRARY.filter(d => !existingNames.includes(d.shortName));
+
+          if (newItems.length === 0) {
+              alert("Alle standaard gebreken staan al in je cloud-bibliotheek! Geen duplicaten toegevoegd.");
+              setLoading(false);
+              return;
+          }
+
+          // 3. Bouw de lijst om
+          const insertData = newItems.map(d => ({
+              category: d.category, 
+              subcategory: d.subcategory, 
+              "shortName": d.shortName, 
+              description: d.description, 
+              classification: d.classification, 
+              action: d.action
+          }));
+          
+          const { error } = await supabase.from('defect_library').insert(insertData);
+          if (error) throw error;
+          
+          alert(`Succes! ${insertData.length} nieuwe standaard gebreken toegevoegd. (${DEFECT_LIBRARY.length - insertData.length} overgeslagen i.v.m. duplicaten)`);
+          fetchLibrary();
+      } catch (err: any) { 
+          alert("Fout bij laden van standaard bibliotheek: " + err.message); 
+      } finally { 
+          setLoading(false); 
+      }
+  };
 
   // --- SETTINGS HANDLERS ---
   const startEditInspector = (item: any) => {
@@ -381,72 +516,145 @@ export default function AdminDashboard() {
       if(error) alert("Fout: " + error.message); else fetchInspections();
   };
 
-  // --- EXCEL EXPORT (UITGEBREID + DATUM FIX) ---
+  // --- MASTER BACKUP EXPORT ---
   const handleExportAll = async () => { 
-      if (!window.confirm("Volledige backup maken?")) return; 
-      const { data } = await supabase.from('inspections').select('*'); 
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); 
-      const url = URL.createObjectURL(blob); 
-      const a = document.createElement('a'); a.href = url; 
-      a.download = `FULL_BACKUP_${new Date().toISOString()}.json`; 
-      document.body.appendChild(a); a.click(); document.body.removeChild(a); 
+      if (!window.confirm("Volledige backup maken van het HELE systeem (Inspecties, Bibliotheek, Instellingen, Gebruikers)?")) return; 
+      
+      setLoading(true);
+      try {
+          // Haal alle vier de lades tegelijk leeg
+          const [
+              { data: inspections },
+              { data: library },
+              { data: settings },
+              { data: users }
+          ] = await Promise.all([
+              supabase.from('inspections').select('*'),
+              supabase.from('defect_library').select('*'),
+              supabase.from('form_options').select('*'),
+              supabase.from('profiles').select('*')
+          ]);
+
+          // Stop ze in één groot pakketje
+          const backupData = {
+              version: 1,
+              timestamp: new Date().toISOString(),
+              inspections: inspections || [],
+              library: library || [],
+              settings: settings || [],
+              users: users || []
+          };
+
+          const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' }); 
+          const url = URL.createObjectURL(blob); 
+          const a = document.createElement('a'); a.href = url; 
+          a.download = `Systeem_Backup_${new Date().toISOString().split('T')[0]}.json`; 
+          document.body.appendChild(a); a.click(); document.body.removeChild(a); 
+      } catch (err: any) {
+          alert("Fout bij maken backup: " + err.message);
+      } finally {
+          setLoading(false);
+      }
   };
-  // --- NIEUWE FUNCTIE: RESTORE BACKUP ---
+  // --- MASTER RESTORE BACKUP ---
   const handleRestoreBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-    if (!window.confirm("⚠️ WAARSCHUWING: DATABASE HERSTEL ⚠️\n\nJe staat op het punt een volledige backup terug te zetten.\n- Bestaande inspecties met hetzelfde ID worden OVERSCHREVEN.\n- Inspecties die niet in de backup staan, blijven bestaan.\n\nWeet je zeker dat je wilt doorgaan?")) {
-        if (restoreInputRef.current) restoreInputRef.current.value = '';
-        return;
-    }
+      if (!window.confirm("⚠️ WAARSCHUWING: SYSTEEM HERSTEL ⚠️\n\nJe staat op het punt een systeem-backup terug te zetten.\n- Bestaande data met hetzelfde ID wordt overschreven.\n- Ontbrekende data wordt veilig toegevoegd.\n\nWeet je zeker dat je wilt doorgaan?")) {
+          if (restoreInputRef.current) restoreInputRef.current.value = '';
+          return;
+      }
 
-    setLoading(true);
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-        try {
-            const json = JSON.parse(event.target?.result as string);
-            
-            // Validatie: Is het een array? (Full Backup formaat)
-            if (!Array.isArray(json)) {
-                alert("Fout: Dit bestand wordt niet herkend als een 'Volledige Backup'.\n(Verwacht een lijst met inspecties, [ {...}, {...} ])");
-                setLoading(false);
-                return;
-            }
+      setLoading(true);
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+          try {
+              const json = JSON.parse(event.target?.result as string);
+              
+              let inspectionsData: any[] = [];
+              let libraryData: any[] = [];
+              let settingsData: any[] = [];
+              let usersData: any[] = [];
 
-            let successCount = 0;
-            let failCount = 0;
+              // Slimme check: Welk type backup is dit?
+              if (Array.isArray(json)) {
+                  // Het is de oude backup (alleen inspecties)
+                  inspectionsData = json;
+              } else if (json.inspections) {
+                  // Het is de nieuwe Master Backup
+                  inspectionsData = json.inspections || [];
+                  libraryData = json.library || [];
+                  settingsData = json.settings || [];
+                  usersData = json.users || [];
+              } else {
+                  throw new Error("Ongeldig backup bestand. Kan de data niet lezen.");
+              }
 
-            // We sorteren op ID om te zorgen dat 'oudere' records (zoals parents) eerst komen, 
-            // om Foreign Key fouten bij contributions te voorkomen.
-            const sortedJson = json.sort((a: any, b: any) => (a.id || 0) - (b.id || 0));
+              let success = { insp: 0, lib: 0, set: 0, usr: 0 };
+              let failCount = 0;
 
-            for (const item of sortedJson) {
-                // Upsert: Maak aan als niet bestaat, update als ID bestaat
-                const { error } = await supabase
-                    .from('inspections')
-                    .upsert(item); 
+              // 1. Herstel Bibliotheek (Gebreken) met Ontdubbeling
+              if (libraryData.length > 0) {
+                  const { data: existingLib } = await supabase.from('defect_library').select('id, shortName');
+                  const existingNames = existingLib?.map(e => e.shortName || e["shortName"]) || [];
+                  const existingIds = existingLib?.map(e => e.id) || [];
+                  
+                  const toUpsert = libraryData.filter(item => {
+                      // 1. Als het exacte ID al bestaat in de cloud, mag hij hem netjes updaten
+                      if (existingIds.includes(item.id)) return true;
+                      // 2. Als het ID nieuw is, maar de Korte Naam bestaat al, filter hem dan weg (voorkomt duplicaten)
+                      if (existingNames.includes(item.shortName || item["shortName"])) return false;
+                      // 3. Anders is het een écht nieuw gebrek, voeg toe!
+                      return true;
+                  });
 
-                if (error) {
-                    console.error("Fout bij terugzetten item ID " + item.id, error);
-                    failCount++;
-                } else {
-                    successCount++;
-                }
-            }
+                  if (toUpsert.length > 0) {
+                      const { error } = await supabase.from('defect_library').upsert(toUpsert);
+                      if (error) { console.error("Fout library", error); failCount++; } else success.lib = toUpsert.length;
+                  }
+              }
 
-            alert(`Restore proces voltooid!\n\n✅ ${successCount} items succesvol hersteld/geüpdatet.\n❌ ${failCount} items mislukt (zie console voor details).`);
-            fetchInspections();
+              // 2. Herstel Instellingen (Bedrijven, Inspecteurs, Instrumenten)
+              if (settingsData.length > 0) {
+                  const { error } = await supabase.from('form_options').upsert(settingsData);
+                  if (error) { console.error("Fout instellingen", error); failCount++; } else success.set = settingsData.length;
+              }
 
-        } catch (err: any) {
-            console.error(err);
-            alert("Fout bij lezen bestand: " + err.message);
-        } finally {
-            setLoading(false);
-            if (restoreInputRef.current) restoreInputRef.current.value = '';
-        }
-    };
-    reader.readAsText(file);
+              // 3. Herstel Inspecties (Met ID sortering voor de parent_ids)
+              if (inspectionsData.length > 0) {
+                  const sortedInsp = inspectionsData.sort((a: any, b: any) => (a.id || 0) - (b.id || 0));
+                  for (const item of sortedInsp) {
+                      const { error } = await supabase.from('inspections').upsert(item);
+                      if (error) { console.error("Fout inspectie " + item.id, error); failCount++; } else success.insp++;
+                  }
+              }
+
+              // 4. Herstel Gebruikers (Alleen de profielen updaten van bestaande gebruikers!)
+              if (usersData.length > 0) {
+                  for (const u of usersData) {
+                      const { error } = await supabase.from('profiles').update({ role: u.role }).eq('id', u.id);
+                      if (error) { console.error("Fout profiel " + u.id, error); failCount++; } else success.usr++;
+                  }
+              }
+
+              alert(`✅ Herstel voltooid!\n\nVerwerkt:\n- ${success.insp} Inspecties\n- ${success.lib} Gebreken (Bibliotheek)\n- ${success.set} Instellingen\n- ${success.usr} Gebruikersrollen\n\n❌ ${failCount} fouten (zie log).`);
+              
+              // Ververs alle schermen in het dashboard
+              fetchInspections();
+              if (typeof fetchLibrary === 'function') fetchLibrary(); // Voorkom crash als we op een andere tab staan
+              fetchOptions();
+              fetchUsers();
+
+          } catch (err: any) {
+              console.error(err);
+              alert("Fout bij lezen bestand: " + err.message);
+          } finally {
+              setLoading(false);
+              if (restoreInputRef.current) restoreInputRef.current.value = '';
+          }
+      };
+      reader.readAsText(file);
   };
 
   const handleExcelExport = async () => { 
@@ -704,8 +912,9 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="flex gap-4 mb-6 border-b border-gray-300">
+        <div className="flex gap-4 mb-6 border-b border-gray-300 overflow-x-auto whitespace-nowrap">
             <button onClick={() => setActiveTab('inspections')} className={`pb-2 px-4 font-bold flex items-center gap-2 ${activeTab === 'inspections' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}><FileText size={18}/> Inspecties</button>
+            <button onClick={() => setActiveTab('library')} className={`pb-2 px-4 font-bold flex items-center gap-2 ${activeTab === 'library' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}><BookOpen size={18}/> Bibliotheek</button>
             <button onClick={() => setActiveTab('users')} className={`pb-2 px-4 font-bold flex items-center gap-2 ${activeTab === 'users' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}><Users size={18}/> Gebruikersbeheer</button>
             <button onClick={() => setActiveTab('settings')} className={`pb-2 px-4 font-bold flex items-center gap-2 ${activeTab === 'settings' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}><Settings size={18}/> Instellingen</button>
         </div>
@@ -869,6 +1078,90 @@ export default function AdminDashboard() {
         )}
 
         {/* MODAL: NIEUWE OPDRACHT / BEWERKEN */}
+        {/* TAB BIBLIOTHEEK */}
+        {activeTab === 'library' && (
+             <div className="bg-white rounded-lg shadow overflow-hidden">
+                 <div className="p-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center gap-4 flex-wrap">
+                     <div className="flex items-center gap-2 text-sm text-blue-800 font-bold"><BookOpen size={18}/><span>Centrale Gebreken Bibliotheek ({libraryItems.length})</span></div>
+                     <div className="flex gap-2">
+                         <button onClick={handleLoadDefaultLibrary} className="flex items-center gap-2 bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded shadow-sm text-xs font-bold hover:bg-emerald-200 border border-emerald-300"><Database size={16} /> Laad Standaard NTA8220</button>
+                         
+                         <button onClick={() => libraryCsvInputRef.current?.click()} className="flex items-center gap-2 bg-white text-blue-700 px-3 py-1.5 rounded shadow-sm text-xs font-bold hover:bg-blue-50 border border-blue-200"><UploadCloud size={16} /> CSV Importeren</button>
+                         <input type="file" ref={libraryCsvInputRef} onChange={handleLibraryCsvImport} accept=".csv" className="hidden" />
+                         <button onClick={() => { setNewLibraryItem({ category: '', subcategory: '', shortName: '', description: '', classification: 'Yellow', action: 'Herstellen' }); setEditingLibraryId(null); setShowLibraryModal(true); }} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded shadow text-xs font-bold hover:bg-blue-700"><Plus size={16} /> Nieuw Gebrek</button>
+                     </div>
+                 </div>
+                 <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
+                     <table className="min-w-full relative">
+                         <thead className="bg-gray-50 sticky top-0 border-b shadow-sm z-10">
+                             <tr>
+                                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Categorie</th>
+                                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Subcategorie</th>
+                                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Korte Naam</th>
+                                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Classificatie</th>
+                                 <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Acties</th>
+                             </tr>
+                         </thead>
+                         <tbody className="divide-y divide-gray-200">
+                             {libraryItems.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-500 italic">Geen gebreken gevonden in de database. Upload een CSV of voeg ze handmatig toe.</td></tr>}
+                             {libraryItems.map(item => (
+                                 <tr key={item.id} className="hover:bg-gray-50">
+                                     <td className="px-4 py-3 text-sm font-bold text-gray-700">{item.category}</td>
+                                     <td className="px-4 py-3 text-sm text-gray-600">{item.subcategory}</td>
+                                     <td className="px-4 py-3 text-sm text-gray-800">{item.shortName || item["shortName"]}</td>
+                                     <td className="px-4 py-3 text-sm">
+                                         <span className={`px-2 py-1 rounded text-xs font-bold ${item.classification === 'Red' ? 'bg-red-100 text-red-800' : item.classification === 'Orange' ? 'bg-orange-100 text-orange-800' : item.classification === 'Yellow' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>{item.classification}</span>
+                                     </td>
+                                     <td className="px-4 py-3 text-right">
+                                         <div className="flex justify-end gap-2">
+                                             <button onClick={() => handleEditLibraryItem(item)} className="text-blue-500 hover:text-blue-700 p-1"><Pencil size={16}/></button>
+                                             <button onClick={() => handleDeleteLibraryItem(item.id)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={16}/></button>
+                                         </div>
+                                     </td>
+                                 </tr>
+                             ))}
+                         </tbody>
+                     </table>
+                 </div>
+             </div>
+        )}
+
+        {/* MODAL: BIBLIOTHEEK ITEM BEWERKEN/TOEVOEGEN */}
+        {showLibraryModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-0 overflow-hidden flex flex-col">
+                    <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                        <h2 className="text-lg font-bold text-gray-800">{editingLibraryId ? 'Gebrek Bewerken' : 'Nieuw Gebrek'}</h2>
+                        <button onClick={() => setShowLibraryModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
+                    </div>
+                    <div className="p-6 overflow-y-auto max-h-[75vh] space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Hoofdcategorie</label><input className="w-full border rounded p-2" value={newLibraryItem.category} onChange={e => setNewLibraryItem({...newLibraryItem, category: e.target.value})} placeholder="Bijv. Verdeelinrichting" /></div>
+                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Subcategorie</label><input className="w-full border rounded p-2" value={newLibraryItem.subcategory} onChange={e => setNewLibraryItem({...newLibraryItem, subcategory: e.target.value})} placeholder="Bijv. Algemeen" /></div>
+                        </div>
+                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Korte Naam (Dropdown tekst)</label><input className="w-full border rounded p-2 font-bold text-emerald-700" value={newLibraryItem.shortName} onChange={e => setNewLibraryItem({...newLibraryItem, shortName: e.target.value})} placeholder="Bijv. Aanrakingsgevaar" /></div>
+                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Omschrijving Rapport</label><textarea className="w-full border rounded p-2 h-24" value={newLibraryItem.description} onChange={e => setNewLibraryItem({...newLibraryItem, description: e.target.value})} placeholder="Volledige normatieve omschrijving..." /></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Classificatie</label>
+                                <select className="w-full border rounded p-2" value={newLibraryItem.classification} onChange={e => setNewLibraryItem({...newLibraryItem, classification: e.target.value})}>
+                                    <option value="Red">Red (Ernstig / Direct)</option>
+                                    <option value="Orange">Orange</option>
+                                    <option value="Yellow">Yellow (Aandacht)</option>
+                                    <option value="Blue">Blue (Herstel)</option>
+                                </select>
+                            </div>
+                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Actie</label><input className="w-full border rounded p-2" value={newLibraryItem.action} onChange={e => setNewLibraryItem({...newLibraryItem, action: e.target.value})} placeholder="Bijv. Herstellen" /></div>
+                        </div>
+                    </div>
+                    <div className="p-4 border-t bg-gray-50 flex gap-2">
+                        <button onClick={() => setShowLibraryModal(false)} className="flex-1 bg-gray-200 py-2 rounded font-bold text-gray-700 hover:bg-gray-300">Annuleren</button>
+                        <button onClick={handleSaveLibraryItem} className="flex-1 bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">{editingLibraryId ? 'Opslaan' : 'Toevoegen'}</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {showOrderModal && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
