@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useInspectionStore } from './store';
-import { DEFECT_LIBRARY, calculateSample, INSTRUMENTS, COMPANIES, INSPECTORS } from './constants';
+import { DEFECT_LIBRARY, calculateSample, INSTRUMENTS, COMPANIES } from './constants';
 import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './components/PDFReport';
 import { compressImage, uploadPhotoToCloud } from './utils';
@@ -96,9 +96,9 @@ const [userProfile, setUserProfile] = useState<any>({
   const [activeTab, setActiveTab] = useState<typeof STEPS[number]>('setup');
   const [isGenerating, setIsGenerating] = useState(false);
   
-  const [dbInspectors, setDbInspectors] = useState<any[]>([]);
   const [dbCompanies, setDbCompanies] = useState<any[]>([]);
   const [dbInstruments, setDbInstruments] = useState<any[]>([]);
+  const [inspectorProfiles, setInspectorProfiles] = useState<any[]>([]);
 
   const ACTIVE_LIBRARY = customLibrary && customLibrary.length > 0 ? customLibrary : DEFECT_LIBRARY;
 
@@ -155,9 +155,18 @@ const [userProfile, setUserProfile] = useState<any>({
           // Haal de bestaande opties op
           const { data: optionsData } = await supabase.from('form_options').select('*');
           if (optionsData) {
-              setDbInspectors(optionsData.filter(x => x.category === 'inspector'));
               setDbCompanies(optionsData.filter(x => x.category === 'iv_company'));
               setDbInstruments(optionsData.filter(x => x.category === 'instrument'));
+          }
+
+          // Haal alle inspecteur- en admin-profielen op voor de snelkeuze
+          const { data: profilesData } = await supabase
+              .from('profiles')
+              .select('full_name, scios_nr, company_name')
+              .in('role', ['inspector', 'admin'])
+              .order('full_name');
+          if (profilesData) {
+              setInspectorProfiles(profilesData.filter(p => p.full_name));
           }
 
           // NIEUW: Haal de centrale bibliotheek op
@@ -997,25 +1006,22 @@ const handleCloudMerge = async () => {
                    <div className="mt-4 pt-4 border-t border-emerald-200">
                        <h2 className="text-sm font-bold text-emerald-700 uppercase mb-2">Inspecteur</h2>
                        <div className="grid grid-cols-1 gap-3">
-                           <ClearableInput 
-                               list="inspectors-list" 
-                               className="border rounded p-2 w-full" 
-                               placeholder="Naam Inspecteur" 
-                               value={meta.inspectorName} 
+                           <ClearableInput
+                               list="inspectors-list"
+                               className="border rounded p-2 w-full"
+                               placeholder="Naam Inspecteur"
+                               value={meta.inspectorName}
                                onChange={(e: any) => {
                                    const val = e.target.value;
                                    setMeta({ inspectorName: val });
-                                   const dbMatch = dbInspectors.find(i => i.label === val);
-                                   if(dbMatch && dbMatch.data?.sciosNr) {
-                                       setMeta({ inspectorName: val, sciosRegistrationNumber: dbMatch.data.sciosNr });
-                                       return;
+                                   const profileMatch = inspectorProfiles.find(p => p.full_name === val);
+                                   if (profileMatch) {
+                                       setMeta({ inspectorName: val, sciosRegistrationNumber: profileMatch.scios_nr || '' });
                                    }
-                                   const i = INSPECTORS.find(x => x.name === val);
-                                   if (i) setMeta({ inspectorName: i.name, sciosRegistrationNumber: i.sciosNr });
-                               }} 
+                               }}
                            />
                            <datalist id="inspectors-list">
-                               {[...dbInspectors.map(i => i.label), ...INSPECTORS.map(i => i.name)].map((name, i) => <option key={i} value={name} />)}
+                               {inspectorProfiles.map((p, i) => <option key={i} value={p.full_name} />)}
                            </datalist>
 
                            <input className="border rounded p-2" placeholder="SCIOS Nr" value={meta.sciosRegistrationNumber} onChange={(e) => setMeta({ sciosRegistrationNumber: e.target.value })} />
