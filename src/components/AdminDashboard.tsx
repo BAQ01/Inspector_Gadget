@@ -857,7 +857,7 @@ const handleLoadDefaultLibrary = async () => {
   };
 
   const handleCreateUser = async () => {
-    if (!newUser.email || !newUser.password) return alert("Vul alles in.");
+    if (!newUser.email || !newUser.password) return alert("Vul email en wachtwoord in.");
     try {
         const { data: sessionData } = await supabase.auth.getSession();
         const { data, error } = await supabase.functions.invoke('create-user', {
@@ -865,23 +865,35 @@ const handleLoadDefaultLibrary = async () => {
             headers: { Authorization: `Bearer ${sessionData.session?.access_token}` }
         });
         if (error || data?.error) throw new Error(error?.message || data?.error);
-        
-        // Koppel direct alle gegevens aan het nieuwe profiel
-        if (newUser.full_name || newUser.scios_nr || newUser.phone || newUser.contact_email) {
+
+        // Haal het user ID op uit de edge function response
+        const userId = data?.userId || data?.user?.id || data?.id;
+        if (userId) {
+            // Gebruik het ID direct — geen email-lookup nodig
+            await supabase.from('profiles').update({
+                full_name: newUser.full_name,
+                scios_nr: newUser.scios_nr,
+                phone: newUser.phone,
+                contact_email: newUser.contact_email,
+                role: newUser.role,
+            }).eq('id', userId);
+        } else {
+            // Fallback: zoek profiel op email (kan een fractie later beschikbaar zijn)
             const { data: profile } = await supabase.from('profiles').select('id').eq('email', newUser.email.trim()).single();
             if (profile) {
-                await supabase.from('profiles').update({ 
-                    full_name: newUser.full_name, 
+                await supabase.from('profiles').update({
+                    full_name: newUser.full_name,
                     scios_nr: newUser.scios_nr,
                     phone: newUser.phone,
-                    contact_email: newUser.contact_email
+                    contact_email: newUser.contact_email,
+                    role: newUser.role,
                 }).eq('id', profile.id);
             }
         }
-        
-        alert(`✅ ${newUser.email} aangemaakt!`); 
-        setShowUserModal(false); 
-        setNewUser({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '', phone: '', contact_email: '' }); 
+
+        alert(`✅ ${newUser.email} aangemaakt!`);
+        setShowUserModal(false);
+        setNewUser({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '', phone: '', contact_email: '' });
         fetchUsers();
     } catch (err: any) { alert("Fout: " + err.message); }
   };
@@ -1305,6 +1317,10 @@ const handleLoadDefaultLibrary = async () => {
                                 <input className="w-full border rounded p-2" type="text" placeholder="Telefoonnummer" value={newUser.phone} onChange={e => setNewUser({...newUser, phone: e.target.value})} />
                                 <input className="w-full border rounded p-2" type="email" placeholder="Contact Email (optioneel)" value={newUser.contact_email} onChange={e => setNewUser({...newUser, contact_email: e.target.value})} />
                                 <input className="w-full border rounded p-2" type="text" placeholder="SCIOS Nummer (optioneel)" value={newUser.scios_nr} onChange={e => setNewUser({...newUser, scios_nr: e.target.value})} />
+                                <select className="w-full border rounded p-2 bg-white" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
+                                    <option value="inspector">Inspecteur</option>
+                                    <option value="admin">Beheerder (Admin)</option>
+                                </select>
                                 <hr className="my-2 border-gray-100" />
                                 <input className="w-full border rounded p-2" type="email" placeholder="Login Email (Verplicht)" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
                                 <input className="w-full border rounded p-2" type="password" placeholder="Wachtwoord (Verplicht)" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
