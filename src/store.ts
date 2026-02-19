@@ -188,24 +188,42 @@ export const useInspectionStore = create<InspectionState>()(
         const existingBoardIds = new Set(currentMeasurements.boards.map(b => b.id));
         const newBoards = incomingBoards.filter((b: BoardMeasurement) => !existingBoardIds.has(b.id));
 
-        // 4. Namen van inspecteurs verzamelen
-        const contribName = incoming.meta?.inspectorName;
-        let updatedAdditionalInspectors = [...(currentMeta.additionalInspectors || [])];
+        // 4. INSPECTEURS NAMEN SAMENVOEGEN (DEFINITIEVE FIX)
+        const currentMainInspector = currentMeta.inspectorName; 
+        const incomingInspector = incoming.meta?.inspectorName;
         
-        if (contribName && contribName !== currentMeta.inspectorName && !updatedAdditionalInspectors.includes(contribName)) {
-            updatedAdditionalInspectors.push(contribName);
+        // Start met de bestaande lijst van de hoofdinspecteur
+        let teamList = [...(currentMeta.additionalInspectors || [])];
+
+        // A. Voeg de inkomende inspecteur toe (Collega naam)
+        // Check: Naam bestaat + is niet de Hoofdinspecteur + staat nog niet in de lijst
+        if (incomingInspector && incomingInspector.trim() !== '' && incomingInspector !== currentMainInspector) {
+            teamList.push(incomingInspector);
         }
+
+        // B. Als de collega zelf ook al een lijstje had (bijv. Col 1 + Col 2), voeg die ook toe
+        if (incoming.meta?.additionalInspectors && Array.isArray(incoming.meta.additionalInspectors)) {
+            teamList = [...teamList, ...incoming.meta.additionalInspectors];
+        }
+
+        // C. Alles ontdubbelen en lege waarden filteren
+        const uniqueTeamList = [...new Set(teamList)].filter(name => name && name.trim() !== '');
 
         return {
           meta: {
-            ...currentMeta,
-            additionalInspectors: updatedAdditionalInspectors
+            ...currentMeta,     // Behoud huidige meta
+            ...incoming.meta,   // Update met inkomende data
+            
+            // HERSTEL DE JUISTE NAMEN:
+            inspectorName: currentMainInspector, // Hoofdinspecteur blijft ALTIJD de baas
+            additionalInspectors: uniqueTeamList // De geüpdatete lijst
           },
           defects: [...state.defects, ...newDefects],
           measurements: {
-            ...currentMeasurements,
-            selectedInstruments: [...currentMeasurements.selectedInstruments, ...newInstruments],
-            boards: [...currentMeasurements.boards, ...newBoards]
+            ...state.measurements, // Behoud bestaande structuur
+            ...incoming.measurements, // Merge metingen
+            selectedInstruments: [...state.measurements.selectedInstruments, ...newInstruments],
+            boards: [...state.measurements.boards, ...newBoards]
           }
         };
       }),

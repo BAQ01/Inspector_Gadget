@@ -169,17 +169,34 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
   // --- FUNCTIE OM NAMEN SAMEN TE VOEGEN ---
   // Hoofdinspecteur ALTIJD als eerste, daarna de unieke collega's
   const getInspectorNames = () => {
-    let names = meta.inspectorName;
-    if (meta.additionalInspectors && meta.additionalInspectors.length > 0) {
-      names += `, ${meta.additionalInspectors.join(', ')}`;
+    // 1. Start met de hoofdinspecteur
+    const allNames = [meta.inspectorName];
+    
+    // 2. Voeg eventuele collega's toe (met dubbel-check op duplicaten)
+    if (meta.additionalInspectors && Array.isArray(meta.additionalInspectors)) {
+        meta.additionalInspectors.forEach(name => {
+            if (name && !allNames.includes(name)) {
+                allNames.push(name);
+            }
+        });
     }
-    return names;
+
+    // 3. Retourneer als string: "Jan Jansen, Piet Pietersen, Klaas Klaassen"
+    return allNames.join(', ');
   };
 
   // --- FUNCTIE OM PREFIX TE VERWIJDEREN ---
-  // Verwijdert "[BIJDRAGE NAAM]: " uit de tekst voor de PDF weergave
+  // Verwijdert "[BIJDRAGE NAAM]" (met of zonder dubbele punt) uit de tekst
   const cleanDescription = (desc: string) => {
-    return desc.replace(/^\[BIJDRAGE\s+.*?\]:\s*/i, '');
+    if (!desc) return '';
+    // Regex uitleg: 
+    // \[BIJDRAGE -> Zoek letterlijk naar [BIJDRAGE
+    // .*?        -> Pak alles tot de sluitende haak
+    // \]         -> Sluitende haak
+    // :?         -> Optionele dubbele punt
+    // \s* -> Eventuele spaties erachter
+    // g, i       -> Globaal (overal in tekst), Case-insensitive (hoofdletters maken niet uit)
+    return desc.replace(/\[BIJDRAGE.*?\]:?\s*/gi, '').trim();
   };
 
   return (

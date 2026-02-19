@@ -315,71 +315,96 @@ export default function InspectorApp() {
     }
   };
 
-  const handleCloudMerge = async () => {
-      const myId = meta.supabaseId;
-      if (!myId) return alert("Sla eerst je eigen rapport op in de cloud voordat je kunt samenvoegen.");
+  // FIXED VERSION of handleCloudMerge function
+// This should replace lines 318-382 in InspectorApp.tsx
 
-      setIsGenerating(true);
-      
-      const { data: contributions, error } = await supabase
-          .from('inspections')
-          .select('id, report_data, status')
-          .eq('parent_id', myId)
-          .eq('status', 'contribution_ready');
+const handleCloudMerge = async () => {
+    const myId = meta.supabaseId;
+    if (!myId) return alert("Sla eerst je eigen rapport op in de cloud voordat je kunt samenvoegen.");
 
-      setIsGenerating(false);
+    setIsGenerating(true);
+    
+    const { data: contributions, error } = await supabase
+        .from('inspections')
+        .select('id, report_data, status')
+        .eq('parent_id', myId)
+        .eq('status', 'contribution_ready');
 
-      if (error) return alert("Fout bij zoeken: " + error.message);
-      if (!contributions || contributions.length === 0) return alert("Geen nieuwe bijdragen gevonden.");
+    setIsGenerating(false);
 
-      let mergedCount = 0;
+    if (error) return alert("Fout bij zoeken: " + error.message);
+    if (!contributions || contributions.length === 0) return alert("Geen nieuwe bijdragen gevonden.");
 
-      for (const contribution of contributions) {
-          const reportData = (typeof contribution.report_data === 'string' 
-            ? JSON.parse(contribution.report_data) 
-            : contribution.report_data) as { 
-                meta: Partial<InspectionMeta>, 
-                defects: Defect[], 
-                measurements: { selectedInstruments: Instrument[], boards: BoardMeasurement[] } 
-            };
+    let mergedCount = 0;
 
-          const contribInspector = reportData.meta?.inspectorName || 'Onbekende collega';
-          const contribDate = reportData.meta?.date || 'onbekende datum';
-          const defectCount = reportData.defects?.length || 0;
-          const boardCount = reportData.measurements?.boards?.length || 0;
+    for (const contribution of contributions) {
+        const reportData = (typeof contribution.report_data === 'string' 
+          ? JSON.parse(contribution.report_data) 
+          : contribution.report_data) as { 
+              meta: Partial<InspectionMeta>, 
+              defects: Defect[], 
+              measurements: { selectedInstruments: Instrument[], boards: BoardMeasurement[] } 
+          };
+
+        const contribInspector = reportData.meta?.inspectorName || 'Onbekende collega';
+        const contribDate = reportData.meta?.date || 'onbekende datum';
+        const defectCount = reportData.defects?.length || 0;
+        const boardCount = reportData.measurements?.boards?.length || 0;
+          
+        if (window.confirm(`Bijdrage van ${contribInspector} (${contribDate}) toevoegen?\nBevat ${defectCount} gebreken en ${boardCount} verdelers.`)) {
             
-          if (window.confirm(`Bijdrage van ${contribInspector} (${contribDate}) toevoegen?\nBevat ${defectCount} gebreken en ${boardCount} verdelers.`)) {
-              if (Array.isArray(reportData.defects)) {
-                  reportData.defects.forEach((d: Defect) => {
-                      addDefect({ 
-                        ...d, 
-                        id: generateId(), 
-                        description: `[BIJDRAGE ${contribInspector.toUpperCase()}]: ${d.description}`
-                      });
-                  });
-              }
-
-              if (Array.isArray(reportData.measurements?.selectedInstruments)) {
-                  reportData.measurements.selectedInstruments.forEach((inst: Instrument) => {
-                      const isDuplicate = measurements.selectedInstruments.some(
-                        existing => existing.serialNumber === inst.serialNumber
-                      );
-                      if (!isDuplicate) addInstrument(inst);
-                  });
-              }
-
-              if (Array.isArray(reportData.measurements?.boards)) {
-                reportData.measurements.boards.forEach((board: BoardMeasurement) => {
-                   addBoard({ ...board, id: generateId(), name: `${board.name} (v. ${contribInspector})` });
+            // ✅ FIX: ADD THE COLLEAGUE'S NAME TO additionalInspectors
+            // Check if this inspector is not already in the list
+            const currentAdditionalInspectors = meta.additionalInspectors || [];
+            const mainInspector = meta.inspectorName;
+            
+            if (contribInspector && 
+                contribInspector !== 'Onbekende collega' && 
+                contribInspector !== mainInspector && 
+                !currentAdditionalInspectors.includes(contribInspector)) {
+                
+                setMeta({ 
+                    additionalInspectors: [...currentAdditionalInspectors, contribInspector] 
                 });
-              }
-              
-              await supabase.from('inspections').update({ status: 'merged' }).eq('id', contribution.id);
-              mergedCount++;
-          }
-      }
-      if (mergedCount > 0) alert(`Succes! ${mergedCount} bijdrage(n) samengevoegd.`);
-  };
+            }
+            // ✅ END FIX
+            
+            // Add defects with contributor prefix
+            if (Array.isArray(reportData.defects)) {
+                reportData.defects.forEach((d: Defect) => {
+                    addDefect({ 
+                      ...d, 
+                      id: generateId(), 
+                      description: `[BIJDRAGE ${contribInspector.toUpperCase()}]: ${d.description}`
+                    });
+                });
+            }
+
+            // Add instruments (avoid duplicates)
+            if (Array.isArray(reportData.measurements?.selectedInstruments)) {
+                reportData.measurements.selectedInstruments.forEach((inst: Instrument) => {
+                    const isDuplicate = measurements.selectedInstruments.some(
+                      existing => existing.serialNumber === inst.serialNumber
+                    );
+                    if (!isDuplicate) addInstrument(inst);
+                });
+            }
+
+            // Add boards with contributor name
+            if (Array.isArray(reportData.measurements?.boards)) {
+              reportData.measurements.boards.forEach((board: BoardMeasurement) => {
+                 addBoard({ ...board, id: generateId(), name: `${board.name} (v. ${contribInspector})` });
+              });
+            }
+            
+            // Mark contribution as merged in database
+            await supabase.from('inspections').update({ status: 'merged' }).eq('id', contribution.id);
+            mergedCount++;
+        }
+    }
+    
+    if (mergedCount > 0) alert(`Succes! ${mergedCount} bijdrage(n) samengevoegd.`);
+};
 
   const handleSyncBack = async () => {
     const cloudId = (meta as any).supabaseId;
@@ -414,14 +439,38 @@ export default function InspectorApp() {
   const handleUploadAsNew = async () => {
     if (!meta.clientName) return alert("Vul eerst een klantnaam in.");
 
+    // --- IDENTITEITS CHECK (FIX VOOR MERGE) ---
+    // We moeten garanderen dat 'inspectorName' gevuld is met de HUIDIGE gebruiker,
+    // anders denkt de merge-functie dat het bestand leeg of van de hoofdinspecteur is.
+    let finalInspectorName = meta.inspectorName;
+
+    if (!finalInspectorName || finalInspectorName.trim() === '') {
+        // Probeer de sessie op te halen
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user && session.user.email) {
+            finalInspectorName = session.user.email; // Gebruik email als fallback
+            setMeta({ inspectorName: finalInspectorName }); // Update direct de UI
+        } else {
+            // Als we echt geen naam kunnen vinden, dwingen we de gebruiker
+            return alert("LET OP: Vul a.u.b. uw naam in bij 'Inspecteur' (Tabblad Basis) voordat u de bijdrage verstuurt.");
+        }
+    }
+    // ------------------------------------------
+
     const isContrib = meta.isContributionMode && meta.parentInspectionId;
     
     // Bevestiging vragen
     if (!window.confirm(isContrib ? "Bijdrage uploaden naar Hoofdinspecteur?" : "Opslaan als nieuwe opdracht?")) return;
 
     setIsGenerating(true);
-    const reportData = { meta, measurements, defects, customInstruments };
     
+    // We gebruiken hier expliciet 'finalInspectorName' om zeker te zijn dat de update mee gaat
+    const reportData = { 
+        meta: { ...meta, inspectorName: finalInspectorName }, 
+        measurements, 
+        defects, 
+        customInstruments 
+    };    
     // Naamgeving bepalen voor in de lijst
     let uploadClientName = meta.clientName;
     if (isContrib) {
