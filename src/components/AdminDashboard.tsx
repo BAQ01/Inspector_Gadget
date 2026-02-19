@@ -93,21 +93,19 @@ export default function AdminDashboard() {
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [users, setUsers] = useState<any[]>([]);
   
-  // Options Lists
-  const [inspectorsList, setInspectorsList] = useState<any[]>([]);
+// Options Lists
   const [companiesList, setCompaniesList] = useState<any[]>([]);
   const [instrumentsList, setInstrumentsList] = useState<any[]>([]);
   
   // New Item States
   const [newInstrument, setNewInstrument] = useState({ name: '', serial: '', calibration: '' });
-  const [newInspector, setNewInspector] = useState({ name: '', sciosNr: '' });
   const [newCompany, setNewCompany] = useState({ name: '', address: '', postalCode: '', city: '', phone: '', email: '' });
-  
+
   const [editingSettingId, setEditingSettingId] = useState<number | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
-  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'inspector' });
-  
+  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '' });
+
   const excelInputRef = useRef<HTMLInputElement>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
 
@@ -257,15 +255,13 @@ export default function AdminDashboard() {
   );
 
   const fetchUsers = async () => { const { data } = await supabase.from('profiles').select('*').order('email'); setUsers(data || []); };
-  const fetchOptions = async () => {
+const fetchOptions = async () => {
       const { data } = await supabase.from('form_options').select('*').order('label');
       if (data) {
-          setInspectorsList(data.filter(x => x.category === 'inspector'));
           setCompaniesList(data.filter(x => x.category === 'iv_company'));
           setInstrumentsList(data.filter(x => x.category === 'instrument'));
       }
   };
-
   const handleDeleteUser = async (userId: string) => { if (window.confirm("⚠️ WAARSCHUWING ⚠️\n\nGebruiker verwijderen?")) { await supabase.rpc('delete_user', { user_id: userId }); fetchUsers(); } };
   const openPasswordModal = (user: any) => { setPasswordResetUser({ id: user.id, email: user.email }); setNewPasswordInput(''); setShowPasswordModal(true); };
   const handleResetPassword = async () => { 
@@ -408,19 +404,7 @@ const handleLoadDefaultLibrary = async () => {
       }
   };
 
-  // --- SETTINGS HANDLERS ---
-  const startEditInspector = (item: any) => {
-      setEditingSettingId(item.id); setEditingCategory('inspector');
-      setNewInspector({ name: item.label, sciosNr: item.data?.sciosNr || '' });
-  };
-  const handleSaveInspector = async () => {
-      if (!newInspector.name) return alert("Naam verplicht");
-      const payload = { label: newInspector.name, data: { sciosNr: newInspector.sciosNr } };
-      if (editingSettingId) await supabase.from('form_options').update(payload).eq('id', editingSettingId);
-      else await supabase.from('form_options').insert({ category: 'inspector', ...payload });
-      cancelEditSettings(); fetchOptions();
-  };
-
+// --- SETTINGS HANDLERS ---
   const startEditCompany = (item: any) => {
       setEditingSettingId(item.id); setEditingCategory('iv_company');
       setNewCompany({ name: item.label, address: item.data?.address || '', postalCode: item.data?.postalCode || '', city: item.data?.city || '', phone: item.data?.phone || '', email: item.data?.email || '' });
@@ -446,8 +430,8 @@ const handleLoadDefaultLibrary = async () => {
   };
 
   const deleteOption = async (id: number) => { if (window.confirm("Verwijderen?")) { await supabase.from('form_options').delete().eq('id', id); cancelEditSettings(); fetchOptions(); } };
-  const cancelEditSettings = () => { setEditingSettingId(null); setEditingCategory(null); setNewInspector({ name: '', sciosNr: '' }); setNewCompany({ name: '', address: '', postalCode: '', city: '', phone: '', email: '' }); setNewInstrument({ name: '', serial: '', calibration: '' }); };
-
+  const cancelEditSettings = () => { setEditingSettingId(null); setEditingCategory(null); setNewCompany({ name: '', address: '', postalCode: '', city: '', phone: '', email: '' }); setNewInstrument({ name: '', serial: '', calibration: '' }); };
+  
   // --- ORDER HANDLERS ---
   const handleEdit = (insp: any) => {
       const meta = insp.report_data?.meta || {};
@@ -866,6 +850,12 @@ const handleLoadDefaultLibrary = async () => {
 
   const handleRoleChange = async (userId: string, newRole: string) => { if (!window.confirm(`Rol wijzigen?`)) return; const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId); if (error) alert("Fout: " + error.message); else { alert("Aangepast!"); fetchUsers(); } };
 
+  // NIEUW: Inline update functie voor Profielen (Naam & SCIOS)
+  const handleUpdateProfile = async (userId: string, field: 'full_name' | 'scios_nr', value: string) => {
+      const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', userId);
+      if (error) alert("Fout bij opslaan: " + error.message); else fetchUsers();
+  };
+
   const handleCreateUser = async () => {
     if (!newUser.email || !newUser.password) return alert("Vul alles in.");
     try {
@@ -875,7 +865,14 @@ const handleLoadDefaultLibrary = async () => {
             headers: { Authorization: `Bearer ${sessionData.session?.access_token}` }
         });
         if (error || data?.error) throw new Error(error?.message || data?.error);
-        alert(`✅ ${newUser.email} aangemaakt!`); setShowUserModal(false); setNewUser({ email: '', password: '', role: 'inspector' }); fetchUsers();
+        
+        // Koppel direct de naam en SCIOS aan het nieuwe profiel
+        if (newUser.full_name || newUser.scios_nr) {
+            const { data: profile } = await supabase.from('profiles').select('id').eq('email', newUser.email.trim()).single();
+            if (profile) await supabase.from('profiles').update({ full_name: newUser.full_name, scios_nr: newUser.scios_nr }).eq('id', profile.id);
+        }
+        
+        alert(`✅ ${newUser.email} aangemaakt!`); setShowUserModal(false); setNewUser({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '' }); fetchUsers();
     } catch (err: any) { alert("Fout: " + err.message); }
   };
 
@@ -1017,20 +1014,21 @@ const handleLoadDefaultLibrary = async () => {
             </>
         )}
 
-        {/* TAB USERS (Ongewijzigd) */}
+        {/* TAB USERS */}
         {activeTab === 'users' && (
             <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="p-4 bg-blue-50 border-b border-blue-100 text-sm text-blue-800 flex justify-between items-center">
-                    <div className="flex items-center gap-2"><Shield size={18}/><span>Beheer rollen.</span></div>
+                    <div className="flex items-center gap-2"><Shield size={18}/><span>Beheer inlogaccounts, namen en SCIOS-nummers. (Wijzigingen direct opslaan door buiten het veld te klikken)</span></div>
                     <button onClick={() => setShowUserModal(true)} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1 rounded shadow text-xs font-bold hover:bg-blue-700"><UserPlus size={16} /> Nieuwe Gebruiker</button>
                 </div>
                 <table className="min-w-full">
-                    <thead className="bg-gray-50 border-b"><tr><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Huidige Rol</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Wijzig Rol</th><th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Acties</th></tr></thead>
+                    <thead className="bg-gray-50 border-b"><tr><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Volledige Naam</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">SCIOS Nr</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Rol</th><th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Acties</th></tr></thead>
                     <tbody className="divide-y divide-gray-200">
                         {users.map(u => (
                             <tr key={u.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 text-sm font-bold text-gray-700">{u.email}</td>
-                                <td className="px-6 py-4 text-sm">{u.role === 'admin' ? <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-bold">ADMIN</span> : <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-bold">INSPECTOR</span>}</td>
+                                <td className="px-6 py-4 text-sm"><input className="border rounded p-1 w-full text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.full_name || ''} onBlur={(e) => { if(e.target.value !== (u.full_name||'')) handleUpdateProfile(u.id, 'full_name', e.target.value); }} placeholder="Vul naam in..." /></td>
+                                <td className="px-6 py-4 text-sm"><input className="border rounded p-1 w-24 text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.scios_nr || ''} onBlur={(e) => { if(e.target.value !== (u.scios_nr||'')) handleUpdateProfile(u.id, 'scios_nr', e.target.value); }} placeholder="Optioneel" /></td>
                                 <td className="px-6 py-4 text-sm"><select className="border rounded p-1 text-sm bg-white cursor-pointer" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}><option value="inspector">Inspector</option><option value="admin">Admin</option></select></td>
                                 <td className="px-6 py-4 text-right text-sm"><div className="flex justify-end gap-2"><button onClick={() => openPasswordModal(u)} className="text-orange-400 hover:text-orange-600 bg-orange-50 p-2 rounded hover:bg-orange-100 transition-colors" title="Wachtwoord Resetten"><Key size={18}/></button><button onClick={() => handleDeleteUser(u.id)} className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded hover:bg-red-100 transition-colors" title="Verwijder"><Trash2 size={18}/></button></div></td>
                             </tr>
@@ -1039,21 +1037,11 @@ const handleLoadDefaultLibrary = async () => {
                 </table>
             </div>
         )}
+
 {/* TAB SETTINGS */}
         {activeTab === 'settings' && (
-             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                 {/* Inspecteurs */}
-                 <div className="bg-white rounded-lg shadow p-6 h-fit">
-                     <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><User size={20}/> Inspecteurs</h2>
-                     <div className="bg-gray-50 p-4 rounded border mb-4 space-y-3">
-                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Naam</label><input className="w-full border rounded p-2 text-sm" value={newInspector.name} onChange={e => setNewInspector({...newInspector, name: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'inspector'} /></div>
-                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">SCIOS Nr</label><input className="w-full border rounded p-2 text-sm" value={newInspector.sciosNr} onChange={e => setNewInspector({...newInspector, sciosNr: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'inspector'} /></div>
-                         <div className="flex gap-2 pt-2"><button onClick={handleSaveInspector} disabled={editingSettingId !== null && editingCategory !== 'inspector'} className={`flex-1 py-2 rounded font-bold text-sm text-white ${editingSettingId && editingCategory === 'inspector' ? 'bg-blue-600' : 'bg-emerald-600 disabled:opacity-50'}`}>{editingSettingId && editingCategory === 'inspector' ? 'Opslaan' : 'Toevoegen'}</button>{editingSettingId && editingCategory === 'inspector' && <button onClick={cancelEditSettings} className="px-4 bg-gray-300 rounded font-bold text-sm">X</button>}</div>
-                     </div>
-                     <ul className="divide-y max-h-[400px] overflow-y-auto">{inspectorsList.map((item) => (<li key={item.id} className="py-3 flex justify-between items-start text-gray-700"><div><div className="font-bold">{item.label}</div><div className="text-xs text-gray-500">SCIOS: {item.data.sciosNr}</div></div><div className="flex gap-2"><button onClick={() => startEditInspector(item)} className="text-blue-400 hover:text-blue-600"><Pencil size={16}/></button><button onClick={() => deleteOption(item.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button></div></li>))}</ul>
-                 </div>
-                 
-                 {/* Inspectiebedrijf */}
+             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">            
+                {/* Inspectiebedrijf */}
                  <div className="bg-white rounded-lg shadow p-6 h-fit">
                      <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><Building size={20}/> Inspectiebedrijf</h2>
                      <div className="bg-gray-50 p-4 rounded border mb-4 space-y-3">
@@ -1244,8 +1232,8 @@ const handleLoadDefaultLibrary = async () => {
                                     <div className="space-y-3">
                                         <div>
                                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Naam (Kies of Typ)</label>
-                                            <input list="inspectors-list-modal" className="w-full border rounded p-2" value={newOrder.inspectorName} onChange={e => { const val = e.target.value; const match = inspectorsList.find(i => i.label === val); setNewOrder({ ...newOrder, inspectorName: val, sciosRegistrationNumber: match ? match.data.sciosNr : newOrder.sciosRegistrationNumber }); }} placeholder="Selecteer inspecteur" />
-                                            <datalist id="inspectors-list-modal">{inspectorsList.map(i => <option key={i.id} value={i.label}/>)}</datalist>
+                                            <input list="inspectors-list-modal" className="w-full border rounded p-2" value={newOrder.inspectorName} onChange={e => { const val = e.target.value; const match = users.find(u => u.full_name === val); setNewOrder({ ...newOrder, inspectorName: val, sciosRegistrationNumber: match ? (match.scios_nr || '') : newOrder.sciosRegistrationNumber }); }} placeholder="Selecteer inspecteur uit cloud" />
+                                            <datalist id="inspectors-list-modal">{users.filter(u => u.full_name).map(u => <option key={u.id} value={u.full_name}/>)}</datalist>
                                         </div>
                                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">SCIOS Registratienummer</label><input className="w-full border rounded p-2" value={newOrder.sciosRegistrationNumber} onChange={e => setNewOrder({...newOrder, sciosRegistrationNumber: e.target.value})} placeholder="Optioneel" /></div>
                                     </div>
@@ -1295,7 +1283,7 @@ const handleLoadDefaultLibrary = async () => {
             </div>
         )}
         
-        {showUserModal && (<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6"><h2 className="text-lg font-bold mb-4">Nieuwe Gebruiker</h2><input className="w-full border rounded p-2 mb-2" type="email" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} /><input className="w-full border rounded p-2 mb-4" type="password" placeholder="Wachtwoord" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} /><div className="flex gap-2"><button onClick={() => setShowUserModal(false)} className="flex-1 bg-gray-200 py-2 rounded">Annuleren</button><button onClick={handleCreateUser} className="flex-1 bg-blue-600 text-white py-2 rounded">Toevoegen</button></div></div></div>)}
+        {showUserModal && (<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6"><h2 className="text-lg font-bold mb-4">Nieuwe Gebruiker</h2><input className="w-full border rounded p-2 mb-2" type="text" placeholder="Volledige Naam" value={newUser.full_name} onChange={e => setNewUser({...newUser, full_name: e.target.value})} /><input className="w-full border rounded p-2 mb-2" type="text" placeholder="SCIOS Nummer (optioneel)" value={newUser.scios_nr} onChange={e => setNewUser({...newUser, scios_nr: e.target.value})} /><input className="w-full border rounded p-2 mb-2" type="email" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} /><input className="w-full border rounded p-2 mb-4" type="password" placeholder="Wachtwoord" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} /><div className="flex gap-2"><button onClick={() => setShowUserModal(false)} className="flex-1 bg-gray-200 py-2 rounded font-bold text-gray-700">Annuleren</button><button onClick={handleCreateUser} className="flex-1 bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">Toevoegen</button></div></div></div>)}
         {showPasswordModal && (<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6"><h2 className="text-lg font-bold mb-4">Wachtwoord Reset</h2><input className="w-full border rounded p-2 mb-4" type="text" placeholder="Nieuw Wachtwoord" value={newPasswordInput} onChange={e => setNewPasswordInput(e.target.value)} /><div className="flex gap-2"><button onClick={() => setShowPasswordModal(false)} className="flex-1 bg-gray-200 py-2 rounded">Annuleren</button><button onClick={handleResetPassword} className="flex-1 bg-orange-500 text-white py-2 rounded">Resetten</button></div></div></div>)}
       </div>
     </div>
