@@ -140,6 +140,7 @@ const [userProfile, setUserProfile] = useState<any>({
   const [newInstName, setNewInstName] = useState('');
   const [newInstSn, setNewInstSn] = useState('');
   const [newInstDate, setNewInstDate] = useState('');
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState('');
   const [isSearchingBag, setIsSearchingBag] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -1048,7 +1049,7 @@ const handleCloudMerge = async () => {
                 <div className="bg-blue-50 p-4 rounded border border-blue-100 mb-4">
                 <label className="block text-xs font-bold text-blue-800 uppercase mb-2">Gebruikte Meetinstrumenten</label>
                 <div className="flex gap-2 mb-3">
-                    <select className="border rounded p-2 w-full bg-white" onChange={(e) => { const inst = ALL_INSTRUMENTS_OPTIONS.find(i => i.id === e.target.value); if (inst) { addInstrument(inst); e.target.value = ""; } }} defaultValue="">
+                    <select className="border rounded p-2 w-full bg-white" value={selectedInstrumentId} onChange={(e) => { const inst = ALL_INSTRUMENTS_OPTIONS.find(i => i.id === e.target.value); if (inst) { addInstrument(inst); setSelectedInstrumentId(''); } else { setSelectedInstrumentId(e.target.value); } }}>
                         <option value="" disabled>-- Selecteer Meetinstrument --</option>
                         {ALL_INSTRUMENTS_OPTIONS.map(i => (<option key={i.id} value={i.id}>{i.name} {i.serialNumber !== 'Onbekend' ? `(SN: ${i.serialNumber})` : ''}</option>))}
                     </select>
@@ -1180,9 +1181,9 @@ const handleCloudMerge = async () => {
                         <input className="w-full border-b border-gray-200 p-1 focus:border-emerald-500 outline-none font-bold" placeholder="Bijv. HVK Begane Grond" value={board.name} onChange={(e) => updateBoard(board.id, { ...board, name: e.target.value })} />
                         </div>
                         <div className="grid grid-cols-3 gap-3">
-                        <div><label className="text-[10px] font-bold text-gray-400 uppercase block">Temp (°C)</label><input type="number" className="w-full border rounded p-2 text-sm bg-gray-50" value={board.switchboardTemp} onChange={(e) => updateBoard(board.id, { ...board, switchboardTemp: e.target.value })} /></div>
-                        <div><label className="text-[10px] font-bold text-gray-400 uppercase block">Riso (MΩ)</label><input type="number" className="w-full border rounded p-2 text-sm bg-gray-50" value={board.insulationResistance} onChange={(e) => updateBoard(board.id, { ...board, insulationResistance: e.target.value })} /></div>
-                        <div><label className="text-[10px] font-bold text-gray-400 uppercase block">Zi (Ω)</label><input type="number" step="0.01" className="w-full border rounded p-2 text-sm bg-gray-50" value={board.impedance} onChange={(e) => updateBoard(board.id, { ...board, impedance: e.target.value })} /></div>
+                        <div><label className="text-[10px] font-bold text-gray-400 uppercase block">Temp (°C)</label><input type="number" className="w-full border rounded p-2 text-sm bg-gray-50" value={board.switchboardTemp} onChange={(e) => updateBoard(board.id, { ...board, switchboardTemp: e.target.value })} onWheel={(e) => (e.target as HTMLInputElement).blur()} /></div>
+                        <div><label className="text-[10px] font-bold text-gray-400 uppercase block">Riso (MΩ)</label><input type="number" className="w-full border rounded p-2 text-sm bg-gray-50" value={board.insulationResistance} onChange={(e) => updateBoard(board.id, { ...board, insulationResistance: e.target.value })} onWheel={(e) => (e.target as HTMLInputElement).blur()} /></div>
+                        <div><label className="text-[10px] font-bold text-gray-400 uppercase block">Zi (Ω)</label><input type="number" step="0.01" className="w-full border rounded p-2 text-sm bg-gray-50" value={board.impedance} onChange={(e) => updateBoard(board.id, { ...board, impedance: e.target.value })} onWheel={(e) => (e.target as HTMLInputElement).blur()} /></div>
                         </div>
                     </div>
                     </div>
