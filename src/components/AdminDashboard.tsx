@@ -901,41 +901,40 @@ const handleLoadDefaultLibrary = async () => {
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
+    <div className="min-h-screen bg-gray-100 p-3 md:p-8">
       <div className="max-w-[95%] mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-          <div><h1 className="text-3xl font-bold text-gray-800">Kantoor Dashboard</h1><p className="text-gray-500">Beheer {totalCount} inspecties</p></div>
-          <div className="flex gap-3">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+          <div><h1 className="text-2xl md:text-3xl font-bold text-gray-800">Kantoor Dashboard</h1><p className="text-gray-500 text-sm">Beheer {totalCount} inspecties</p></div>
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
              {activeTab === 'inspections' && (
                  <>
-                    <button onClick={() => excelInputRef.current?.click()} className="flex items-center gap-2 bg-green-600 px-4 py-2 rounded shadow text-white hover:bg-green-700 font-bold whitespace-nowrap border border-green-700"><FileSpreadsheet size={18} /> Import Excel</button>
+                    <button onClick={() => excelInputRef.current?.click()} className="flex items-center gap-2 bg-green-600 px-3 py-2.5 rounded-lg shadow text-white hover:bg-green-700 font-bold text-sm border border-green-700"><FileSpreadsheet size={16} /> <span className="hidden sm:inline">Import</span> Excel</button>
                     <input type="file" ref={excelInputRef} onChange={handleExcelImport} accept=".xlsx, .xls" className="hidden" />
-                    <button onClick={handleExcelExport} className="flex items-center gap-2 bg-white px-4 py-2 rounded shadow text-green-700 hover:bg-green-50 font-bold whitespace-nowrap border border-green-200"><Download size={18} /> Export Excel</button>
-                    <button onClick={handleExportAll} className="flex items-center gap-2 bg-gray-700 px-4 py-2 rounded shadow text-white hover:bg-gray-800 font-bold border border-gray-600"><Database size={18} /> Backup</button>
-                    
-                    <button onClick={() => restoreInputRef.current?.click()} className="flex items-center gap-2 bg-orange-600 px-4 py-2 rounded shadow text-white hover:bg-orange-700 font-bold border border-orange-700 whitespace-nowrap" title="Zet een FULL_BACKUP.json terug"><RefreshCw size={18} /> Herstel</button>
+                    <button onClick={handleExcelExport} className="flex items-center gap-2 bg-white px-3 py-2.5 rounded-lg shadow text-green-700 hover:bg-green-50 font-bold text-sm border border-green-200"><Download size={16} /> <span className="hidden sm:inline">Export</span> Excel</button>
+                    <button onClick={handleExportAll} className="flex items-center gap-2 bg-gray-700 px-3 py-2.5 rounded-lg shadow text-white hover:bg-gray-800 font-bold text-sm border border-gray-600"><Database size={16} /> Backup</button>
+                    <button onClick={() => restoreInputRef.current?.click()} className="flex items-center gap-2 bg-orange-600 px-3 py-2.5 rounded-lg shadow text-white hover:bg-orange-700 font-bold text-sm border border-orange-700" title="Zet een FULL_BACKUP.json terug"><RefreshCw size={16} /> Herstel</button>
                     <input type="file" ref={restoreInputRef} onChange={handleRestoreBackup} accept=".json,application/json" className="hidden" />
-
                     {selectedIds.length > 0 && (
                       <>
-                        <button onClick={handleBulkDownloadPDFs} className="flex items-center gap-2 bg-blue-600 px-4 py-2 rounded shadow text-white hover:bg-blue-700 font-bold whitespace-nowrap border border-blue-700">
-                          <FileText size={18} /> PDF Rapport ({selectedIds.length})
+                        <button onClick={handleBulkDownloadPDFs} className="flex items-center gap-2 bg-blue-600 px-3 py-2.5 rounded-lg shadow text-white hover:bg-blue-700 font-bold text-sm border border-blue-700">
+                          <FileText size={16} /> PDF ({selectedIds.length})
                         </button>
-                        <button onClick={handleBulkDelete} className="flex items-center gap-2 bg-red-600 px-4 py-2 rounded shadow text-white hover:bg-red-700 font-bold whitespace-nowrap animate-pulse border border-red-700">
-                          <Trash2 size={18} /> Verwijder ({selectedIds.length})
+                        <button onClick={handleBulkDelete} className="flex items-center gap-2 bg-red-600 px-3 py-2.5 rounded-lg shadow text-white hover:bg-red-700 font-bold text-sm animate-pulse border border-red-700">
+                          <Trash2 size={16} /> Verwijder ({selectedIds.length})
                         </button>
                       </>
                     )}
-                    <button onClick={() => { setNewOrder(EMPTY_ORDER); setShowOrderModal(true); }} className="flex items-center gap-2 bg-emerald-600 px-4 py-2 rounded shadow text-white hover:bg-emerald-700 font-bold whitespace-nowrap"><Plus size={18} /> Nieuw</button>                 </>
+                    <button onClick={() => { setNewOrder(EMPTY_ORDER); setShowOrderModal(true); }} className="flex items-center gap-2 bg-emerald-600 px-4 py-2.5 rounded-lg shadow text-white hover:bg-emerald-700 font-bold text-sm"><Plus size={16} /> Nieuw</button>
+                 </>
              )}
           </div>
         </div>
 
-        <div className="flex gap-4 mb-6 border-b border-gray-300 overflow-x-auto whitespace-nowrap">
-            <button onClick={() => setActiveTab('inspections')} className={`pb-2 px-4 font-bold flex items-center gap-2 ${activeTab === 'inspections' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}><FileText size={18}/> Inspecties</button>
-            <button onClick={() => setActiveTab('library')} className={`pb-2 px-4 font-bold flex items-center gap-2 ${activeTab === 'library' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}><BookOpen size={18}/> Bibliotheek</button>
-            <button onClick={() => setActiveTab('users')} className={`pb-2 px-4 font-bold flex items-center gap-2 ${activeTab === 'users' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}><Users size={18}/> Gebruikersbeheer</button>
-            <button onClick={() => setActiveTab('settings')} className={`pb-2 px-4 font-bold flex items-center gap-2 ${activeTab === 'settings' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}><Settings size={18}/> Instellingen</button>
+        <div className="flex mb-6 border-b border-gray-300 overflow-x-auto">
+            <button onClick={() => setActiveTab('inspections')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'inspections' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><FileText size={16}/> Inspecties</button>
+            <button onClick={() => setActiveTab('library')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'library' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><BookOpen size={16}/> Bibliotheek</button>
+            <button onClick={() => setActiveTab('users')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'users' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><Users size={16}/> Gebruikers</button>
+            <button onClick={() => setActiveTab('settings')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'settings' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><Settings size={16}/> Instellingen</button>
         </div>
 
         {/* TAB INSPECTIES */}
@@ -1039,9 +1038,9 @@ const handleLoadDefaultLibrary = async () => {
 {/* TAB USERS */}
         {activeTab === 'users' && (
             <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="p-4 bg-blue-50 border-b border-blue-100 text-sm text-blue-800 flex justify-between items-center">
-                    <div className="flex items-center gap-2"><Shield size={18}/><span>Beheer accounts en profielgegevens. (Wijzigingen direct opslaan door buiten het veld te klikken)</span></div>
-                    <button onClick={() => setShowUserModal(true)} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1 rounded shadow text-xs font-bold hover:bg-blue-700"><UserPlus size={16} /> Nieuwe Gebruiker</button>
+                <div className="p-4 bg-blue-50 border-b border-blue-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="flex items-center gap-2 text-sm text-blue-800"><Shield size={18}/><span className="hidden sm:inline">Beheer accounts en profielgegevens.</span><span className="sm:hidden font-bold">Gebruikersbeheer</span></div>
+                    <button onClick={() => setShowUserModal(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg shadow text-sm font-bold hover:bg-blue-700 shrink-0"><UserPlus size={16} /> Nieuwe Gebruiker</button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full">
@@ -1065,7 +1064,7 @@ const handleLoadDefaultLibrary = async () => {
         )}
 {/* TAB SETTINGS */}
         {activeTab === 'settings' && (
-             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">            
+             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">            
                 {/* Inspectiebedrijf */}
                  <div className="bg-white rounded-lg shadow p-6 h-fit">
                      <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><Building size={20}/> Inspectiebedrijf</h2>
@@ -1155,14 +1154,13 @@ const handleLoadDefaultLibrary = async () => {
         {/* TAB BIBLIOTHEEK */}
         {activeTab === 'library' && (
              <div className="bg-white rounded-lg shadow overflow-hidden">
-                 <div className="p-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center gap-4 flex-wrap">
+                 <div className="p-4 bg-blue-50 border-b border-blue-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 flex-wrap">
                      <div className="flex items-center gap-2 text-sm text-blue-800 font-bold"><BookOpen size={18}/><span>Centrale Gebreken Bibliotheek ({libraryItems.length})</span></div>
-                     <div className="flex gap-2">
-                         <button onClick={handleLoadDefaultLibrary} className="flex items-center gap-2 bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded shadow-sm text-xs font-bold hover:bg-emerald-200 border border-emerald-300"><Database size={16} /> Laad Standaard NTA8220</button>
-                         
-                         <button onClick={() => libraryCsvInputRef.current?.click()} className="flex items-center gap-2 bg-white text-blue-700 px-3 py-1.5 rounded shadow-sm text-xs font-bold hover:bg-blue-50 border border-blue-200"><UploadCloud size={16} /> CSV Importeren</button>
+                     <div className="flex flex-wrap gap-2">
+                         <button onClick={handleLoadDefaultLibrary} className="flex items-center gap-2 bg-emerald-100 text-emerald-800 px-3 py-2.5 rounded-lg shadow-sm text-sm font-bold hover:bg-emerald-200 border border-emerald-300"><Database size={16} /> <span className="hidden sm:inline">Laad Standaard</span> NTA8220</button>
+                         <button onClick={() => libraryCsvInputRef.current?.click()} className="flex items-center gap-2 bg-white text-blue-700 px-3 py-2.5 rounded-lg shadow-sm text-sm font-bold hover:bg-blue-50 border border-blue-200"><UploadCloud size={16} /> CSV</button>
                          <input type="file" ref={libraryCsvInputRef} onChange={handleLibraryCsvImport} accept=".csv" className="hidden" />
-                         <button onClick={() => { setNewLibraryItem({ category: '', subcategory: '', shortName: '', description: '', classification: 'Yellow', action: 'Herstellen' }); setEditingLibraryId(null); setShowLibraryModal(true); }} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded shadow text-xs font-bold hover:bg-blue-700"><Plus size={16} /> Nieuw Gebrek</button>
+                         <button onClick={() => { setNewLibraryItem({ category: '', subcategory: '', shortName: '', description: '', classification: 'Yellow', action: 'Herstellen' }); setEditingLibraryId(null); setShowLibraryModal(true); }} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg shadow text-sm font-bold hover:bg-blue-700"><Plus size={16} /> Nieuw Gebrek</button>
                      </div>
                  </div>
                  <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
@@ -1208,29 +1206,29 @@ const handleLoadDefaultLibrary = async () => {
                         <h2 className="text-lg font-bold text-gray-800">{editingLibraryId ? 'Gebrek Bewerken' : 'Nieuw Gebrek'}</h2>
                         <button onClick={() => setShowLibraryModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
                     </div>
-                    <div className="p-6 overflow-y-auto max-h-[75vh] space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Hoofdcategorie</label><input className="w-full border rounded p-2" value={newLibraryItem.category} onChange={e => setNewLibraryItem({...newLibraryItem, category: e.target.value})} placeholder="Bijv. Verdeelinrichting" /></div>
-                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Subcategorie</label><input className="w-full border rounded p-2" value={newLibraryItem.subcategory} onChange={e => setNewLibraryItem({...newLibraryItem, subcategory: e.target.value})} placeholder="Bijv. Algemeen" /></div>
+                    <div className="p-4 md:p-6 overflow-y-auto max-h-[70vh] space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Hoofdcategorie</label><input className="w-full border rounded p-2.5" value={newLibraryItem.category} onChange={e => setNewLibraryItem({...newLibraryItem, category: e.target.value})} placeholder="Bijv. Verdeelinrichting" /></div>
+                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Subcategorie</label><input className="w-full border rounded p-2.5" value={newLibraryItem.subcategory} onChange={e => setNewLibraryItem({...newLibraryItem, subcategory: e.target.value})} placeholder="Bijv. Algemeen" /></div>
                         </div>
-                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Korte Naam (Dropdown tekst)</label><input className="w-full border rounded p-2 font-bold text-emerald-700" value={newLibraryItem.shortName} onChange={e => setNewLibraryItem({...newLibraryItem, shortName: e.target.value})} placeholder="Bijv. Aanrakingsgevaar" /></div>
-                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Omschrijving Rapport</label><textarea className="w-full border rounded p-2 h-24" value={newLibraryItem.description} onChange={e => setNewLibraryItem({...newLibraryItem, description: e.target.value})} placeholder="Volledige normatieve omschrijving..." /></div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Korte Naam (Dropdown tekst)</label><input className="w-full border rounded p-2.5 font-bold text-emerald-700" value={newLibraryItem.shortName} onChange={e => setNewLibraryItem({...newLibraryItem, shortName: e.target.value})} placeholder="Bijv. Aanrakingsgevaar" /></div>
+                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Omschrijving Rapport</label><textarea className="w-full border rounded p-2.5 h-24" value={newLibraryItem.description} onChange={e => setNewLibraryItem({...newLibraryItem, description: e.target.value})} placeholder="Volledige normatieve omschrijving..." /></div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Classificatie</label>
-                                <select className="w-full border rounded p-2" value={newLibraryItem.classification} onChange={e => setNewLibraryItem({...newLibraryItem, classification: e.target.value})}>
+                                <select className="w-full border rounded p-2.5" value={newLibraryItem.classification} onChange={e => setNewLibraryItem({...newLibraryItem, classification: e.target.value})}>
                                     <option value="Red">Red (Ernstig / Direct)</option>
                                     <option value="Orange">Orange</option>
                                     <option value="Yellow">Yellow (Aandacht)</option>
                                     <option value="Blue">Blue (Herstel)</option>
                                 </select>
                             </div>
-                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Actie</label><input className="w-full border rounded p-2" value={newLibraryItem.action} onChange={e => setNewLibraryItem({...newLibraryItem, action: e.target.value})} placeholder="Bijv. Herstellen" /></div>
+                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Actie</label><input className="w-full border rounded p-2.5" value={newLibraryItem.action} onChange={e => setNewLibraryItem({...newLibraryItem, action: e.target.value})} placeholder="Bijv. Herstellen" /></div>
                         </div>
                     </div>
                     <div className="p-4 border-t bg-gray-50 flex gap-2">
-                        <button onClick={() => setShowLibraryModal(false)} className="flex-1 bg-gray-200 py-2 rounded font-bold text-gray-700 hover:bg-gray-300">Annuleren</button>
-                        <button onClick={handleSaveLibraryItem} className="flex-1 bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">{editingLibraryId ? 'Opslaan' : 'Toevoegen'}</button>
+                        <button onClick={() => setShowLibraryModal(false)} className="flex-1 bg-gray-200 py-3 rounded-lg font-bold text-gray-700 hover:bg-gray-300">Annuleren</button>
+                        <button onClick={handleSaveLibraryItem} className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 shadow">{editingLibraryId ? 'Opslaan' : 'Toevoegen'}</button>
                     </div>
                 </div>
             </div>
@@ -1326,8 +1324,8 @@ const handleLoadDefaultLibrary = async () => {
                                 <input className="w-full border rounded p-2" type="password" placeholder="Wachtwoord (Verplicht)" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => setShowUserModal(false)} className="flex-1 bg-gray-100 py-2 rounded font-bold text-gray-600 hover:bg-gray-200">Annuleren</button>
-                                <button onClick={handleCreateUser} className="flex-1 bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 shadow-md">Toevoegen</button>
+                                <button onClick={() => setShowUserModal(false)} className="flex-1 bg-gray-100 py-3 rounded-lg font-bold text-gray-600 hover:bg-gray-200">Annuleren</button>
+                                <button onClick={handleCreateUser} className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 shadow-md">Toevoegen</button>
                             </div>
                         </div>
                     </div>

@@ -1362,29 +1362,30 @@ const handleCloudMerge = async () => {
                     </div>
                     
                     <div className="flex border-b bg-gray-100 overflow-x-auto">
-                        <button onClick={() => setProfileTab('persoonlijk')} className={`flex-1 px-2 whitespace-nowrap py-3 text-sm font-bold ${profileTab === 'persoonlijk' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Persoonlijk</button>
-                        <button onClick={() => setProfileTab('bedrijf')} className={`flex-1 px-2 whitespace-nowrap py-3 text-sm font-bold ${profileTab === 'bedrijf' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Mijn Bedrijf</button>
-                        <button onClick={() => setProfileTab('handtekening')} className={`flex-1 px-2 whitespace-nowrap py-3 text-sm font-bold ${profileTab === 'handtekening' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Handtekening</button>
-                        <button onClick={() => setProfileTab('instrumenten')} className={`flex-1 px-2 whitespace-nowrap py-3 text-sm font-bold ${profileTab === 'instrumenten' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>De Koffer</button>
+                        <button onClick={() => setProfileTab('persoonlijk')} className={`flex-1 px-2 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'persoonlijk' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Persoonlijk</button>
+                        <button onClick={() => setProfileTab('bedrijf')} className={`flex-1 px-2 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'bedrijf' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Mijn Bedrijf</button>
+                        <button onClick={() => setProfileTab('handtekening')} className={`flex-1 px-2 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'handtekening' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Handtekening</button>
+                        <button onClick={() => setProfileTab('instrumenten')} className={`flex-1 px-2 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'instrumenten' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>De Koffer</button>
                     </div>
 
-                    <div className="p-6 overflow-y-auto flex-grow bg-white">
+                    <div className="p-4 md:p-6 overflow-y-auto flex-grow bg-white">
                         {profileTab === 'persoonlijk' && (
                             <div className="space-y-4">
                                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4 text-sm text-blue-800">Vul hier je gegevens in. We kunnen deze straks automatisch invullen bij elke nieuwe inspectie!</div>
-                                <div className="flex gap-4">
-                                    <div className="w-1/2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Volledige Naam</label>
                                         <input className="w-full border rounded p-3" value={userProfile.full_name || ''} onChange={e => setUserProfile({...userProfile, full_name: e.target.value})} placeholder="Bijv. Jan de Vries" />
                                     </div>
-                                    <div className="w-1/2">
+                                    <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Inlog E-mailadres</label>
                                         <input className="w-full border rounded p-3 bg-gray-100 text-gray-500 cursor-not-allowed" value={loginEmail} readOnly title="Het inlog e-mailadres kan niet zelfstandig gewijzigd worden." />
                                     </div>
-                                </div>                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">SCIOS Registratienummer</label><input className="w-full border rounded p-3" value={userProfile.scios_nr || ''} onChange={e => setUserProfile({...userProfile, scios_nr: e.target.value})} placeholder="Bijv. R 12345" /></div>
-                                <div className="flex gap-4">
-                                    <div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoonnummer</label><input className="w-full border rounded p-3" value={userProfile.phone || ''} onChange={e => setUserProfile({...userProfile, phone: e.target.value})} placeholder="Bijv. 06 12345678" /></div>
-                                    <div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contact E-mailadres</label><input className="w-full border rounded p-3" value={userProfile.contact_email || ''} onChange={e => setUserProfile({...userProfile, contact_email: e.target.value})} placeholder={loginEmail || "Bijv. info@bedrijf.nl"} title="Laat leeg om je inlog e-mailadres te gebruiken" /></div>
+                                </div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">SCIOS Registratienummer</label><input className="w-full border rounded p-3" value={userProfile.scios_nr || ''} onChange={e => setUserProfile({...userProfile, scios_nr: e.target.value})} placeholder="Bijv. R 12345" /></div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoonnummer</label><input className="w-full border rounded p-3" value={userProfile.phone || ''} onChange={e => setUserProfile({...userProfile, phone: e.target.value})} placeholder="Bijv. 06 12345678" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contact E-mailadres</label><input className="w-full border rounded p-3" value={userProfile.contact_email || ''} onChange={e => setUserProfile({...userProfile, contact_email: e.target.value})} placeholder={loginEmail || "Bijv. info@bedrijf.nl"} title="Laat leeg om je inlog e-mailadres te gebruiken" /></div>
                                 </div>
                             </div>
                         )}                        {profileTab === 'bedrijf' && (
@@ -1419,20 +1420,23 @@ const handleCloudMerge = async () => {
                                     </datalist>
                                 </div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adres</label><input className="w-full border rounded p-3" value={userProfile.company_address} onChange={e => setUserProfile({...userProfile, company_address: e.target.value})} /></div>
-                                <div className="flex gap-4"><div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-3" value={userProfile.company_postal_code} onChange={e => setUserProfile({...userProfile, company_postal_code: e.target.value})} /></div><div className="w-2/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label><input className="w-full border rounded p-3" value={userProfile.company_city} onChange={e => setUserProfile({...userProfile, company_city: e.target.value})} /></div></div>
-                                <div className="flex gap-4"><div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoon</label><input className="w-full border rounded p-3" value={userProfile.company_phone} onChange={e => setUserProfile({...userProfile, company_phone: e.target.value})} /></div><div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-mail</label><input className="w-full border rounded p-3" value={userProfile.company_email} onChange={e => setUserProfile({...userProfile, company_email: e.target.value})} /></div></div>
+                                <div className="flex gap-3"><div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-3" value={userProfile.company_postal_code} onChange={e => setUserProfile({...userProfile, company_postal_code: e.target.value})} /></div><div className="w-2/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label><input className="w-full border rounded p-3" value={userProfile.company_city} onChange={e => setUserProfile({...userProfile, company_city: e.target.value})} /></div></div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoon</label><input className="w-full border rounded p-3" value={userProfile.company_phone} onChange={e => setUserProfile({...userProfile, company_phone: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-mail</label><input className="w-full border rounded p-3" value={userProfile.company_email} onChange={e => setUserProfile({...userProfile, company_email: e.target.value})} /></div></div>
                             </div>
                         )}
                         {profileTab === 'handtekening' && (
                             <div className="space-y-4 text-center">
                                 <p className="text-sm text-gray-600 mb-4">Sla één keer je handtekening op, zodat je deze straks met één druk op de knop onder rapporten kunt plaatsen.</p>
                                 {!userProfile.signature_url ? (
-                                  <div className="border-2 border-dashed border-gray-300 rounded bg-gray-50 p-2 w-fit mx-auto">
-                                    <SignatureCanvas ref={profileSigPad} canvasProps={{width: 400, height: 200, className: 'cursor-crosshair bg-white rounded shadow-inner border border-gray-100'}} />
-                                    <div className="border-t flex justify-end p-2 gap-2 mt-2"><button onClick={clearProfileSignature} className="text-xs text-red-500 font-bold px-3 py-1">Wissen</button><button onClick={saveProfileSignature} className="text-xs bg-emerald-600 text-white px-3 py-2 rounded font-bold hover:bg-emerald-700 shadow-sm">Bevestig Handtekening</button></div>
+                                  <div className="border-2 border-dashed border-gray-300 rounded bg-gray-50 p-2 w-full">
+                                    <SignatureCanvas ref={profileSigPad} canvasProps={{width: 340, height: 180, className: 'cursor-crosshair bg-white rounded shadow-inner border border-gray-100 w-full'}} />
+                                    <div className="border-t flex justify-between p-2 gap-2 mt-2">
+                                      <button onClick={clearProfileSignature} className="text-sm text-red-500 font-bold px-4 py-2.5 border border-red-200 rounded-lg hover:bg-red-50">Wissen</button>
+                                      <button onClick={saveProfileSignature} className="text-sm bg-emerald-600 text-white px-4 py-2.5 rounded-lg font-bold hover:bg-emerald-700 shadow-sm">Bevestig Handtekening</button>
+                                    </div>
                                   </div>
                                 ) : (
-                                  <div className="flex flex-col items-center"><img src={userProfile.signature_url} className="border-2 border-emerald-200 rounded-lg h-32 mb-4 bg-white p-2 shadow-sm" alt="Opgeslagen handtekening" /><button onClick={() => setUserProfile({...userProfile, signature_url: ''})} className="text-sm text-red-500 font-bold underline hover:text-red-700">Nieuwe handtekening tekenen</button></div>
+                                  <div className="flex flex-col items-center gap-3"><img src={userProfile.signature_url} className="border-2 border-emerald-200 rounded-lg h-32 bg-white p-2 shadow-sm max-w-full" alt="Opgeslagen handtekening" /><button onClick={() => setUserProfile({...userProfile, signature_url: ''})} className="text-sm text-red-500 font-bold px-4 py-2.5 border border-red-200 rounded-lg hover:bg-red-50">Nieuwe handtekening tekenen</button></div>
                                 )}
                             </div>
                         )}
