@@ -5,7 +5,7 @@ import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './components/PDFReport';
 import { compressImage, uploadPhotoToCloud } from './utils';
 import SignatureCanvas from 'react-signature-canvas';
-import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown, UserCircle, Save} from 'lucide-react';
+import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown, UserCircle, Save, LogOut, Settings} from 'lucide-react';
 import { UsageFunctions, Defect, Classification, Instrument, InspectionMeta, BoardMeasurement } from './types';
 import { supabase } from './supabase';
 
@@ -57,7 +57,7 @@ const ClearableInput = ({ value, onChange, placeholder, list, disabled, classNam
     </div>
 );
 
-export default function InspectorApp() {
+export default function InspectorApp({ userRole, onLogout, onOpenAdmin }: { userRole?: string | null, onLogout?: () => void, onOpenAdmin?: () => void }) {
   // --- PROFIEL STATES ---
   const [showProfile, setShowProfile] = useState(false);
   const [profileTab, setProfileTab] = useState<'persoonlijk' | 'bedrijf' | 'handtekening' | 'instrumenten'>('persoonlijk');
@@ -819,12 +819,22 @@ const handleCloudMerge = async () => {
         {/* HEADER */}
         <div className="bg-emerald-700 p-4 text-white flex justify-between items-center shadow-md">
             <h1 className="font-bold text-xl">SCIOS Scope 10</h1>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
                 <div className="items-center gap-1 text-[10px] bg-emerald-800/50 px-2 py-1 rounded text-emerald-100 hidden md:flex animate-pulse"><RefreshCw size={10} /> Autosave</div>
                 <div className="text-xs font-mono bg-emerald-900/50 px-3 py-1 rounded hidden md:block">{meta.date}</div>
                 <button onClick={() => setShowProfile(true)} className="flex items-center gap-2 bg-emerald-800 hover:bg-emerald-900 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm border border-emerald-600">
                     <UserCircle size={18} /> <span className="hidden md:inline">Mijn Profiel</span>
                 </button>
+                {userRole === 'admin' && onOpenAdmin && (
+                    <button onClick={onOpenAdmin} title="Beheerder" className="flex items-center gap-1 bg-emerald-800 hover:bg-emerald-900 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm border border-emerald-600">
+                        <Settings size={18} /> <span className="hidden md:inline">Beheer</span>
+                    </button>
+                )}
+                {onLogout && (
+                    <button onClick={onLogout} title="Uitloggen" className="flex items-center gap-1 bg-emerald-800 hover:bg-emerald-900 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm border border-emerald-600">
+                        <LogOut size={18} /> <span className="hidden md:inline">Uitloggen</span>
+                    </button>
+                )}
             </div>
         </div>
 
