@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
-import { Calendar, User, Download, RefreshCw, Plus, X, MapPin, Trash2, Lock, FileText, Search, ChevronLeft, ChevronRight, Database, Users, Shield, UserPlus, FileSpreadsheet, Pencil, Settings, Building, Wrench, Key, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Hash, Mail, Phone, Briefcase, Clock, BookOpen, UploadCloud } from 'lucide-react';
+import { Calendar, User, Download, RefreshCw, Plus, X, MapPin, Trash2, Lock, FileText, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Database, Users, Shield, UserPlus, FileSpreadsheet, Pencil, Settings, Building, Wrench, Key, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Hash, Mail, Phone, Briefcase, Clock, BookOpen, UploadCloud, Globe, StickyNote, FolderOpen, UserCircle2 } from 'lucide-react';
+import type { Client, ClientContact } from '../types';
 import { pdf } from '@react-pdf/renderer'; 
 import { PDFReport } from './PDFReport';
 import ExcelJS from 'exceljs';
@@ -62,7 +63,7 @@ const EMPTY_ORDER = {
 };
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'inspections' | 'users' | 'settings' | 'library'>('inspections');
+  const [activeTab, setActiveTab] = useState<'inspections' | 'users' | 'settings' | 'library' | 'clients' | 'projecten'>('inspections');
   
   // LIBRARY STATES
   const [libraryItems, setLibraryItems] = useState<any[]>([]);
@@ -93,6 +94,7 @@ export default function AdminDashboard() {
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [users, setUsers] = useState<any[]>([]);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [expandedCompanyUserId, setExpandedCompanyUserId] = useState<string | null>(null);
   const [adminKofferSearch, setAdminKofferSearch] = useState('');
   const [expandedInstrumentId, setExpandedInstrumentId] = useState<number | null>(null);
   const [instrumentOwnerSearch, setInstrumentOwnerSearch] = useState('');
@@ -112,7 +114,28 @@ export default function AdminDashboard() {
   // INSTALLER HERSTEL STATES
   const [installersList, setInstallersList] = useState<{id: string; full_name: string}[]>([]);
   const [assigningInstaller, setAssigningInstaller] = useState<Record<number, string>>({});
-  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '', phone: '', contact_email: '' });
+
+  // CRM KLANTEN STATES
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientTab, setClientTab] = useState<'gegevens' | 'contacten' | 'projecten' | 'notities'>('gegevens');
+  const [clientInspections, setClientInspections] = useState<any[]>([]);
+  const [isEditingClient, setIsEditingClient] = useState(false);
+  const [editClientForm, setEditClientForm] = useState<Partial<Client>>({});
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [newClientForm, setNewClientForm] = useState<Partial<Client>>({ name: '', contacts: [] });
+  const [isImportingClients, setIsImportingClients] = useState(false);
+  const [expandedProjectIds, setExpandedProjectIds] = useState<Set<number>>(new Set());
+
+  // PROJECTEN TAB STATES
+  const [projects, setProjects] = useState<any[]>([]);
+  const [projPage, setProjPage] = useState(1);
+  const [projTotalCount, setProjTotalCount] = useState(0);
+  const [projSearch, setProjSearch] = useState('');
+  const [projSortConfig, setProjSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'next_inspection_date', direction: 'asc' });
+
+  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '', phone: '', contact_email: '', company_name: '', company_address: '', company_postal_code: '', company_city: '', company_phone: '', company_email: '' });
 
   const excelInputRef = useRef<HTMLInputElement>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
@@ -280,7 +303,18 @@ export default function AdminDashboard() {
       </th>
   );
 
-  const fetchUsers = async () => { const { data } = await supabase.from('profiles').select('id, email, full_name, scios_nr, phone, contact_email, role, linked_instruments').order('email'); setUsers(data || []); };
+  const ProjSortableHeader = ({ label, sortKey, width }: { label: string; sortKey: string; width?: string }) => (
+    <th className={`px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors select-none ${width}`} onClick={() => handleProjSort(sortKey)}>
+      <div className="flex items-center gap-1">
+        {label}
+        {projSortConfig.key === sortKey
+          ? (projSortConfig.direction === 'asc' ? <ArrowUp size={14}/> : <ArrowDown size={14}/>)
+          : <ArrowUpDown size={14} className="text-gray-300"/>}
+      </div>
+    </th>
+  );
+
+  const fetchUsers = async () => { const { data } = await supabase.from('profiles').select('id, email, full_name, scios_nr, phone, contact_email, role, linked_instruments, company_name, company_address, company_postal_code, company_city, company_phone, company_email').order('email'); setUsers(data || []); };
 
   const handleAdminToggleInstrument = async (userId: string, instrumentId: number, currentLinked: number[]) => {
     const isLinked = currentLinked.includes(instrumentId);
@@ -315,12 +349,206 @@ const fetchOptions = async () => {
       setLibraryItems(data || []);
   };
 
+  // --- CRM FETCHERS & HANDLERS ---
+  const fetchClients = async () => {
+    const { data } = await supabase.from('clients').select('*').order('name');
+    setClients(data || []);
+  };
+
+  const fetchClientInspections = async (clientName: string) => {
+    const { data } = await supabase.from('inspections')
+      .select('id, inspection_number, created_at, status, report_data')
+      .eq('client_name', clientName)
+      .order('created_at', { ascending: false });
+    setClientInspections(data || []);
+  };
+
+  const handleSelectClient = (client: Client) => {
+    setSelectedClient(client);
+    setClientTab('gegevens');
+    setIsEditingClient(false);
+    setExpandedProjectIds(new Set());
+    fetchClientInspections(client.name);
+  };
+
+  const handleCreateClient = async () => {
+    if (!newClientForm.name?.trim()) return alert('Naam is verplicht.');
+    const { data, error } = await supabase.from('clients')
+      .insert({ ...newClientForm, contacts: [] }).select().single();
+    if (error) alert('Fout: ' + error.message);
+    else {
+      setShowNewClientForm(false);
+      setNewClientForm({ name: '', contacts: [] });
+      fetchClients();
+      handleSelectClient(data);
+    }
+  };
+
+  const handleUpdateClient = async (updates: Partial<Client>) => {
+    if (!selectedClient) return;
+    const { error } = await supabase.from('clients')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', selectedClient.id);
+    if (error) alert('Fout: ' + error.message);
+    else {
+      const updated = { ...selectedClient, ...updates };
+      setSelectedClient(updated);
+      setIsEditingClient(false);
+      fetchClients();
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!selectedClient) return;
+    if (!window.confirm(`Klant "${selectedClient.name}" verwijderen?`)) return;
+    await supabase.from('clients').delete().eq('id', selectedClient.id);
+    setSelectedClient(null);
+    fetchClients();
+  };
+
+  const handleSaveContacts = async (newContacts: ClientContact[]) => {
+    if (!selectedClient) return;
+    await supabase.from('clients')
+      .update({ contacts: newContacts, updated_at: new Date().toISOString() })
+      .eq('id', selectedClient.id);
+    setSelectedClient({ ...selectedClient, contacts: newContacts });
+    fetchClients();
+  };
+
+  const handleImportFromInspections = async () => {
+    setIsImportingClients(true);
+    const { data: allInspections } = await supabase.from('inspections').select('client_name, report_data');
+    const existingNames = new Set(clients.map(c => c.name.toLowerCase()));
+    const seen = new Set<string>();
+    const toInsert: Partial<Client>[] = [];
+    for (const insp of allInspections || []) {
+      const name = insp.client_name?.trim();
+      if (!name || seen.has(name.toLowerCase()) || existingNames.has(name.toLowerCase())) continue;
+      if (insp.report_data?.meta?.isContributionMode) continue;
+      seen.add(name.toLowerCase());
+      const m = insp.report_data?.meta || {};
+      const contacts: ClientContact[] = [];
+      if (m.clientContactPerson?.trim()) {
+        contacts.push({ id: crypto.randomUUID(), name: m.clientContactPerson.trim(), role: 'Contactpersoon', phone: m.clientPhone || '', email: m.clientEmail || '' });
+      }
+      toInsert.push({ name, address: m.clientAddress || '', postal_code: m.clientPostalCode || '', city: m.clientCity || '', phone: m.clientPhone || '', email: m.clientEmail || '', contacts });
+    }
+    if (toInsert.length === 0) { alert('Geen nieuwe klanten gevonden.'); setIsImportingClients(false); return; }
+    await supabase.from('clients').insert(toInsert);
+    fetchClients();
+    alert(`${toInsert.length} klant(en) geïmporteerd.`);
+    setIsImportingClients(false);
+  };
+
+  const handleImportFromProfiles = async () => {
+    setIsImportingClients(true);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('full_name, contact_email, company_name, company_address, company_postal_code, company_city, company_phone, company_email')
+      .not('company_name', 'is', null)
+      .neq('company_name', '');
+
+    const { data: existing } = await supabase.from('clients').select('name');
+    const existingNames = new Set((existing || []).map((c: any) => c.name.trim().toLowerCase()));
+
+    const toInsert = (profiles || []).reduce<any[]>((acc, p) => {
+      const name = p.company_name?.trim();
+      if (!name || existingNames.has(name.toLowerCase())) return acc;
+      existingNames.add(name.toLowerCase());
+      const contacts: ClientContact[] = [];
+      if (p.full_name?.trim()) {
+        contacts.push({ id: crypto.randomUUID(), name: p.full_name.trim(), role: 'Medewerker', phone: '', email: p.contact_email || '' });
+      }
+      acc.push({ name, address: p.company_address || '', postal_code: p.company_postal_code || '', city: p.company_city || '', phone: p.company_phone || '', email: p.company_email || '', contacts });
+      return acc;
+    }, []);
+
+    if (!toInsert.length) { alert('Alle bedrijven zijn al aanwezig als klant.'); setIsImportingClients(false); return; }
+    await supabase.from('clients').insert(toInsert);
+    fetchClients();
+    alert(`${toInsert.length} bedrijf/bedrijven geïmporteerd uit gebruikersprofielen.`);
+    setIsImportingClients(false);
+  };
+
   useEffect(() => {
     if (activeTab === 'inspections') { fetchInspections(); fetchInstallers(); }
     if (activeTab === 'users') fetchUsers();
     if (activeTab === 'settings' || showOrderModal) { fetchOptions(); fetchUsers(); }
     if (activeTab === 'library') fetchLibrary();
+    if (activeTab === 'clients') fetchClients();
   }, [page, searchTerm, activeTab, showOrderModal, sortConfig]);
+
+  // --- PROJECTEN TAB LOGIC ---
+  const handleProjSort = (key: string) => {
+    setProjSortConfig(c => ({ key, direction: c.key === key && c.direction === 'asc' ? 'desc' : 'asc' }));
+    setProjPage(1);
+  };
+
+  const fetchProjects = async () => {
+    const from = (projPage - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+    let query = supabase.from('inspections').select('*', { count: 'exact' });
+    query = query.or('report_data->meta->>isContributionMode.is.null,report_data->meta->>isContributionMode.neq.true');
+
+    if (projSearch) {
+      query = query.or(`client_name.ilike.%${projSearch}%,inspection_number.ilike.%${projSearch}%,report_data->meta->>projectLocation.ilike.%${projSearch}%,report_data->meta->>projectCity.ilike.%${projSearch}%,report_data->meta->>inspectorName.ilike.%${projSearch}%`);
+    }
+
+    if (projSortConfig.key === 'client_name' || projSortConfig.key === 'status') {
+      query = query.order(projSortConfig.key, { ascending: projSortConfig.direction === 'asc' });
+    } else if (projSortConfig.key === 'proj_location') {
+      query = query.order('report_data->meta->>projectLocation' as any, { ascending: projSortConfig.direction === 'asc' });
+    } else if (projSortConfig.key === 'proj_city') {
+      query = query.order('report_data->meta->>projectCity' as any, { ascending: projSortConfig.direction === 'asc' });
+    } else if (projSortConfig.key === 'proj_date_start') {
+      query = query.order('report_data->meta->>date' as any, { ascending: projSortConfig.direction === 'asc' });
+    } else if (projSortConfig.key === 'proj_date_finalized') {
+      query = query.order('report_data->meta->>finalizedDate' as any, { ascending: projSortConfig.direction === 'asc' });
+    } else if (projSortConfig.key === 'next_inspection_date') {
+      query = query.order('report_data->meta->>nextInspectionDate' as any, { ascending: projSortConfig.direction === 'asc' });
+    } else {
+      query = query.order('report_data->meta->>nextInspectionDate' as any, { ascending: true });
+    }
+
+    query = query.range(from, to);
+    const { data, count, error } = await query;
+    if (error) { console.error(error); return; }
+
+    let finalData = data || [];
+
+    if (projSortConfig.key === 'proj_inspector') {
+      finalData.sort((a, b) => {
+        const nA = a.report_data?.meta?.inspectorName || '';
+        const nB = b.report_data?.meta?.inspectorName || '';
+        return projSortConfig.direction === 'asc' ? nA.localeCompare(nB) : nB.localeCompare(nA);
+      });
+    }
+    if (projSortConfig.key === 'proj_number') {
+      finalData.sort((a, b) => {
+        const nA = a.inspection_number || '';
+        const nB = b.inspection_number || '';
+        return projSortConfig.direction === 'asc'
+          ? nA.localeCompare(nB, undefined, { numeric: true, sensitivity: 'base' })
+          : nB.localeCompare(nA, undefined, { numeric: true, sensitivity: 'base' });
+      });
+    }
+
+    setProjects(finalData);
+    setProjTotalCount(count || 0);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'projecten') fetchProjects();
+  }, [projPage, projSearch, projSortConfig, activeTab]);
+
+  const getNextInspStyle = (dateStr: string | undefined) => {
+    if (!dateStr) return '';
+    const d = new Date(normalizeDate(dateStr));
+    const diffDays = (d.getTime() - Date.now()) / 86400000;
+    if (diffDays < 0) return 'text-red-700 font-bold';
+    if (diffDays <= 60) return 'text-amber-700 font-bold';
+    return 'text-green-700';
+  };
 
   // --- LIBRARY HANDLERS ---
   const handleEditLibraryItem = (item: any) => {
@@ -931,8 +1159,8 @@ const handleLoadDefaultLibrary = async () => {
 
   const handleRoleChange = async (userId: string, newRole: string) => { if (!window.confirm(`Rol wijzigen?`)) return; const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId); if (error) alert("Fout: " + error.message); else { alert("Aangepast!"); fetchUsers(); } };
 
-// NIEUW: Inline update functie voor Profielen (Naam, SCIOS, Tel, Email)
-  const handleUpdateProfile = async (userId: string, field: 'full_name' | 'scios_nr' | 'phone' | 'contact_email', value: string) => {
+// NIEUW: Inline update functie voor Profielen (Naam, SCIOS, Tel, Email, Bedrijfsgegevens)
+  const handleUpdateProfile = async (userId: string, field: string, value: string) => {
       const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', userId);
       if (error) alert("Fout bij opslaan: " + error.message); else fetchUsers();
   };
@@ -949,32 +1177,33 @@ const handleLoadDefaultLibrary = async () => {
 
         // Haal het user ID op uit de edge function response
         const userId = data?.userId || data?.user?.id || data?.id;
+        const profilePayload = {
+            full_name: newUser.full_name,
+            scios_nr: newUser.scios_nr,
+            phone: newUser.phone,
+            contact_email: newUser.contact_email,
+            role: newUser.role,
+            company_name: newUser.company_name,
+            company_address: newUser.company_address,
+            company_postal_code: newUser.company_postal_code,
+            company_city: newUser.company_city,
+            company_phone: newUser.company_phone,
+            company_email: newUser.company_email,
+        };
         if (userId) {
             // Gebruik het ID direct — geen email-lookup nodig
-            await supabase.from('profiles').update({
-                full_name: newUser.full_name,
-                scios_nr: newUser.scios_nr,
-                phone: newUser.phone,
-                contact_email: newUser.contact_email,
-                role: newUser.role,
-            }).eq('id', userId);
+            await supabase.from('profiles').update(profilePayload).eq('id', userId);
         } else {
             // Fallback: zoek profiel op email (kan een fractie later beschikbaar zijn)
             const { data: profile } = await supabase.from('profiles').select('id').eq('email', newUser.email.trim()).single();
             if (profile) {
-                await supabase.from('profiles').update({
-                    full_name: newUser.full_name,
-                    scios_nr: newUser.scios_nr,
-                    phone: newUser.phone,
-                    contact_email: newUser.contact_email,
-                    role: newUser.role,
-                }).eq('id', profile.id);
+                await supabase.from('profiles').update(profilePayload).eq('id', profile.id);
             }
         }
 
         alert(`✅ ${newUser.email} aangemaakt!`);
         setShowUserModal(false);
-        setNewUser({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '', phone: '', contact_email: '' });
+        setNewUser({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '', phone: '', contact_email: '', company_name: '', company_address: '', company_postal_code: '', company_city: '', company_phone: '', company_email: '' });
         fetchUsers();
     } catch (err: any) { alert("Fout: " + err.message); }
   };
@@ -1016,6 +1245,8 @@ const handleLoadDefaultLibrary = async () => {
             <button onClick={() => setActiveTab('library')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'library' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><BookOpen size={16}/> Bibliotheek</button>
             <button onClick={() => setActiveTab('users')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'users' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><Users size={16}/> Gebruikers</button>
             <button onClick={() => setActiveTab('settings')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'settings' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><Settings size={16}/> Instellingen</button>
+            <button onClick={() => setActiveTab('clients')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'clients' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><Building size={16}/> Klanten</button>
+            <button onClick={() => setActiveTab('projecten')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'projecten' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><FolderOpen size={16}/> Projecten</button>
         </div>
 
         {/* TAB INSPECTIES */}
@@ -1191,6 +1422,7 @@ const handleLoadDefaultLibrary = async () => {
                                     <td className="px-4 py-3 text-sm"><select className="border rounded p-1 text-sm bg-white cursor-pointer" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}><option value="inspector">Inspector</option><option value="admin">Admin</option><option value="installer">Installateur</option></select></td>
                                     <td className="px-4 py-3 text-right text-sm">
                                         <div className="flex justify-end gap-2">
+                                            <button onClick={() => setExpandedCompanyUserId(expandedCompanyUserId === u.id ? null : u.id)} className={`p-2 rounded transition-colors ${expandedCompanyUserId === u.id ? 'text-blue-700 bg-blue-100' : 'text-blue-400 hover:text-blue-700 bg-blue-50 hover:bg-blue-100'}`} title="Bedrijfsgegevens"><Building size={18}/></button>
                                             {u.role !== 'installer' && <button onClick={() => { setExpandedUserId(isExpanded ? null : u.id); setAdminKofferSearch(''); }} className={`p-2 rounded transition-colors ${isExpanded ? 'text-emerald-700 bg-emerald-100' : 'text-emerald-400 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`} title="Koffer beheren"><Wrench size={18}/></button>}
                                             <button onClick={() => openPasswordModal(u)} className="text-orange-400 hover:text-orange-600 bg-orange-50 p-2 rounded hover:bg-orange-100 transition-colors" title="Wachtwoord Resetten"><Key size={18}/></button>
                                             <button onClick={() => handleDeleteUser(u.id)} className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded hover:bg-red-100 transition-colors" title="Verwijder"><Trash2 size={18}/></button>
@@ -1221,6 +1453,31 @@ const handleLoadDefaultLibrary = async () => {
                                                     }
                                                     {instrumentsList.length === 0 && <p className="text-sm text-gray-400 italic p-2">Geen instrumenten in de database.</p>}
                                                 </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                                {expandedCompanyUserId === u.id && (
+                                    <tr className="bg-blue-50">
+                                        <td colSpan={7} className="px-4 py-4 border-b border-blue-200">
+                                            <h3 className="font-bold text-sm text-blue-800 mb-3 flex items-center gap-2"><Building size={16}/> Bedrijfsgegevens: {u.full_name || u.email}</h3>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                {([
+                                                    ['company_name',        'Bedrijfsnaam',  'text'],
+                                                    ['company_address',     'Adres',         'text'],
+                                                    ['company_postal_code', 'Postcode',      'text'],
+                                                    ['company_city',        'Plaats',        'text'],
+                                                    ['company_phone',       'Telefoon',      'tel'],
+                                                    ['company_email',       'E-mail',        'email'],
+                                                ] as [string, string, string][]).map(([field, label, type]) => (
+                                                    <div key={field}>
+                                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{label}</label>
+                                                        <input type={type} className="w-full border rounded p-1.5 text-sm bg-white"
+                                                            defaultValue={u[field] || ''}
+                                                            onBlur={e => { if (e.target.value !== (u[field] || '')) handleUpdateProfile(u.id, field, e.target.value); }}
+                                                            placeholder="—" />
+                                                    </div>
+                                                ))}
                                             </div>
                                         </td>
                                     </tr>
@@ -1508,6 +1765,337 @@ const handleLoadDefaultLibrary = async () => {
             </div>
         )}
         
+        {/* TAB KLANTEN / CRM */}
+        {activeTab === 'clients' && (
+          <div className="flex gap-0 h-[calc(100vh-220px)] min-h-[500px]">
+
+            {/* LEFT: client list */}
+            <div className="w-72 shrink-0 flex flex-col border-r border-gray-200 bg-white rounded-l-lg shadow overflow-hidden">
+              {/* toolbar */}
+              <div className="p-3 border-b border-gray-100 space-y-2">
+                <div className="relative">
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"/>
+                  <input type="text" placeholder="Zoek naam, plaats, contactpersoon..." className="w-full pl-8 pr-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400" value={clientSearch} onChange={e => setClientSearch(e.target.value)} />
+                </div>
+                <div className="flex gap-1.5">
+                  <button onClick={() => setShowNewClientForm(v => !v)} className="flex-1 flex items-center justify-center gap-1 bg-emerald-600 text-white text-xs font-bold py-1.5 rounded-lg hover:bg-emerald-700"><Plus size={13}/> Nieuw</button>
+                  <button onClick={handleImportFromInspections} disabled={isImportingClients} className="flex-1 flex items-center justify-center gap-1 bg-gray-100 text-gray-700 text-xs font-bold py-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-50" title="Importeer unieke klanten uit bestaande inspecties">
+                    {isImportingClients ? <RefreshCw size={13} className="animate-spin"/> : <Download size={13}/>} Importeer
+                  </button>
+                  <button onClick={handleImportFromProfiles} disabled={isImportingClients} className="flex-1 flex items-center justify-center gap-1 bg-blue-50 text-blue-700 text-xs font-bold py-1.5 rounded-lg hover:bg-blue-100 disabled:opacity-50" title="Importeer bedrijven uit gebruikersprofielen">
+                    {isImportingClients ? <RefreshCw size={13} className="animate-spin"/> : <Users size={13}/>} Gebruikers
+                  </button>
+                </div>
+                {showNewClientForm && (
+                  <div className="space-y-1.5 pt-1 border-t border-gray-100">
+                    <input type="text" placeholder="Naam *" className="w-full border rounded p-1.5 text-sm" value={newClientForm.name || ''} onChange={e => setNewClientForm(f => ({ ...f, name: e.target.value }))} />
+                    <input type="text" placeholder="Stad" className="w-full border rounded p-1.5 text-sm" value={newClientForm.city || ''} onChange={e => setNewClientForm(f => ({ ...f, city: e.target.value }))} />
+                    <div className="flex gap-1">
+                      <button onClick={handleCreateClient} className="flex-1 bg-emerald-600 text-white text-xs py-1.5 rounded font-bold hover:bg-emerald-700">Aanmaken</button>
+                      <button onClick={() => { setShowNewClientForm(false); setNewClientForm({ name: '', contacts: [] }); }} className="flex-1 bg-gray-100 text-gray-600 text-xs py-1.5 rounded hover:bg-gray-200">Annuleren</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* client list */}
+              <div className="flex-1 overflow-y-auto">
+                {clients.filter(c => {
+                  if (!clientSearch) return true;
+                  const q = clientSearch.toLowerCase();
+                  return (
+                    c.name.toLowerCase().includes(q) ||
+                    (c.city || '').toLowerCase().includes(q) ||
+                    (c.address || '').toLowerCase().includes(q) ||
+                    (c.postal_code || '').toLowerCase().includes(q) ||
+                    (c.email || '').toLowerCase().includes(q) ||
+                    (c.phone || '').toLowerCase().includes(q) ||
+                    c.contacts.some(ct => ct.name.toLowerCase().includes(q) || (ct.role || '').toLowerCase().includes(q) || (ct.email || '').toLowerCase().includes(q))
+                  );
+                }).map(client => (
+                  <button key={client.id} onClick={() => handleSelectClient(client)}
+                    className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${selectedClient?.id === client.id ? 'bg-emerald-50 border-l-4 border-l-emerald-500' : ''}`}>
+                    <div className="font-semibold text-sm text-gray-900 truncate">{client.name}</div>
+                    {client.city && <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5"><MapPin size={10}/>{client.city}</div>}
+                  </button>
+                ))}
+                {clients.length === 0 && (
+                  <div className="p-6 text-center text-gray-400 text-sm">
+                    <Building size={32} className="mx-auto mb-2 text-gray-300"/>
+                    Nog geen klanten.<br/>Klik "Nieuw" of "Importeer".
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT: client detail */}
+            <div className="flex-1 bg-white rounded-r-lg shadow overflow-hidden flex flex-col">
+              {!selectedClient ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+                  <Building size={48} className="mb-3 text-gray-200"/>
+                  <p className="text-sm">Selecteer een klant uit de lijst</p>
+                </div>
+              ) : (
+                <>
+                  {/* header */}
+                  <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">{selectedClient.name}</h2>
+                      {(selectedClient.city || selectedClient.address) && (
+                        <p className="text-sm text-gray-400 flex items-center gap-1 mt-0.5">
+                          <MapPin size={12}/>{[selectedClient.address, selectedClient.postal_code, selectedClient.city].filter(Boolean).join(' ')}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => { setIsEditingClient(true); setEditClientForm({ ...selectedClient }); setClientTab('gegevens'); }} className="flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 font-medium"><Pencil size={13}/> Bewerken</button>
+                      <button onClick={handleDeleteClient} className="flex items-center gap-1 text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-100 font-medium"><Trash2 size={13}/> Verwijderen</button>
+                    </div>
+                  </div>
+
+                  {/* sub-tabs */}
+                  <div className="flex border-b border-gray-100 px-4">
+                    {([['gegevens', <Building size={14}/>, 'Gegevens'], ['contacten', <UserCircle2 size={14}/>, 'Contacten'], ['projecten', <FolderOpen size={14}/>, 'Projecten'], ['notities', <StickyNote size={14}/>, 'Notities']] as const).map(([key, icon, label]) => (
+                      <button key={key} onClick={() => setClientTab(key)}
+                        className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${clientTab === key ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}>
+                        {icon}{label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* tab content */}
+                  <div className="flex-1 overflow-y-auto p-6">
+
+                    {/* GEGEVENS TAB */}
+                    {clientTab === 'gegevens' && (
+                      isEditingClient ? (
+                        <div className="max-w-lg space-y-3">
+                          <h3 className="font-bold text-gray-700 mb-3">Gegevens bewerken</h3>
+                          {([['name','Naam *','text'],['address','Adres','text'],['postal_code','Postcode','text'],['city','Stad','text'],['phone','Telefoon','tel'],['email','E-mail','email'],['website','Website','url']] as [keyof Client, string, string][]).map(([field, label, type]) => (
+                            <div key={field}>
+                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{label}</label>
+                              <input type={type} className="w-full border rounded p-2 text-sm" value={(editClientForm[field] as string) || ''} onChange={e => setEditClientForm(f => ({ ...f, [field]: e.target.value }))} />
+                            </div>
+                          ))}
+                          <div className="flex gap-2 pt-2">
+                            <button onClick={() => handleUpdateClient(editClientForm)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-emerald-700">Opslaan</button>
+                            <button onClick={() => setIsEditingClient(false)} className="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">Annuleren</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="max-w-lg grid grid-cols-2 gap-x-8 gap-y-4">
+                          {([['Naam', selectedClient.name],['Adres', selectedClient.address],['Postcode', selectedClient.postal_code],['Stad', selectedClient.city],['Telefoon', selectedClient.phone],['E-mail', selectedClient.email],['Website', selectedClient.website]] as [string, string | undefined][]).map(([label, val]) => (
+                            <div key={label}>
+                              <div className="text-xs font-bold text-gray-400 uppercase mb-0.5">{label}</div>
+                              <div className="text-sm text-gray-800">
+                                {val ? (label === 'Website' ? <a href={val} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline flex items-center gap-1"><Globe size={12}/>{val}</a> : label === 'E-mail' ? <a href={`mailto:${val}`} className="text-emerald-600 hover:underline">{val}</a> : val) : <span className="text-gray-300 italic">—</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    )}
+
+                    {/* CONTACTEN TAB */}
+                    {clientTab === 'contacten' && (
+                      <div className="max-w-2xl">
+                        {selectedClient.contacts.length > 0 && (
+                          <table className="w-full text-sm mb-4">
+                            <thead><tr className="text-xs font-bold text-gray-400 uppercase border-b"><th className="py-2 pr-3 text-left">Naam</th><th className="py-2 pr-3 text-left">Rol</th><th className="py-2 pr-3 text-left">Telefoon</th><th className="py-2 pr-3 text-left">E-mail</th><th className="py-2 w-8"></th></tr></thead>
+                            <tbody>
+                              {selectedClient.contacts.map((contact, idx) => (
+                                <tr key={contact.id} className="border-b border-gray-50 hover:bg-gray-50">
+                                  <td className="py-1.5 pr-2"><input className="border rounded px-2 py-1 text-sm w-full" value={contact.name} onChange={e => { const c = [...selectedClient.contacts]; c[idx] = { ...c[idx], name: e.target.value }; setSelectedClient({ ...selectedClient, contacts: c }); }} onBlur={() => handleSaveContacts(selectedClient.contacts)} /></td>
+                                  <td className="py-1.5 pr-2"><input className="border rounded px-2 py-1 text-sm w-full" value={contact.role} placeholder="Bijv. Directeur" onChange={e => { const c = [...selectedClient.contacts]; c[idx] = { ...c[idx], role: e.target.value }; setSelectedClient({ ...selectedClient, contacts: c }); }} onBlur={() => handleSaveContacts(selectedClient.contacts)} /></td>
+                                  <td className="py-1.5 pr-2"><input className="border rounded px-2 py-1 text-sm w-full" value={contact.phone || ''} onChange={e => { const c = [...selectedClient.contacts]; c[idx] = { ...c[idx], phone: e.target.value }; setSelectedClient({ ...selectedClient, contacts: c }); }} onBlur={() => handleSaveContacts(selectedClient.contacts)} /></td>
+                                  <td className="py-1.5 pr-2"><input className="border rounded px-2 py-1 text-sm w-full" value={contact.email || ''} onChange={e => { const c = [...selectedClient.contacts]; c[idx] = { ...c[idx], email: e.target.value }; setSelectedClient({ ...selectedClient, contacts: c }); }} onBlur={() => handleSaveContacts(selectedClient.contacts)} /></td>
+                                  <td className="py-1.5"><button onClick={() => handleSaveContacts(selectedClient.contacts.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600"><X size={15}/></button></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                        {selectedClient.contacts.length === 0 && <p className="text-gray-400 text-sm mb-4 italic">Nog geen contactpersonen.</p>}
+                        <button onClick={() => { const newC: ClientContact = { id: crypto.randomUUID(), name: '', role: '', phone: '', email: '' }; handleSaveContacts([...selectedClient.contacts, newC]); }}
+                          className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 font-medium border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50"><Plus size={14}/> Contactpersoon toevoegen</button>
+                      </div>
+                    )}
+
+                    {/* PROJECTEN TAB */}
+                    {clientTab === 'projecten' && (
+                      <div className="space-y-3">
+                        {clientInspections.length === 0 ? (
+                          <p className="text-gray-400 text-sm italic">Geen inspecties gevonden voor deze klant.</p>
+                        ) : clientInspections.map(insp => {
+                          const meta = insp.report_data?.meta || {};
+                          const defects: any[] = insp.report_data?.defects || [];
+                          const hasHerstelPdf = insp.status === 'ter_controle' || insp.status === 'herstel_afgerond';
+                          const projectAddr = [meta.projectAddress, meta.projectPostalCode, meta.projectCity].filter(Boolean).join(' ');
+                          const isExpanded = expandedProjectIds.has(insp.id);
+                          const toggleExpand = () => setExpandedProjectIds(prev => {
+                            const next = new Set(prev);
+                            next.has(insp.id) ? next.delete(insp.id) : next.add(insp.id);
+                            return next;
+                          });
+                          return (
+                            <div key={insp.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                              {/* card header */}
+                              <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 border-b border-gray-100 cursor-pointer select-none" onClick={toggleExpand}>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-mono text-xs bg-white text-gray-700 px-2 py-0.5 rounded border border-gray-200 font-bold flex items-center gap-0.5"><Hash size={10}/>{insp.inspection_number || 'CONCEPT'}</span>
+                                  {(!insp.status || insp.status === 'new') && <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded font-bold">Nieuw</span>}
+                                  {insp.status === 'in_progress' && <span className="bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded font-bold">Bezig</span>}
+                                  {insp.status === 'review_ready' && <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded font-bold">Review</span>}
+                                  {insp.status === 'completed' && <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded font-bold">Klaar</span>}
+                                  {insp.status === 'herstel_wacht' && <span className="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded font-bold">Wacht op Herstel</span>}
+                                  {insp.status === 'ter_controle' && <span className="bg-violet-100 text-violet-800 text-xs px-2 py-0.5 rounded font-bold">Ter Controle</span>}
+                                  {insp.status === 'herstel_afgerond' && <span className="bg-teal-100 text-teal-800 text-xs px-2 py-0.5 rounded font-bold">Herstel Afgerond</span>}
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                                  <button
+                                    onClick={() => { if (!inspections.find(i => i.id === insp.id)) setInspections(prev => [...prev, insp]); handleEdit(insp); }}
+                                    className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg hover:bg-blue-100 font-medium border border-blue-200"
+                                    title="Inspectie openen en bewerken"
+                                  ><Pencil size={12}/> Openen</button>
+                                  <button onClick={() => handleDownloadPDF(insp)} disabled={isGeneratingPdf} className="flex items-center gap-1 text-xs bg-red-50 text-red-700 px-2.5 py-1 rounded-lg hover:bg-red-100 font-medium border border-red-200 disabled:opacity-50" title="PDF Origineel"><FileText size={12}/> PDF</button>
+                                  {hasHerstelPdf && (
+                                    <button onClick={() => handleDownloadHerstelPDF(insp)} disabled={isGeneratingPdf} className="flex items-center gap-1 text-xs bg-violet-50 text-violet-700 px-2.5 py-1 rounded-lg hover:bg-violet-100 font-medium border border-violet-200 disabled:opacity-50" title="PDF Herstelrapport"><FileText size={12}/> PDF Herstel</button>
+                                  )}
+                                  {isExpanded ? <ChevronUp size={16} className="text-gray-400 ml-1"/> : <ChevronDown size={16} className="text-gray-400 ml-1"/>}
+                                </div>
+                              </div>
+                              {/* card details */}
+                              {isExpanded && <div className="px-4 py-3 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+                                {meta.projectLocation && (
+                                  <div><div className="text-xs font-bold text-gray-400 uppercase mb-0.5">Projectlocatie</div><div className="text-gray-800">{meta.projectLocation}</div></div>
+                                )}
+                                {projectAddr && (
+                                  <div><div className="text-xs font-bold text-gray-400 uppercase mb-0.5">Adres project</div><div className="text-gray-800">{projectAddr}</div></div>
+                                )}
+                                <div><div className="text-xs font-bold text-gray-400 uppercase mb-0.5">Startdatum</div><div className="text-gray-800">{normalizeDate(meta.date) || '—'}</div></div>
+                                <div><div className="text-xs font-bold text-gray-400 uppercase mb-0.5">Afgerond</div><div className="text-gray-800">{meta.finalizedDate ? normalizeDate(meta.finalizedDate) : <span className="text-gray-300 italic">—</span>}</div></div>
+                                <div><div className="text-xs font-bold text-gray-400 uppercase mb-0.5">Inspecteur</div><div className="text-gray-800 flex items-center gap-1"><User size={12} className="text-gray-400"/>{meta.inspectorName || '—'}</div></div>
+                                <div><div className="text-xs font-bold text-gray-400 uppercase mb-0.5">Gebreken</div><div className="text-gray-800">{defects.length > 0 ? `${defects.length} gebrek${defects.length !== 1 ? 'en' : ''}` : <span className="text-gray-300 italic">Geen</span>}</div></div>
+                                {meta.projectContactPerson && (
+                                  <div><div className="text-xs font-bold text-gray-400 uppercase mb-0.5">Contactpersoon project</div><div className="text-gray-800">{meta.projectContactPerson}{meta.projectPhone ? <span className="text-gray-400 ml-1">· {meta.projectPhone}</span> : ''}</div></div>
+                                )}
+                                {meta.installationResponsible && (
+                                  <div><div className="text-xs font-bold text-gray-400 uppercase mb-0.5">Installatieverantwoordelijke</div><div className="text-gray-800">{meta.installationResponsible}</div></div>
+                                )}
+                                {meta.scopeType && (
+                                  <div><div className="text-xs font-bold text-gray-400 uppercase mb-0.5">Scope</div><div className="text-gray-800">NEN 3140 art. {meta.scopeType}</div></div>
+                                )}
+                              </div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* NOTITIES TAB */}
+                    {clientTab === 'notities' && (
+                      <div className="max-w-2xl">
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Aantekeningen</label>
+                        <textarea
+                          className="w-full border rounded-lg p-3 text-sm min-h-48 focus:outline-none focus:ring-1 focus:ring-emerald-400 resize-y"
+                          placeholder="Voeg aantekeningen, afspraken of bijzonderheden toe..."
+                          defaultValue={selectedClient.notes || ''}
+                          key={selectedClient.id}
+                          onBlur={e => { if (e.target.value !== (selectedClient.notes || '')) handleUpdateClient({ notes: e.target.value }); }}
+                        />
+                      </div>
+                    )}
+
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB PROJECTEN */}
+        {activeTab === 'projecten' && (
+          <>
+            <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="relative w-full md:w-1/2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20}/>
+                <input type="text" placeholder="Zoek op klant, locatie, plaats, inspecteur..." className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" value={projSearch} onChange={e => { setProjSearch(e.target.value); setProjPage(1); }}/>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-gray-500">
+                <span>Pagina {projPage} van {Math.ceil(projTotalCount / ITEMS_PER_PAGE) || 1} ({projTotalCount} projecten)</span>
+                <div className="flex gap-1">
+                  <button onClick={() => setProjPage(p => Math.max(1, p - 1))} disabled={projPage === 1} className="p-2 border rounded hover:bg-gray-100 disabled:opacity-50"><ChevronLeft size={20}/></button>
+                  <button onClick={() => setProjPage(p => Math.min(Math.ceil(projTotalCount / ITEMS_PER_PAGE), p + 1))} disabled={projPage >= Math.ceil(projTotalCount / ITEMS_PER_PAGE)} className="p-2 border rounded hover:bg-gray-100 disabled:opacity-50"><ChevronRight size={20}/></button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <ProjSortableHeader label="Inspectie ID" sortKey="proj_number" width="w-32"/>
+                    <ProjSortableHeader label="Klant" sortKey="client_name"/>
+                    <ProjSortableHeader label="Projectlocatie" sortKey="proj_location"/>
+                    <ProjSortableHeader label="Plaats" sortKey="proj_city"/>
+                    <ProjSortableHeader label="Status" sortKey="status" width="w-36"/>
+                    <ProjSortableHeader label="Start" sortKey="proj_date_start" width="w-28"/>
+                    <ProjSortableHeader label="Afgerond" sortKey="proj_date_finalized" width="w-28"/>
+                    <ProjSortableHeader label="Herinspectie" sortKey="next_inspection_date" width="w-32"/>
+                    <ProjSortableHeader label="Inspecteur" sortKey="proj_inspector" width="w-36"/>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase w-28">Acties</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {projects.length === 0 ? (
+                    <tr><td colSpan={10} className="text-center py-12 text-gray-400">Geen projecten gevonden</td></tr>
+                  ) : projects.map(proj => {
+                    const meta = proj.report_data?.meta || {};
+                    const hasHerstelPdf = proj.status === 'ter_controle' || proj.status === 'herstel_afgerond';
+                    return (
+                      <tr key={proj.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded border">{proj.inspection_number || '—'}</span>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-gray-800 text-sm">{proj.client_name || '—'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{meta.projectLocation || '—'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          <div className="flex items-center gap-1"><MapPin size={12} className="text-gray-400"/>{meta.projectCity || '—'}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {(!proj.status || proj.status === 'new') && <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded font-bold">Nieuw</span>}
+                          {proj.status === 'in_progress' && <span className="bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded font-bold">Bezig</span>}
+                          {proj.status === 'review_ready' && <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded font-bold">Review</span>}
+                          {proj.status === 'completed' && <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded font-bold">Klaar</span>}
+                          {proj.status === 'herstel_wacht' && <span className="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded font-bold">Wacht op Herstel</span>}
+                          {proj.status === 'ter_controle' && <span className="bg-violet-100 text-violet-800 text-xs px-2 py-0.5 rounded font-bold">Ter Controle</span>}
+                          {proj.status === 'herstel_afgerond' && <span className="bg-teal-100 text-teal-800 text-xs px-2 py-0.5 rounded font-bold">Herstel Afgerond</span>}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{normalizeDate(meta.date) || '—'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{normalizeDate(meta.finalizedDate) || '—'}</td>
+                        <td className="px-4 py-3 text-sm">
+                          {meta.nextInspectionDate
+                            ? <span className={getNextInspStyle(meta.nextInspectionDate)}>{normalizeDate(meta.nextInspectionDate)}</span>
+                            : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          <div className="flex items-center gap-1"><User size={12} className="text-gray-400"/>{meta.inspectorName || '—'}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleDownloadPDF(proj)} disabled={isGeneratingPdf} className="flex items-center gap-1 text-xs bg-red-50 text-red-700 px-2 py-1 rounded hover:bg-red-100 font-medium border border-red-200 disabled:opacity-50" title="PDF Origineel"><FileText size={12}/> PDF</button>
+                            {hasHerstelPdf && <button onClick={() => handleDownloadHerstelPDF(proj)} disabled={isGeneratingPdf} className="flex items-center gap-1 text-xs bg-violet-50 text-violet-700 px-2 py-1 rounded hover:bg-violet-100 font-medium border border-violet-200 disabled:opacity-50" title="PDF Herstel"><FileText size={12}/> Herstel</button>}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
         {showUserModal && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                         <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
@@ -1522,7 +2110,17 @@ const handleLoadDefaultLibrary = async () => {
                                     <option value="admin">Beheerder (Admin)</option>
                                     <option value="installer">Installateur</option>
                                 </select>
-                                <hr className="my-2 border-gray-100" />
+                                <hr className="my-2 border-gray-200" />
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Bedrijfsgegevens (optioneel)</p>
+                                <input className="w-full border rounded p-2" type="text" placeholder="Bedrijfsnaam" value={newUser.company_name} onChange={e => setNewUser({...newUser, company_name: e.target.value})} />
+                                <input className="w-full border rounded p-2" type="text" placeholder="Adres" value={newUser.company_address} onChange={e => setNewUser({...newUser, company_address: e.target.value})} />
+                                <div className="flex gap-2">
+                                    <input className="w-1/3 border rounded p-2" type="text" placeholder="Postcode" value={newUser.company_postal_code} onChange={e => setNewUser({...newUser, company_postal_code: e.target.value})} />
+                                    <input className="flex-1 border rounded p-2" type="text" placeholder="Plaats" value={newUser.company_city} onChange={e => setNewUser({...newUser, company_city: e.target.value})} />
+                                </div>
+                                <input className="w-full border rounded p-2" type="tel" placeholder="Bedrijfstelefoon" value={newUser.company_phone} onChange={e => setNewUser({...newUser, company_phone: e.target.value})} />
+                                <input className="w-full border rounded p-2" type="email" placeholder="Bedrijfs-email" value={newUser.company_email} onChange={e => setNewUser({...newUser, company_email: e.target.value})} />
+                                <hr className="my-2 border-gray-200" />
                                 <input className="w-full border rounded p-2" type="email" placeholder="Login Email (Verplicht)" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
                                 <input className="w-full border rounded p-2" type="password" placeholder="Wachtwoord (Verplicht)" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
                             </div>

@@ -189,7 +189,31 @@ export interface InspectionDbRow {
   };
 }
 
-// 11. DE STORE STATE
+// 11. CRM: KLANTEN
+export interface ClientContact {
+  id: string;
+  name: string;
+  role: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  address?: string;
+  postal_code?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  notes?: string;
+  contacts: ClientContact[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+// 12. DE STORE STATE
 export interface InspectionState {
   meta: InspectionMeta;
   measurements: Measurements;
