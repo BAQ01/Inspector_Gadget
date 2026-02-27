@@ -142,6 +142,7 @@ interface Props {
   meta: InspectionMeta;
   defects: Defect[];
   measurements: Measurements;
+  reportType?: 'original' | 'herstel';
 }
 
 const getSampleData = (count: number) => {
@@ -158,7 +159,14 @@ const getSampleData = (count: number) => {
   return { range: '10001-35000', sample: 315 };
 };
 
-export const PDFReport = ({ meta, defects, measurements }: Props) => {
+const CLASSIFICATION_COLOR: Record<string, string> = {
+  Red: '#ef4444', Amber: '#f59e0b', Orange: '#f97316', Yellow: '#eab308', Blue: '#3b82f6',
+};
+const CLASSIFICATION_LABEL: Record<string, string> = {
+  Red: 'Rood', Amber: 'Amber', Orange: 'Oranje', Yellow: 'Geel', Blue: 'Blauw',
+};
+
+export const PDFReport = ({ meta, defects, measurements, reportType = 'original' }: Props) => {
   const check = (val: boolean) => val ? 'V' : '';
   const hasDefects = defects.length > 0;
   const companyName = meta.inspectionCompany || 'Het inspectiebedrijf';
@@ -716,15 +724,79 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
         </View>
 
         <Text style={{ fontWeight: 'bold', marginTop: 30, marginBottom: 10 }}>De Installateur</Text>
-        
-        <View style={styles.formRow}><Text style={styles.formLabel}>Bedrijfsnaam</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
-        <View style={styles.formRow}><Text style={styles.formLabel}>Adres</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
-        <View style={styles.formRow}><Text style={styles.formLabel}>Postcode/plaats</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
-        <View style={styles.formRow}><Text style={styles.formLabel}>Telefoon</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
-        <View style={styles.formRow}><Text style={styles.formLabel}>Datum</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
-        <View style={styles.formRow}><Text style={styles.formLabel}>Naam</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
-        <View style={styles.formRow}><Text style={styles.formLabel}>Functie</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
-        <View style={{ ...styles.formRow, marginTop: 15 }}><Text style={styles.formLabel}>Handtekening</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
+
+        {reportType === 'herstel' && meta.installerName ? (
+          <>
+            {/* Filled-in installer info */}
+            <View style={styles.formRow}><Text style={styles.formLabel}>Naam</Text><Text style={styles.formColon}>:</Text><Text style={{ width: '70%' }}>{meta.installerName}</Text></View>
+            <View style={styles.formRow}><Text style={styles.formLabel}>Datum herstel</Text><Text style={styles.formColon}>:</Text><Text style={{ width: '70%' }}>{meta.repairDate || '-'}</Text></View>
+
+            {/* Repaired defects table */}
+            {defects.some(d => d.isRepaired) && (
+              <>
+                <Text style={[styles.headerLevel2, { marginTop: 15 }]}>HERSTELDE GEBREKEN</Text>
+                <View style={styles.tableContainer}>
+                  <View style={styles.tableRow}>
+                    <Text style={[styles.tableCell, { width: '5%', fontWeight: 'bold', fontSize: 8 }]}>#</Text>
+                    <Text style={[styles.tableCell, { width: '20%', fontWeight: 'bold', fontSize: 8 }]}>Locatie</Text>
+                    <Text style={[styles.tableCell, { width: '10%', fontWeight: 'bold', fontSize: 8 }]}>Kl.</Text>
+                    <Text style={[styles.tableCell, { width: '30%', fontWeight: 'bold', fontSize: 8 }]}>Beschrijving</Text>
+                    <Text style={[styles.tableCellLast, { width: '35%', fontWeight: 'bold', fontSize: 8 }]}>Herstelopmerking</Text>
+                  </View>
+                  {defects.filter(d => d.isRepaired).map((d, i) => (
+                    <View key={d.id} style={i < defects.filter(x => x.isRepaired).length - 1 ? styles.tableRow : styles.tableRowLast}>
+                      <Text style={[styles.tableCell, { width: '5%', fontSize: 8 }]}>{i + 1}</Text>
+                      <Text style={[styles.tableCell, { width: '20%', fontSize: 8 }]}>{d.location}</Text>
+                      <Text style={[styles.tableCell, { width: '10%', fontSize: 8, color: CLASSIFICATION_COLOR[d.classification] || '#333', fontWeight: 'bold' }]}>
+                        {CLASSIFICATION_LABEL[d.classification] || d.classification}
+                      </Text>
+                      <Text style={[styles.tableCell, { width: '30%', fontSize: 8 }]}>{d.description}</Text>
+                      <Text style={[styles.tableCellLast, { width: '35%', fontSize: 8 }]}>{d.repairRemarks || '-'}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Repair photos */}
+                {defects.filter(d => d.isRepaired && (d.repairPhotoUrl1 || d.repairPhotoUrl2)).length > 0 && (
+                  <>
+                    <Text style={[styles.headerLevel2, { marginTop: 10 }]}>HERSTEL FOTO'S</Text>
+                    {defects.filter(d => d.isRepaired && (d.repairPhotoUrl1 || d.repairPhotoUrl2)).map((d, i) => (
+                      <View key={d.id} style={{ marginBottom: 8 }}>
+                        <Text style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 4 }}>
+                          {i + 1}. {d.location}
+                        </Text>
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          {d.repairPhotoUrl1 && <Image src={d.repairPhotoUrl1} style={{ width: 110, height: 80, objectFit: 'cover', borderWidth: 1, borderColor: '#ccc' }} />}
+                          {d.repairPhotoUrl2 && <Image src={d.repairPhotoUrl2} style={{ width: 110, height: 80, objectFit: 'cover', borderWidth: 1, borderColor: '#ccc' }} />}
+                        </View>
+                      </View>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
+
+            {/* Installer signature */}
+            <Text style={{ fontWeight: 'bold', marginTop: 20, marginBottom: 6, fontSize: 10 }}>Handtekening installateur</Text>
+            {meta.installerSignature ? (
+              <Image src={meta.installerSignature} style={{ height: 70, width: 200, objectFit: 'contain', borderWidth: 1, borderColor: '#ccc' }} />
+            ) : (
+              <View style={[styles.formRow]}><View style={styles.formLine} /></View>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Static blank form for manual completion */}
+            <View style={styles.formRow}><Text style={styles.formLabel}>Bedrijfsnaam</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
+            <View style={styles.formRow}><Text style={styles.formLabel}>Adres</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
+            <View style={styles.formRow}><Text style={styles.formLabel}>Postcode/plaats</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
+            <View style={styles.formRow}><Text style={styles.formLabel}>Telefoon</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
+            <View style={styles.formRow}><Text style={styles.formLabel}>Datum</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
+            <View style={styles.formRow}><Text style={styles.formLabel}>Naam</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
+            <View style={styles.formRow}><Text style={styles.formLabel}>Functie</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
+            <View style={{ ...styles.formRow, marginTop: 15 }}><Text style={styles.formLabel}>Handtekening</Text><Text style={styles.formColon}>:</Text><View style={styles.formLine} /></View>
+          </>
+        )}
       </Page>
 
     </Document>

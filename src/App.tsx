@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './supabase'; //
 import InspectorApp from './InspectorApp'; //
+import InstallerApp from './InstallerApp'; //
 import AdminDashboard from './components/AdminDashboard'; //
 import Login from './components/Login'; //
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
-  const [userRole, setUserRole] = useState<'admin' | 'inspector' | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'inspector' | 'installer' | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
 
@@ -85,6 +86,11 @@ export default function App() {
         <AdminDashboard />
       </div>
     );
+  }
+
+  // Installer view
+  if (userRole === 'installer') {
+    return <InstallerApp supabase={supabase} userId={session.user.id} onLogout={handleLogout} />;
   }
 
   // De standaard view: De Hoofdapplicatie voor zowel Admin als Inspecteur

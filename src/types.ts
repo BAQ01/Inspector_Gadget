@@ -39,6 +39,10 @@ export interface Defect {
   photoUrl2?: string;
   category?: string;
   subcategory?: string;
+  repairPhotoUrl1?: string;
+  repairPhotoUrl2?: string;
+  repairRemarks?: string;
+  isRepaired?: boolean;
 }
 
 // 5. INSTRUMENT
@@ -156,7 +160,11 @@ export interface InspectionMeta {
   
   totalComponents: number;
   signatureUrl?: string | null;
-  
+
+  installerSignature?: string | null;
+  installerName?: string;
+  repairDate?: string;
+
   usageFunctions: UsageFunctions;
 
   inspectionInterval: number | null; 
@@ -170,8 +178,9 @@ export interface InspectionDbRow {
   created_at: string;
   client_name: string;
   status: string;
-  inspection_number?: string; 
-  scope_type?: string;        
+  inspection_number?: string;
+  scope_type?: string;
+  installer_id?: string;
   report_data: {
     meta: InspectionMeta;
     measurements: Measurements;

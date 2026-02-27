@@ -108,6 +108,10 @@ export default function AdminDashboard() {
   const [editingSettingId, setEditingSettingId] = useState<number | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
+
+  // INSTALLER HERSTEL STATES
+  const [installersList, setInstallersList] = useState<{id: string; full_name: string}[]>([]);
+  const [assigningInstaller, setAssigningInstaller] = useState<Record<number, string>>({});
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'inspector', full_name: '', scios_nr: '', phone: '', contact_email: '' });
 
   const excelInputRef = useRef<HTMLInputElement>(null);
@@ -274,6 +278,11 @@ const fetchOptions = async () => {
           setInstrumentsList(data.filter(x => x.category === 'instrument'));
       }
   };
+
+  const fetchInstallers = async () => {
+      const { data } = await supabase.from('profiles').select('id, full_name').eq('role', 'installer').order('full_name');
+      setInstallersList(data || []);
+  };
   const handleDeleteUser = async (userId: string) => { if (window.confirm("⚠️ WAARSCHUWING ⚠️\n\nGebruiker verwijderen?")) { await supabase.rpc('delete_user', { user_id: userId }); fetchUsers(); } };
   const openPasswordModal = (user: any) => { setPasswordResetUser({ id: user.id, email: user.email }); setNewPasswordInput(''); setShowPasswordModal(true); };
   const handleResetPassword = async () => { 
@@ -289,7 +298,7 @@ const fetchOptions = async () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'inspections') fetchInspections();
+    if (activeTab === 'inspections') { fetchInspections(); fetchInstallers(); }
     if (activeTab === 'users') fetchUsers();
     if (activeTab === 'settings' || showOrderModal) { fetchOptions(); fetchUsers(); }
     if (activeTab === 'library') fetchLibrary();
@@ -501,6 +510,43 @@ const handleLoadDefaultLibrary = async () => {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
   
+  const handleAssignInstaller = async (inspectionId: number, installerId: string) => {
+      if (!installerId) return;
+      if (!window.confirm('Inspectie toewijzen aan installateur en status wijzigen naar "Wacht op Herstel"?')) return;
+      const { error } = await supabase.from('inspections')
+          .update({ installer_id: installerId, status: 'herstel_wacht' })
+          .eq('id', inspectionId);
+      if (error) alert('Fout: ' + error.message);
+      else { setAssigningInstaller(prev => { const n = { ...prev }; delete n[inspectionId]; return n; }); fetchInspections(); }
+  };
+
+  const handleApproveRepair = async (id: number) => {
+      if (!window.confirm('Herstel goedkeuren? Status wordt "Herstel Afgerond".')) return;
+      const { error } = await supabase.from('inspections').update({ status: 'herstel_afgerond' }).eq('id', id);
+      if (error) alert('Fout: ' + error.message); else fetchInspections();
+  };
+
+  const handleRejectRepair = async (id: number) => {
+      if (!window.confirm('Herstel afkeuren? Installateur moet opnieuw indienen.')) return;
+      const { error } = await supabase.from('inspections').update({ status: 'herstel_wacht' }).eq('id', id);
+      if (error) alert('Fout: ' + error.message); else fetchInspections();
+  };
+
+  const handleDownloadHerstelPDF = async (inspection: any) => {
+      if (!inspection.report_data) return alert('Geen data');
+      setIsGeneratingPdf(true);
+      try {
+          const { meta, defects, measurements } = inspection.report_data;
+          const blob = await pdf(
+              <PDFReport meta={meta} defects={defects || []} measurements={measurements} reportType="herstel" />
+          ).toBlob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = url;
+          a.download = `HERSTEL_${meta.repairDate || meta.date || 'Datum'}_${meta.clientName || 'Klant'}.pdf`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      } catch (e) { console.error(e); alert('Fout bij genereren'); } finally { setIsGeneratingPdf(false); }
+  };
+
   const toggleStatus = async (insp: any) => {
       let newStatus = '';
       if (insp.status === 'completed') newStatus = 'in_progress'; else if (insp.status === 'review_ready') newStatus = 'completed'; else newStatus = 'completed';
@@ -1020,22 +1066,60 @@ const handleLoadDefaultLibrary = async () => {
                             <td className="px-4 py-3"><div className="text-xs text-gray-500 flex items-center gap-1"><MapPin size={12}/> {insp.report_data?.meta?.projectCity || insp.report_data?.meta?.clientCity || '-'}</div></td>
                             
                             {/* 8. Status */}
-                            <td className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleStatus(insp)}>
+                            <td className="px-4 py-3 cursor-pointer select-none" onClick={() => !['herstel_wacht','ter_controle','herstel_afgerond'].includes(insp.status) ? toggleStatus(insp) : undefined}>
                                 {(!insp.status || insp.status === 'new') && <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-bold border border-blue-200">Nieuw</span>}
                                 {insp.status === 'in_progress' && <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded font-bold border border-orange-200 flex items-center gap-1 w-fit"><RefreshCw size={12} className="animate-spin"/> Bezig</span>}
                                 {insp.status === 'review_ready' && <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-bold border border-purple-200 shadow-sm flex items-center gap-1 w-fit"><FileText size={12}/> Review</span>}
                                 {insp.status === 'completed' && <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold border border-green-200 flex items-center gap-1 w-fit"><Lock size={12}/> Klaar</span>}
+                                {insp.status === 'herstel_wacht' && <span className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded font-bold border border-amber-200 flex items-center gap-1 w-fit"><RefreshCw size={12}/> Wacht op Herstel</span>}
+                                {insp.status === 'ter_controle' && <span className="bg-violet-100 text-violet-800 text-xs px-2 py-1 rounded font-bold border border-violet-200 flex items-center gap-1 w-fit"><FileText size={12}/> Ter Controle</span>}
+                                {insp.status === 'herstel_afgerond' && <span className="bg-teal-100 text-teal-800 text-xs px-2 py-1 rounded font-bold border border-teal-200 flex items-center gap-1 w-fit"><CheckCircle size={12}/> Herstel Afgerond</span>}
                             </td>
                             
                             {/* 9. Inspecteur */}
                             <td className="px-4 py-3 text-sm text-gray-500"><User size={16} className="inline mr-1"/> {insp.report_data?.meta?.inspectorName || '-'}</td>
                             
                             {/* 10. Acties */}
-                            <td className="px-4 py-3 text-right text-sm font-medium flex justify-end gap-2">
-                                <button onClick={() => handleEdit(insp)} className="text-blue-500 hover:text-blue-700" title="Bewerken"><Pencil size={16}/></button>
-                                <button onClick={() => handleDownloadPDF(insp)} disabled={isGeneratingPdf} className="text-red-600 font-bold" title="PDF"><FileText size={16}/></button>
-                                <button onClick={() => downloadJSON(insp)} className="text-indigo-600" title="JSON"><Download size={16}/></button>
-                                <button onClick={() => handleDelete(insp.id)} className="text-red-400 hover:text-red-600" title="Verwijderen"><Trash2 size={16}/></button>
+                            <td className="px-4 py-3 text-right text-sm font-medium">
+                                <div className="flex justify-end gap-2 flex-wrap items-center">
+                                  {/* Assign installer — only when status is 'completed' */}
+                                  {insp.status === 'completed' && (
+                                    <div className="flex items-center gap-1">
+                                      <select
+                                        value={assigningInstaller[insp.id] || ''}
+                                        onChange={(e) => setAssigningInstaller(prev => ({ ...prev, [insp.id]: e.target.value }))}
+                                        className="text-xs border border-gray-300 rounded px-1 py-0.5"
+                                        title="Wijs installateur toe"
+                                      >
+                                        <option value="">Installateur...</option>
+                                        {installersList.map(i => <option key={i.id} value={i.id}>{i.full_name}</option>)}
+                                      </select>
+                                      <button
+                                        onClick={() => handleAssignInstaller(insp.id, assigningInstaller[insp.id] || '')}
+                                        disabled={!assigningInstaller[insp.id]}
+                                        className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded disabled:opacity-40"
+                                        title="Stuur naar installateur"
+                                      >
+                                        Sturen
+                                      </button>
+                                    </div>
+                                  )}
+                                  {/* Approve/Reject — only when status is 'ter_controle' */}
+                                  {insp.status === 'ter_controle' && (
+                                    <>
+                                      <button onClick={() => handleApproveRepair(insp.id)} className="text-xs bg-green-600 text-white px-2 py-0.5 rounded hover:bg-green-700" title="Herstel goedkeuren">✓ Akkoord</button>
+                                      <button onClick={() => handleRejectRepair(insp.id)} className="text-xs bg-red-500 text-white px-2 py-0.5 rounded hover:bg-red-600" title="Herstel afkeuren">✗ Afkeuren</button>
+                                    </>
+                                  )}
+                                  <button onClick={() => handleEdit(insp)} className="text-blue-500 hover:text-blue-700" title="Bewerken"><Pencil size={16}/></button>
+                                  <button onClick={() => handleDownloadPDF(insp)} disabled={isGeneratingPdf} className="text-red-600 font-bold" title="PDF Origineel"><FileText size={16}/></button>
+                                  {/* Herstel PDF — only when repair has been submitted */}
+                                  {(insp.status === 'ter_controle' || insp.status === 'herstel_afgerond') && (
+                                    <button onClick={() => handleDownloadHerstelPDF(insp)} disabled={isGeneratingPdf} className="text-violet-600 font-bold" title="PDF Herstelrapport"><FileText size={16}/></button>
+                                  )}
+                                  <button onClick={() => downloadJSON(insp)} className="text-indigo-600" title="JSON"><Download size={16}/></button>
+                                  <button onClick={() => handleDelete(insp.id)} className="text-red-400 hover:text-red-600" title="Verwijderen"><Trash2 size={16}/></button>
+                                </div>
                             </td>
                         </tr>
                         ))}
@@ -1068,7 +1152,7 @@ const handleLoadDefaultLibrary = async () => {
                                     <td className="px-4 py-3 text-sm"><input className="border rounded p-1 w-28 text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.phone || ''} onBlur={(e) => { if(e.target.value !== (u.phone||'')) handleUpdateProfile(u.id, 'phone', e.target.value); }} placeholder="06-..." /></td>
                                     <td className="px-4 py-3 text-sm"><input className="border rounded p-1 w-full text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.contact_email || ''} onBlur={(e) => { if(e.target.value !== (u.contact_email||'')) handleUpdateProfile(u.id, 'contact_email', e.target.value); }} placeholder={u.email} /></td>
                                     <td className="px-4 py-3 text-sm"><input className="border rounded p-1 w-24 text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.scios_nr || ''} onBlur={(e) => { if(e.target.value !== (u.scios_nr||'')) handleUpdateProfile(u.id, 'scios_nr', e.target.value); }} placeholder="Optioneel" /></td>
-                                    <td className="px-4 py-3 text-sm"><select className="border rounded p-1 text-sm bg-white cursor-pointer" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}><option value="inspector">Inspector</option><option value="admin">Admin</option></select></td>
+                                    <td className="px-4 py-3 text-sm"><select className="border rounded p-1 text-sm bg-white cursor-pointer" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}><option value="inspector">Inspector</option><option value="admin">Admin</option><option value="installer">Installateur</option></select></td>
                                     <td className="px-4 py-3 text-right text-sm">
                                         <div className="flex justify-end gap-2">
                                             <button onClick={() => { setExpandedUserId(isExpanded ? null : u.id); setAdminKofferSearch(''); }} className={`p-2 rounded transition-colors ${isExpanded ? 'text-emerald-700 bg-emerald-100' : 'text-emerald-400 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`} title="Koffer beheren"><Wrench size={18}/></button>
@@ -1400,6 +1484,7 @@ const handleLoadDefaultLibrary = async () => {
                                 <select className="w-full border rounded p-2 bg-white" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
                                     <option value="inspector">Inspecteur</option>
                                     <option value="admin">Beheerder (Admin)</option>
+                                    <option value="installer">Installateur</option>
                                 </select>
                                 <hr className="my-2 border-gray-100" />
                                 <input className="w-full border rounded p-2" type="email" placeholder="Login Email (Verplicht)" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
