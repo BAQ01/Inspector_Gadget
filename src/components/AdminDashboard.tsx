@@ -94,6 +94,8 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [adminKofferSearch, setAdminKofferSearch] = useState('');
+  const [expandedInstrumentId, setExpandedInstrumentId] = useState<number | null>(null);
+  const [instrumentOwnerSearch, setInstrumentOwnerSearch] = useState('');
 
 // Options Lists
   const [companiesList, setCompaniesList] = useState<any[]>([]);
@@ -289,7 +291,7 @@ const fetchOptions = async () => {
   useEffect(() => {
     if (activeTab === 'inspections') fetchInspections();
     if (activeTab === 'users') fetchUsers();
-    if (activeTab === 'settings' || showOrderModal) fetchOptions(); 
+    if (activeTab === 'settings' || showOrderModal) { fetchOptions(); fetchUsers(); }
     if (activeTab === 'library') fetchLibrary();
   }, [page, searchTerm, activeTab, showOrderModal, sortConfig]);
 
@@ -1169,7 +1171,7 @@ const handleLoadDefaultLibrary = async () => {
                          </div>
                          <div className="flex gap-2 pt-2"><button onClick={handleSaveInstrument} disabled={editingSettingId !== null && editingCategory !== 'instrument'} className={`flex-1 py-2 rounded font-bold text-sm text-white ${editingSettingId && editingCategory === 'instrument' ? 'bg-blue-600' : 'bg-emerald-600 disabled:opacity-50'}`}>{editingSettingId && editingCategory === 'instrument' ? 'Opslaan' : 'Toevoegen'}</button>{editingSettingId && editingCategory === 'instrument' && <button onClick={cancelEditSettings} className="px-4 bg-gray-300 rounded font-bold text-sm">X</button>}</div>
                      </div>
-                     <ul className="divide-y max-h-[400px] overflow-y-auto">
+                     <ul className="divide-y max-h-[600px] overflow-y-auto">
                          {instrumentsList.map((item) => {
                              const status = (!item.data?.calibrationDate || item.data.calibrationDate === 'Indicatief' || item.data.calibrationDate === 'n.v.t.') ? 'ok' : (() => {
                                  const d = new Date(item.data.calibrationDate);
@@ -1179,19 +1181,51 @@ const handleLoadDefaultLibrary = async () => {
                                  if (diff <= 30) return 'warning';
                                  return 'ok';
                              })();
-                             
+                             const isExpanded = expandedInstrumentId === item.id;
+                             const owners = users.filter(u => (u.linked_instruments ?? []).includes(item.id));
+
                              return (
-                                 <li key={item.id} className="py-3 flex justify-between items-start text-gray-700">
-                                     <div>
-                                         <div className="font-bold text-sm">{item.label}</div>
-                                         <div className="text-xs text-gray-500">
-                                             SN: {item.data?.serialNumber || 'Onbekend'} | Kalibratie: <span className={status === 'expired' ? 'text-red-600 font-bold' : status === 'warning' ? 'text-orange-600 font-bold' : ''}>{item.data?.calibrationDate || 'Onbekend'}</span>
+                                 <li key={item.id} className="text-gray-700">
+                                     <div className="py-3 flex justify-between items-start">
+                                         <div className="flex-1 min-w-0 pr-2">
+                                             <div className="font-bold text-sm">{item.label}</div>
+                                             <div className="text-xs text-gray-500">
+                                                 SN: {item.data?.serialNumber || 'Onbekend'} | Kalibratie: <span className={status === 'expired' ? 'text-red-600 font-bold' : status === 'warning' ? 'text-orange-600 font-bold' : ''}>{item.data?.calibrationDate || 'Onbekend'}</span>
+                                             </div>
+                                             {owners.length > 0 && (
+                                                 <div className="text-xs text-emerald-600 mt-0.5">
+                                                     ⭐ {owners.map(u => u.full_name || u.email).join(', ')}
+                                                 </div>
+                                             )}
+                                         </div>
+                                         <div className="flex gap-2 shrink-0">
+                                             <button onClick={() => { setExpandedInstrumentId(isExpanded ? null : item.id); setInstrumentOwnerSearch(''); }} className={`p-1.5 rounded transition-colors ${isExpanded ? 'text-emerald-700 bg-emerald-100' : 'text-emerald-400 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`} title="Eigenaren beheren"><Users size={15}/></button>
+                                             <button onClick={() => startEditInstrument(item)} className="text-blue-400 hover:text-blue-600 p-1.5"><Pencil size={15}/></button>
+                                             <button onClick={() => deleteOption(item.id)} className="text-red-400 hover:text-red-600 p-1.5"><Trash2 size={15}/></button>
                                          </div>
                                      </div>
-                                     <div className="flex gap-2">
-                                         <button onClick={() => startEditInstrument(item)} className="text-blue-400 hover:text-blue-600"><Pencil size={16}/></button>
-                                         <button onClick={() => deleteOption(item.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
-                                     </div>
+                                     {isExpanded && (
+                                         <div className="mb-3 p-3 bg-emerald-50 rounded border border-emerald-200 animate-fadeIn">
+                                             <p className="text-xs font-bold text-emerald-800 uppercase mb-2">Eigenaren — wie heeft dit instrument in de koffer?</p>
+                                             <input type="text" placeholder="Zoek gebruiker..." className="w-full border rounded p-1.5 text-xs mb-2" value={instrumentOwnerSearch} onChange={e => setInstrumentOwnerSearch(e.target.value)} />
+                                             <div className="space-y-1 max-h-40 overflow-y-auto">
+                                                 {users
+                                                     .filter(u => instrumentOwnerSearch === '' || (u.full_name || u.email || '').toLowerCase().includes(instrumentOwnerSearch.toLowerCase()))
+                                                     .map(u => {
+                                                         const isOwner = (u.linked_instruments ?? []).includes(item.id);
+                                                         return (
+                                                             <label key={u.id} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-colors ${isOwner ? 'bg-emerald-100' : 'hover:bg-gray-100 bg-white'}`}>
+                                                                 <input type="checkbox" checked={isOwner} onChange={() => handleAdminToggleInstrument(u.id, item.id, u.linked_instruments ?? [])} className="h-4 w-4 text-emerald-600 rounded" />
+                                                                 <span className="text-sm font-medium">{u.full_name || u.email}</span>
+                                                                 {u.full_name && <span className="text-xs text-gray-400">{u.email}</span>}
+                                                             </label>
+                                                         );
+                                                     })
+                                                 }
+                                                 {users.length === 0 && <p className="text-xs text-gray-400 italic">Geen gebruikers geladen.</p>}
+                                             </div>
+                                         </div>
+                                     )}
                                  </li>
                              );
                          })}
