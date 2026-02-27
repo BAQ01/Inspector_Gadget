@@ -151,9 +151,15 @@ export interface InspectionMeta {
   inspectorName: string;
   additionalInspectors: string[];
   
-  // Datums
-  date: string; 
-  finalizedDate?: string | null; // NIEUW: Datum van afronding
+  // Datums & Planning
+  date: string;
+  scheduledTimeStart?: string;       // HH:MM — geplande starttijd
+  estimatedDurationHours?: number;   // Geschatte duur in uren (0.5 – 8+)
+  finalizedDate?: string | null;     // Datum van afronding
+
+  // Geocoördinaten (automatisch ingevuld via PDOK bij opslaan)
+  lat?: number;
+  lng?: number;
 
   sciosRegistrationNumber: string;
   sciosScope?: 'Scope 10'; 

@@ -2,11 +2,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Calendar, User, Download, RefreshCw, Plus, X, MapPin, Trash2, Lock, FileText, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Database, Users, Shield, UserPlus, FileSpreadsheet, Pencil, Settings, Building, Wrench, Key, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Hash, Mail, Phone, Briefcase, Clock, BookOpen, UploadCloud, Globe, StickyNote, FolderOpen, UserCircle2 } from 'lucide-react';
 import type { Client, ClientContact } from '../types';
-import { pdf } from '@react-pdf/renderer'; 
+import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './PDFReport';
 import ExcelJS from 'exceljs';
 import { DEFECT_LIBRARY } from '../constants'; // NIEUW: Importeer de hardcoded lijst
-import { parsePlaceResult, fetchPlaces, lookupAddressBAG, type ParsedPlace } from '../utils/placesSearch';
+import { parsePlaceResult, fetchPlaces, lookupAddressBAG, geocodeAddress, type ParsedPlace } from '../utils/placesSearch';
+import AgendaTab from './AgendaTab';
+import { logAction } from '../utils/auditLog';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -59,12 +61,18 @@ const EMPTY_ORDER = {
     inspectorName: '', sciosRegistrationNumber: '',
     inspectionCompany: '', inspectionCompanyAddress: '', inspectionCompanyPostalCode: '', inspectionCompanyCity: '', inspectionCompanyPhone: '', inspectionCompanyEmail: '',
     date: new Date().toISOString().split('T')[0],
+    scheduledTimeStart: '' as string,
+    estimatedDurationHours: undefined as number | undefined,
     clientName: '', clientAddress: '', clientPostalCode: '', clientCity: '', clientContactPerson: '', clientPhone: '', clientEmail: '',
     projectLocation: '', projectAddress: '', projectPostalCode: '', projectCity: '', projectContactPerson: '', projectPhone: '', projectEmail: '', installationResponsible: ''
 };
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'inspections' | 'users' | 'settings' | 'library' | 'clients' | 'projecten'>('inspections');
+  const [activeTab, setActiveTab] = useState<'inspections' | 'users' | 'settings' | 'library' | 'clients' | 'projecten' | 'agenda' | 'log'>('inspections');
+  const [agendaInspections, setAgendaInspections] = useState<any[]>([]);
+  const [auditLog, setAuditLog] = useState<any[]>([]);
+  const [auditLogLoading, setAuditLogLoading] = useState(false);
+  const [auditLogFilter, setAuditLogFilter] = useState({ app: '', user: '', action: '' });
   
   // LIBRARY STATES
   const [libraryItems, setLibraryItems] = useState<any[]>([]);
@@ -419,6 +427,7 @@ const fetchOptions = async () => {
         fetchOptions();
       }
     }
+    logAction('admin', 'user_company_updated', 'profile', u.id, u.full_name || u.email, { company_name: buf.company_name });
     fetchUsers();
     setExpandedCompanyUserId(null);
     setCompanyEditBuffer({});
@@ -430,6 +439,7 @@ const fetchOptions = async () => {
       .insert({ ...newClientForm, contacts: [] }).select().single();
     if (error) alert('Fout: ' + error.message);
     else {
+      logAction('admin', 'client_created', 'client', data.id, newClientForm.name);
       setShowNewClientForm(false);
       setNewClientForm({ name: '', contacts: [] });
       fetchClients();
@@ -444,6 +454,7 @@ const fetchOptions = async () => {
       .eq('id', selectedClient.id);
     if (error) alert('Fout: ' + error.message);
     else {
+      logAction('admin', 'client_updated', 'client', selectedClient.id, selectedClient.name, Object.keys(updates).length < 5 ? updates as Record<string, any> : undefined);
       const updated = { ...selectedClient, ...updates };
       setSelectedClient(updated);
       setIsEditingClient(false);
@@ -542,7 +553,44 @@ const fetchOptions = async () => {
     if (activeTab === 'settings' || showOrderModal) { fetchOptions(); fetchUsers(); }
     if (activeTab === 'library') fetchLibrary();
     if (activeTab === 'clients') fetchClients();
+    if (activeTab === 'agenda') fetchAgendaInspections();
+    if (activeTab === 'log') fetchAuditLog();
   }, [page, searchTerm, activeTab, showOrderModal, sortConfig]);
+
+  const fetchAuditLog = async () => {
+    setAuditLogLoading(true);
+    let query = supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(200);
+    if (auditLogFilter.app) query = query.eq('app', auditLogFilter.app);
+    if (auditLogFilter.action) query = query.eq('action', auditLogFilter.action);
+    if (auditLogFilter.user) query = query.ilike('user_name', `%${auditLogFilter.user}%`);
+    const { data } = await query;
+    setAuditLog(data || []);
+    setAuditLogLoading(false);
+  };
+
+  const fetchAgendaInspections = async () => {
+    const { data } = await supabase
+      .from('inspections')
+      .select('*')
+      .or('report_data->meta->>isContributionMode.is.null,report_data->meta->>isContributionMode.neq.true')
+      .order('report_data->meta->>date' as any, { ascending: true });
+    setAgendaInspections(data || []);
+  };
+
+  const handleReschedule = async (id: number, newDate: string, newTime: string, newDurationHours?: number) => {
+    const insp = agendaInspections.find(i => i.id === id);
+    if (!insp) return;
+    const updatedMeta = {
+      ...insp.report_data.meta,
+      date: newDate,
+      scheduledTimeStart: newTime,
+      ...(newDurationHours !== undefined ? { estimatedDurationHours: newDurationHours } : {}),
+    };
+    const updatedReportData = { ...insp.report_data, meta: updatedMeta };
+    const { error } = await supabase.from('inspections').update({ report_data: updatedReportData }).eq('id', id);
+    if (error) alert('Fout bij verplaatsen: ' + error.message);
+    else { logAction('admin', 'inspection_rescheduled', 'inspection', id, insp.client_name, { newDate, newTime, newDurationHours }); fetchAgendaInspections(); }
+  };
 
   // --- PROJECTEN TAB LOGIC ---
   const handleProjSort = (key: string) => {
@@ -790,7 +838,9 @@ const handleLoadDefaultLibrary = async () => {
           
           // HIER IS DE FIX: Datum normaliseren voor de browser input
           date: normalizeDate(meta.date) || new Date().toISOString().split('T')[0],
-          
+          scheduledTimeStart: meta.scheduledTimeStart || '',
+          estimatedDurationHours: meta.estimatedDurationHours,
+
           clientName: meta.clientName || insp.client_name || '', clientAddress: meta.clientAddress || '', clientPostalCode: meta.clientPostalCode || '', clientCity: meta.clientCity || '', clientContactPerson: meta.clientContactPerson || '', clientPhone: meta.clientPhone || '', clientEmail: meta.clientEmail || '',
           projectLocation: meta.projectLocation || '', projectAddress: meta.projectAddress || '', projectPostalCode: meta.projectPostalCode || '', projectCity: meta.projectCity || '', projectContactPerson: meta.projectContactPerson || '', projectPhone: meta.projectPhone || '', projectEmail: meta.projectEmail || '', installationResponsible: meta.installationResponsible || ''
       });
@@ -819,21 +869,29 @@ const handleLoadDefaultLibrary = async () => {
 
   const handleSaveOrder = async () => {
     if (!newOrder.clientName) return alert("Klantnaam verplicht.");
-    const metaData = { ...newOrder, totalComponents: 0, inspectionInterval: 5, usageFunctions: { kantoorfunctie: false }, inspectionBasis: { nta8220: true, verzekering: false } };
+    const coords = await geocodeAddress(newOrder.projectAddress, newOrder.projectPostalCode, newOrder.projectCity);
+    const metaData = { ...newOrder, ...(coords ?? {}), totalComponents: 0, inspectionInterval: 5, usageFunctions: { kantoorfunctie: false }, inspectionBasis: { nta8220: true, verzekering: false } };
     if (editingId) {
         const existingInsp = inspections.find(i => i.id === editingId); if (!existingInsp) return;
         const updatedReportData = { ...existingInsp.report_data, meta: { ...existingInsp.report_data.meta, ...metaData } };
         const { error } = await supabase.from('inspections').update({ client_name: newOrder.clientName, report_data: updatedReportData }).eq('id', editingId);
-        if (error) { alert("Fout: " + error.message); } else { await upsertClientFromOrder(); alert("Opgeslagen!"); closeModal(); fetchInspections(); }
+        if (error) { alert("Fout: " + error.message); } else { await upsertClientFromOrder(); logAction('admin', 'inspection_updated', 'inspection', editingId, newOrder.clientName, { projectLocation: newOrder.projectLocation, date: newOrder.date }); alert("Opgeslagen!"); closeModal(); fetchInspections(); }
     } else {
         const initialData = { meta: metaData, measurements: { installationType: 'TN-S', mainFuse: '3x63A', mainsVoltage: '400 V', selectedInstruments: [] }, defects: [] };
-        const { error } = await supabase.from('inspections').insert({ client_name: newOrder.clientName, status: 'new', scope_type: '10', report_data: initialData });
-        if (error) { alert('Fout: ' + error.message); } else { await upsertClientFromOrder(); alert('Aangemaakt!'); closeModal(); fetchInspections(); }
+        const { data: inserted, error } = await supabase.from('inspections').insert({ client_name: newOrder.clientName, status: 'new', scope_type: '10', report_data: initialData }).select('id').single();
+        if (error) { alert('Fout: ' + error.message); } else { await upsertClientFromOrder(); logAction('admin', 'inspection_created', 'inspection', inserted?.id ?? null, newOrder.clientName, { projectLocation: newOrder.projectLocation, date: newOrder.date }); alert('Aangemaakt!'); closeModal(); fetchInspections(); }
     }
   };
 
   const closeModal = () => { setShowOrderModal(false); setNewOrder(EMPTY_ORDER); setEditingId(null); };
-  const handleDelete = async (id: number) => { if(window.confirm("Verwijderen?")) { await supabase.from('inspections').delete().eq('id', id); fetchInspections(); }};
+  const handleDelete = async (id: number) => {
+    const insp = inspections.find(i => i.id === id);
+    if(window.confirm("Verwijderen?")) {
+      await supabase.from('inspections').delete().eq('id', id);
+      logAction('admin', 'inspection_deleted', 'inspection', id, insp?.client_name || String(id));
+      fetchInspections();
+    }
+  };
   
   const handleDownloadPDF = async (inspection: any) => {
       if(!inspection.report_data) return alert("Geen data");
@@ -866,19 +924,19 @@ const handleLoadDefaultLibrary = async () => {
           .update({ installer_id: installerId, status: 'herstel_wacht' })
           .eq('id', inspectionId);
       if (error) alert('Fout: ' + error.message);
-      else { setAssigningInstaller(prev => { const n = { ...prev }; delete n[inspectionId]; return n; }); fetchInspections(); }
+      else { const insp = inspections.find(i => i.id === inspectionId); logAction('admin', 'installer_assigned', 'inspection', inspectionId, insp?.client_name || String(inspectionId), { installerId }); setAssigningInstaller(prev => { const n = { ...prev }; delete n[inspectionId]; return n; }); fetchInspections(); }
   };
 
   const handleApproveRepair = async (id: number) => {
       if (!window.confirm('Herstel goedkeuren? Status wordt "Herstel Afgerond".')) return;
       const { error } = await supabase.from('inspections').update({ status: 'herstel_afgerond' }).eq('id', id);
-      if (error) alert('Fout: ' + error.message); else fetchInspections();
+      if (error) alert('Fout: ' + error.message); else { const insp = inspections.find(i => i.id === id); logAction('admin', 'repair_approved', 'inspection', id, insp?.client_name || String(id)); fetchInspections(); }
   };
 
   const handleRejectRepair = async (id: number) => {
       if (!window.confirm('Herstel afkeuren? Installateur moet opnieuw indienen.')) return;
       const { error } = await supabase.from('inspections').update({ status: 'herstel_wacht' }).eq('id', id);
-      if (error) alert('Fout: ' + error.message); else fetchInspections();
+      if (error) alert('Fout: ' + error.message); else { const insp = inspections.find(i => i.id === id); logAction('admin', 'repair_rejected', 'inspection', id, insp?.client_name || String(id)); fetchInspections(); }
   };
 
   const handleReopenHerstel = async (id: number) => {
@@ -1407,6 +1465,8 @@ const handleLoadDefaultLibrary = async () => {
             <button onClick={() => setActiveTab('settings')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'settings' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><Settings size={16}/> Instellingen</button>
             <button onClick={() => setActiveTab('clients')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'clients' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><Building size={16}/> Klanten</button>
             <button onClick={() => setActiveTab('projecten')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'projecten' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><FolderOpen size={16}/> Projecten</button>
+            <button onClick={() => setActiveTab('agenda')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'agenda' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><Calendar size={16}/> Agenda</button>
+            <button onClick={() => setActiveTab('log')} className={`py-3 px-4 font-bold text-sm flex items-center gap-2 whitespace-nowrap border-b-2 transition-colors ${activeTab === 'log' ? 'text-emerald-600 border-emerald-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}><Clock size={16}/> Activiteiten</button>
         </div>
 
         {/* TAB INSPECTIES */}
@@ -1691,6 +1751,117 @@ const handleLoadDefaultLibrary = async () => {
                 </div>
             </div>
         )}
+{/* TAB AGENDA */}
+        {activeTab === 'agenda' && (
+            <AgendaTab
+                inspections={agendaInspections}
+                onEdit={(insp) => { handleEdit(insp); }}
+                onReschedule={handleReschedule}
+            />
+        )}
+{/* TAB ACTIVITEITENLOG */}
+        {activeTab === 'log' && (
+            <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex flex-wrap gap-3 mb-4 items-end">
+                    <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mr-4"><Clock size={18}/> Activiteitenlog</h2>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">App</label>
+                        <select className="border rounded p-1.5 text-sm" value={auditLogFilter.app} onChange={e => setAuditLogFilter(f => ({...f, app: e.target.value}))}>
+                            <option value="">Alle</option>
+                            <option value="admin">Beheer</option>
+                            <option value="inspector">Inspecteur</option>
+                            <option value="installer">Installateur</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Actie</label>
+                        <select className="border rounded p-1.5 text-sm" value={auditLogFilter.action} onChange={e => setAuditLogFilter(f => ({...f, action: e.target.value}))}>
+                            <option value="">Alle</option>
+                            <option value="inspection_created">Aangemaakt</option>
+                            <option value="inspection_updated">Bijgewerkt</option>
+                            <option value="inspection_deleted">Verwijderd</option>
+                            <option value="inspection_rescheduled">Verplaatst</option>
+                            <option value="repair_submitted">Herstel ingediend</option>
+                            <option value="repair_approved">Herstel goedgekeurd</option>
+                            <option value="repair_rejected">Herstel afgekeurd</option>
+                            <option value="client_created">Klant aangemaakt</option>
+                            <option value="client_updated">Klant bijgewerkt</option>
+                            <option value="profile_updated">Profiel bijgewerkt</option>
+                            <option value="user_company_updated">Bedrijf bijgewerkt</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gebruiker</label>
+                        <input className="border rounded p-1.5 text-sm" placeholder="Filter op naam..." value={auditLogFilter.user} onChange={e => setAuditLogFilter(f => ({...f, user: e.target.value}))} />
+                    </div>
+                    <button onClick={fetchAuditLog} className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded text-sm font-bold hover:bg-emerald-700">
+                        <RefreshCw size={14}/> Toepassen
+                    </button>
+                </div>
+                {auditLogLoading ? (
+                    <div className="text-center py-12 text-gray-400"><RefreshCw size={24} className="animate-spin mx-auto mb-2"/></div>
+                ) : auditLog.length === 0 ? (
+                    <p className="text-center text-gray-400 py-12 text-sm">Geen activiteiten gevonden.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50 text-xs font-bold text-gray-500 uppercase">
+                                    <th className="text-left p-2 border-b">Tijdstip</th>
+                                    <th className="text-left p-2 border-b">App</th>
+                                    <th className="text-left p-2 border-b">Gebruiker</th>
+                                    <th className="text-left p-2 border-b">Actie</th>
+                                    <th className="text-left p-2 border-b">Object</th>
+                                    <th className="text-left p-2 border-b">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {auditLog.map(entry => {
+                                    const APP_LABELS: Record<string, { label: string; color: string }> = {
+                                        admin:     { label: 'Beheer',       color: 'bg-blue-100 text-blue-800' },
+                                        inspector: { label: 'Inspecteur',   color: 'bg-emerald-100 text-emerald-800' },
+                                        installer: { label: 'Installateur', color: 'bg-amber-100 text-amber-800' },
+                                    };
+                                    const ACTION_LABELS: Record<string, string> = {
+                                        inspection_created:       'Inspectie aangemaakt',
+                                        inspection_updated:       'Inspectie bijgewerkt',
+                                        inspection_deleted:       'Inspectie verwijderd',
+                                        inspection_finalized:     'Inspectie afgerond',
+                                        inspection_rescheduled:   'Inspectie verplaatst',
+                                        repair_submitted:         'Herstel ingediend',
+                                        repair_approved:          'Herstel goedgekeurd',
+                                        repair_rejected:          'Herstel afgekeurd',
+                                        installer_assigned:       'Installateur toegewezen',
+                                        client_created:           'Klant aangemaakt',
+                                        client_updated:           'Klant bijgewerkt',
+                                        client_deleted:           'Klant verwijderd',
+                                        user_company_updated:     'Bedrijf bijgewerkt',
+                                        profile_updated:          'Profiel bijgewerkt',
+                                        settings_company_updated: 'Inspectiebedrijf bijgewerkt',
+                                    };
+                                    const app = APP_LABELS[entry.app] || { label: entry.app, color: 'bg-gray-100 text-gray-700' };
+                                    const ts = new Date(entry.created_at);
+                                    const dateStr = ts.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                                    const timeStr = ts.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+                                    return (
+                                        <tr key={entry.id} className="border-b hover:bg-gray-50">
+                                            <td className="p-2 whitespace-nowrap text-gray-500 text-xs">{dateStr}<br/><span className="text-gray-400">{timeStr}</span></td>
+                                            <td className="p-2"><span className={`px-2 py-0.5 rounded-full text-xs font-bold ${app.color}`}>{app.label}</span></td>
+                                            <td className="p-2 font-medium text-gray-800">{entry.user_name || '—'}</td>
+                                            <td className="p-2 text-gray-700">{ACTION_LABELS[entry.action] || entry.action}</td>
+                                            <td className="p-2 text-gray-600 max-w-[200px] truncate" title={entry.entity_label}>{entry.entity_label || '—'}</td>
+                                            <td className="p-2 text-gray-400 text-xs max-w-[180px] truncate" title={entry.details ? JSON.stringify(entry.details) : ''}>
+                                                {entry.details ? Object.entries(entry.details).map(([k, v]) => `${k}: ${v}`).join(', ') : '—'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+        )}
 {/* TAB SETTINGS */}
         {activeTab === 'settings' && (
              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">            
@@ -1957,8 +2128,27 @@ const handleLoadDefaultLibrary = async () => {
                     <div className="p-6 overflow-y-auto bg-gray-50">
                         {modalTab === 'basis' && (
                             <div className="space-y-6">
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Datum Uitvoering / Planning</label><input type="date" className="w-full border rounded p-2" value={newOrder.date} onChange={e => setNewOrder({...newOrder, date: e.target.value})} /></div>
-                                
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="col-span-1"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Datum</label><input type="date" className="w-full border rounded p-2" value={newOrder.date} onChange={e => setNewOrder({...newOrder, date: e.target.value})} /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Starttijd</label><input type="time" className="w-full border rounded p-2" value={newOrder.scheduledTimeStart || ''} onChange={e => setNewOrder({...newOrder, scheduledTimeStart: e.target.value})} /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Duur</label>
+                                        <select className="w-full border rounded p-2 text-sm" value={newOrder.estimatedDurationHours ?? ''} onChange={e => setNewOrder({...newOrder, estimatedDurationHours: e.target.value ? parseFloat(e.target.value) : undefined})}>
+                                            <option value="">Onbekend</option>
+                                            <option value="0.5">½ uur</option>
+                                            <option value="1">1 uur</option>
+                                            <option value="1.5">1½ uur</option>
+                                            <option value="2">2 uur</option>
+                                            <option value="3">3 uur</option>
+                                            <option value="4">4 uur</option>
+                                            <option value="6">6 uur</option>
+                                            <option value="8">1 dag</option>
+                                            <option value="16">2 dagen</option>
+                                            <option value="24">3 dagen</option>
+                                            <option value="40">1 week</option>
+                                        </select>
+                                    </div>
+                                </div>
+
                                 {/* INSPECTEUR SECTIE */}
                                 <div className="bg-white p-4 rounded border">
                                     <h3 className="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2"><User size={16}/> Inspecteur</h3>

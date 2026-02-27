@@ -4,6 +4,7 @@ import { LogOut, ArrowLeft, Upload, FileText, User, X, Search, RefreshCw, MapPin
 import { Defect, InspectionDbRow } from './types';
 import { compressImage, uploadPhotoToCloud } from './utils';
 import { parsePlaceResult, fetchPlaces, lookupAddressBAG } from './utils/placesSearch';
+import { logAction } from './utils/auditLog';
 import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './components/PDFReport';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -170,6 +171,7 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
       .eq('id', selectedInspection.id);
     setIsSaving(false);
     if (error) { alert('Fout bij indienen: ' + error.message); return; }
+    logAction('installer', 'repair_submitted', 'inspection', selectedInspection.id, selectedInspection.client_name || String(selectedInspection.id), { repairedCount: localDefects.filter(d => d.isRepaired).length });
     setScreen('overview');
     fetchInspections();
   };
@@ -184,7 +186,7 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
       contact_email: userProfile.contact_email,
     }).eq('id', userId);
     setIsSavingProfile(false);
-    if (error) alert('Fout: ' + error.message); else alert('Opgeslagen!');
+    if (error) alert('Fout: ' + error.message); else { logAction('installer', 'profile_updated', 'profile', userId, userProfile.full_name || userId); alert('Opgeslagen!'); }
   };
 
   const handleSaveCompany = async () => {
@@ -193,7 +195,7 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
       installer_company: userProfile.installer_company,
     }).eq('id', userId);
     setIsSavingProfile(false);
-    if (error) alert('Fout: ' + error.message); else alert('Bedrijfsgegevens opgeslagen!');
+    if (error) alert('Fout: ' + error.message); else { logAction('installer', 'profile_updated', 'profile', userId, userProfile.installer_company?.name || userProfile.full_name || userId, { type: 'company' }); alert('Bedrijfsgegevens opgeslagen!'); }
   };
 
   const saveProfileSignature = async () => {

@@ -40,6 +40,31 @@ export const fetchPlaces = async (query: string): Promise<any[]> => {
   } catch { return []; }
 };
 
+/**
+ * Geocode een Nederlands adres naar lat/lng via PDOK Locatieserver (gratis).
+ * Geeft null terug als het adres niet gevonden wordt.
+ */
+export const geocodeAddress = async (
+  address: string,
+  postalCode: string,
+  city: string
+): Promise<{ lat: number; lng: number } | null> => {
+  const query = [address, postalCode, city].filter(Boolean).join(' ');
+  if (!query.trim()) return null;
+  try {
+    const res = await fetch(
+      `https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${encodeURIComponent(query)}&rows=1&fl=centroide_ll`
+    );
+    const data = await res.json();
+    const centroid: string | undefined = data.response?.docs?.[0]?.centroide_ll;
+    if (!centroid) return null;
+    // Format: "POINT(5.1234 52.5678)" — lng eerst, lat tweede
+    const match = centroid.match(/POINT\(([\d.]+)\s+([\d.]+)\)/);
+    if (!match) return null;
+    return { lat: parseFloat(match[2]), lng: parseFloat(match[1]) };
+  } catch { return null; }
+};
+
 export const lookupAddressBAG = async (
   postalCode: string,
   address: string

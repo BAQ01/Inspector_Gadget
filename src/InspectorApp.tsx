@@ -4,7 +4,8 @@ import { DEFECT_LIBRARY, calculateSample, COMPANIES } from './constants';
 import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './components/PDFReport';
 import { compressImage, uploadPhotoToCloud } from './utils';
-import { parsePlaceResult, fetchPlaces, lookupAddressBAG } from './utils/placesSearch';
+import { parsePlaceResult, fetchPlaces, lookupAddressBAG, geocodeAddress } from './utils/placesSearch';
+import { logAction } from './utils/auditLog';
 import SignatureCanvas from 'react-signature-canvas';
 import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown, UserCircle, Save, LogOut, Settings} from 'lucide-react';
 import { UsageFunctions, Defect, Classification, Instrument, InspectionMeta, BoardMeasurement, ClientContact } from './types';
@@ -65,6 +66,7 @@ export default function InspectorApp({ userRole, onLogout, onOpenAdmin }: { user
 const [userProfile, setUserProfile] = useState<any>({
       full_name: '', scios_nr: '', phone: '', contact_email: '', company_name: '', company_address: '',
       company_postal_code: '', company_city: '', company_phone: '', company_email: '', signature_url: '',
+      home_address: '', home_postal_code: '', home_city: '',
       instruments: [], linked_instruments: [], instrument_usage: {}
   });
   const [loginEmail, setLoginEmail] = useState('');
@@ -622,9 +624,12 @@ const handleCloudMerge = async () => {
 
     setIsGenerating(true);
     
+    // Geocode projectadres voor routeoptimalisatie (stil op de achtergrond)
+    const coords = await geocodeAddress(meta.projectAddress, meta.projectPostalCode, meta.projectCity);
+
     // We gebruiken hier expliciet 'finalInspectorName' om zeker te zijn dat de update mee gaat
     const reportData = {
-        meta: { ...meta, inspectorName: finalInspectorName },
+        meta: { ...meta, inspectorName: finalInspectorName, ...(coords ?? {}) },
         measurements,
         defects,
     };    
@@ -658,7 +663,14 @@ const handleCloudMerge = async () => {
     } else {
         // Update lokale state met het nieuwe ID
         setMeta({ supabaseId: data.id, inspectionNumber: data.inspection_number });
-        
+        logAction(
+            'inspector',
+            isContrib ? 'inspection_updated' : 'inspection_created',
+            'inspection',
+            data.id,
+            meta.clientName || 'Onbekend',
+            { inspectionNumber: data.inspection_number, projectLocation: meta.projectLocation, date: meta.date }
+        );
         if (isContrib) {
             alert(`✅ Bijdrage verzonden!\nJe unieke nummer is: ${data.inspection_number}`);
         } else {
@@ -760,12 +772,16 @@ const handleCloudMerge = async () => {
               company_phone: userProfile.company_phone,
               company_email: userProfile.company_email,
               signature_url: userProfile.signature_url,
+              home_address: userProfile.home_address,
+              home_postal_code: userProfile.home_postal_code,
+              home_city: userProfile.home_city,
               // linked_instruments en instrument_usage worden direct opgeslagen via link/unlink acties
           }).eq('id', session.user.id);
           
           if (error) {
               alert("Fout bij opslaan: " + error.message);
           } else {
+              logAction('inspector', 'profile_updated', 'profile', session.user.id, userProfile.full_name || session.user.email || 'Onbekend');
               const companyName = userProfile.company_name?.trim();
               if (companyName) {
                   if (userRole === 'installer') {
@@ -1251,6 +1267,21 @@ const handleCloudMerge = async () => {
 
                            <input className="border rounded p-2" placeholder="SCIOS Nr" value={meta.sciosRegistrationNumber} onChange={(e) => setMeta({ sciosRegistrationNumber: e.target.value })} />
                            <input className="border rounded p-2" type="date" value={meta.date} onChange={(e) => setMeta({ date: e.target.value })} />
+                           <input className="border rounded p-2" type="time" value={meta.scheduledTimeStart || ''} onChange={(e) => setMeta({ scheduledTimeStart: e.target.value })} title="Starttijd inspectie" placeholder="Starttijd" />
+                           <select className="border rounded p-2 text-sm" value={meta.estimatedDurationHours ?? ''} onChange={(e) => setMeta({ estimatedDurationHours: e.target.value ? parseFloat(e.target.value) : undefined })} title="Verwachte duur">
+                               <option value="">Duur</option>
+                               <option value="0.5">½ uur</option>
+                               <option value="1">1 uur</option>
+                               <option value="1.5">1½ uur</option>
+                               <option value="2">2 uur</option>
+                               <option value="3">3 uur</option>
+                               <option value="4">4 uur</option>
+                               <option value="6">6 uur</option>
+                               <option value="8">1 dag</option>
+                               <option value="16">2 dagen</option>
+                               <option value="24">3 dagen</option>
+                               <option value="40">1 week</option>
+                           </select>
                        </div>
                    </div>
                </div>
@@ -1609,6 +1640,33 @@ const handleCloudMerge = async () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoonnummer</label><input className="w-full border rounded p-3" value={userProfile.phone || ''} onChange={e => setUserProfile({...userProfile, phone: e.target.value})} placeholder="Bijv. 06 12345678" /></div>
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contact E-mailadres</label><input className="w-full border rounded p-3" value={userProfile.contact_email || ''} onChange={e => setUserProfile({...userProfile, contact_email: e.target.value})} placeholder={loginEmail || "Bijv. info@bedrijf.nl"} title="Laat leeg om je inlog e-mailadres te gebruiken" /></div>
+                                </div>
+                                <div className="border-t pt-4 mt-2">
+                                    <p className="text-xs font-bold text-gray-500 uppercase mb-3">Thuisadres <span className="text-gray-400 font-normal normal-case">(startpunt rijroute)</span></p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Straat + Huisnummer</label>
+                                            <input className="w-full border rounded p-3" value={userProfile.home_address || ''} onChange={e => setUserProfile({...userProfile, home_address: e.target.value})} placeholder="Bijv. Dorpsstraat 12" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label>
+                                            <input className="w-full border rounded p-3" value={userProfile.home_postal_code || ''} onChange={e => setUserProfile({...userProfile, home_postal_code: e.target.value})} placeholder="Bijv. 1234 AB" />
+                                        </div>
+                                    </div>
+                                    <div className="mt-3">
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Woonplaats</label>
+                                        <div className="relative">
+                                            <input className="w-full border rounded p-3 pr-10" value={userProfile.home_city || ''} onChange={e => setUserProfile({...userProfile, home_city: e.target.value})} placeholder="Bijv. Amsterdam" />
+                                            <button title="Woonplaats opzoeken via postcode (PDOK)" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600"
+                                                onClick={async () => {
+                                                    const r = await lookupAddressBAG(userProfile.home_postal_code || '', userProfile.home_address || '');
+                                                    if (r) setUserProfile({ ...userProfile, home_city: r.city });
+                                                    else alert('Adres niet gevonden. Controleer postcode en huisnummer.');
+                                                }}>
+                                                <MapPin size={16}/>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}                        {profileTab === 'bedrijf' && (
