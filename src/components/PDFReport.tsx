@@ -86,10 +86,16 @@ const styles = StyleSheet.create({
   bgBlue: { backgroundColor: '#3399ff', color: 'white' },
 
   defectBlock: { marginTop: 10, marginBottom: 10, borderWidth: 1, borderColor: '#eee', borderRadius: 4 },
+  defectBlockTop: { marginTop: 10, marginBottom: 0, borderWidth: 1, borderColor: '#eee', borderTopLeftRadius: 4, borderTopRightRadius: 4, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomWidth: 0 },
   defectHeader: { flexDirection: 'row', padding: 5, backgroundColor: '#fafafa' },
   defectBody: { padding: 8 },
   defectImage: { width: 200, height: 130, objectFit: 'contain', borderRadius: 4, backgroundColor: '#f0f0f0' },
-  
+
+  repairSubBlock: { marginBottom: 10, borderWidth: 1, borderColor: '#bbf7d0', borderTopWidth: 2, borderTopColor: '#22c55e', borderTopLeftRadius: 0, borderTopRightRadius: 0, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 },
+  repairSubHeader: { flexDirection: 'row', padding: 5, backgroundColor: '#dcfce7' },
+  repairSubBody: { padding: 8 },
+  repairSubImage: { width: 200, height: 130, objectFit: 'contain', borderRadius: 4, backgroundColor: '#f0fdf4' },
+
   bgRedLight: { backgroundColor: '#ffebee' },
   bgOrangeLight: { backgroundColor: '#fff3e0' },
   bgYellowLight: { backgroundColor: '#fffde7' },
@@ -660,24 +666,48 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
         {/* LEVEL 2 HEADER */}
         <Text style={styles.headerLevel2}>4.1 VASTGESTELDE GEBREKEN, AFWIJKINGEN EN/OF DEFECTEN IN VERDEELINRICHTINGEN</Text>
 
-        {defects.length === 0 ? (<Text style={{ fontStyle: 'italic', marginTop: 10 }}>Geen afwijkingen geconstateerd.</Text>) : (defects.map((d, i) => (
-            <View key={d.id} wrap={false} style={styles.defectBlock}>
-              {/* AANGEPAST: LOGICA VOOR AMBER / ORANJE */}
-              <View style={[styles.defectHeader, d.classification === 'Red' ? styles.bgRedLight : (d.classification === 'Orange' || d.classification === 'Amber') ? styles.bgOrangeLight : styles.bgYellowLight]}>
-                <Text style={{ width: '10%', fontWeight: 'bold' }}>{i + 1}.</Text>
-                <Text style={{ width: '60%', fontWeight: 'bold' }}>{d.location}</Text>
-                <Text style={{ width: '30%', textAlign: 'right', fontWeight: 'bold' }}>{d.classification}</Text>
-              </View>
-              <View style={styles.defectBody}>
-                 {/* HIER GEBRUIKEN WE cleanDescription OM DE PREFIX TE VERWIJDEREN */}
-                 <Text style={{ marginBottom: 5 }}>{cleanDescription(d.description)}</Text>
-                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 5 }}>
+        {defects.length === 0 ? (<Text style={{ fontStyle: 'italic', marginTop: 10 }}>Geen afwijkingen geconstateerd.</Text>) : defects.map((d, i) => (
+            <View key={d.id} wrap={false}>
+              {/* Originele bevinding */}
+              <View style={d.isRepaired ? styles.defectBlockTop : styles.defectBlock}>
+                <View style={[styles.defectHeader, d.classification === 'Red' ? styles.bgRedLight : (d.classification === 'Orange' || d.classification === 'Amber') ? styles.bgOrangeLight : styles.bgYellowLight]}>
+                  <Text style={{ width: '10%', fontWeight: 'bold' }}>{i + 1}.</Text>
+                  <Text style={{ width: '60%', fontWeight: 'bold' }}>{d.location}</Text>
+                  <Text style={{ width: '30%', textAlign: 'right', fontWeight: 'bold' }}>{d.classification}</Text>
+                </View>
+                <View style={styles.defectBody}>
+                  <Text style={{ marginBottom: 5 }}>{cleanDescription(d.description)}</Text>
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 5 }}>
                     {d.photoUrl && <Image src={d.photoUrl} style={styles.defectImage} />}
                     {d.photoUrl2 && <Image src={d.photoUrl2} style={styles.defectImage} />}
-                 </View>
+                  </View>
+                </View>
               </View>
+
+              {/* Herstel — direct onder de bevinding */}
+              {d.isRepaired && (
+                <View style={styles.repairSubBlock}>
+                  <View style={styles.repairSubHeader}>
+                    <Text style={{ width: '10%', fontWeight: 'bold', color: '#15803d' }}>✓</Text>
+                    <Text style={{ width: '90%', fontWeight: 'bold', color: '#15803d' }}>Hersteld</Text>
+                  </View>
+                  <View style={styles.repairSubBody}>
+                    {d.repairRemarks ? (
+                      <Text style={{ marginBottom: 5 }}>{d.repairRemarks}</Text>
+                    ) : (
+                      <Text style={{ fontStyle: 'italic', color: '#9ca3af', marginBottom: 5 }}>Geen herstelopmerking.</Text>
+                    )}
+                    {(d.repairPhotoUrl1 || d.repairPhotoUrl2) && (
+                      <View style={{ flexDirection: 'row', gap: 10, marginTop: 5 }}>
+                        {d.repairPhotoUrl1 && <Image src={d.repairPhotoUrl1} style={styles.repairSubImage} />}
+                        {d.repairPhotoUrl2 && <Image src={d.repairPhotoUrl2} style={styles.repairSubImage} />}
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
             </View>
-          )))}
+          ))}
       </Page>
 
       {/* BIJLAGE 1: HERSTELVERKLARING */}
@@ -730,51 +760,6 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
             {/* Filled-in installer info */}
             <View style={styles.formRow}><Text style={styles.formLabel}>Naam</Text><Text style={styles.formColon}>:</Text><Text style={{ width: '70%' }}>{meta.installerName}</Text></View>
             <View style={styles.formRow}><Text style={styles.formLabel}>Datum herstel</Text><Text style={styles.formColon}>:</Text><Text style={{ width: '70%' }}>{meta.repairDate || '-'}</Text></View>
-
-            {/* Repaired defects table */}
-            {defects.some(d => d.isRepaired) && (
-              <>
-                <Text style={[styles.headerLevel2, { marginTop: 15 }]}>HERSTELDE GEBREKEN</Text>
-                <View style={styles.tableContainer}>
-                  <View style={styles.tableRow}>
-                    <Text style={[styles.tableCell, { width: '5%', fontWeight: 'bold', fontSize: 8 }]}>#</Text>
-                    <Text style={[styles.tableCell, { width: '20%', fontWeight: 'bold', fontSize: 8 }]}>Locatie</Text>
-                    <Text style={[styles.tableCell, { width: '10%', fontWeight: 'bold', fontSize: 8 }]}>Kl.</Text>
-                    <Text style={[styles.tableCell, { width: '30%', fontWeight: 'bold', fontSize: 8 }]}>Beschrijving</Text>
-                    <Text style={[styles.tableCellLast, { width: '35%', fontWeight: 'bold', fontSize: 8 }]}>Herstelopmerking</Text>
-                  </View>
-                  {defects.filter(d => d.isRepaired).map((d, i) => (
-                    <View key={d.id} style={i < defects.filter(x => x.isRepaired).length - 1 ? styles.tableRow : styles.tableRowLast}>
-                      <Text style={[styles.tableCell, { width: '5%', fontSize: 8 }]}>{i + 1}</Text>
-                      <Text style={[styles.tableCell, { width: '20%', fontSize: 8 }]}>{d.location}</Text>
-                      <Text style={[styles.tableCell, { width: '10%', fontSize: 8, color: CLASSIFICATION_COLOR[d.classification] || '#333', fontWeight: 'bold' }]}>
-                        {CLASSIFICATION_LABEL[d.classification] || d.classification}
-                      </Text>
-                      <Text style={[styles.tableCell, { width: '30%', fontSize: 8 }]}>{d.description}</Text>
-                      <Text style={[styles.tableCellLast, { width: '35%', fontSize: 8 }]}>{d.repairRemarks || '-'}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Repair photos */}
-                {defects.filter(d => d.isRepaired && (d.repairPhotoUrl1 || d.repairPhotoUrl2)).length > 0 && (
-                  <>
-                    <Text style={[styles.headerLevel2, { marginTop: 10 }]}>HERSTEL FOTO'S</Text>
-                    {defects.filter(d => d.isRepaired && (d.repairPhotoUrl1 || d.repairPhotoUrl2)).map((d, i) => (
-                      <View key={d.id} style={{ marginBottom: 8 }}>
-                        <Text style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 4 }}>
-                          {i + 1}. {d.location}
-                        </Text>
-                        <View style={{ flexDirection: 'row', gap: 6 }}>
-                          {d.repairPhotoUrl1 && <Image src={d.repairPhotoUrl1} style={{ width: 110, height: 80, objectFit: 'cover', borderWidth: 1, borderColor: '#ccc' }} />}
-                          {d.repairPhotoUrl2 && <Image src={d.repairPhotoUrl2} style={{ width: 110, height: 80, objectFit: 'cover', borderWidth: 1, borderColor: '#ccc' }} />}
-                        </View>
-                      </View>
-                    ))}
-                  </>
-                )}
-              </>
-            )}
 
             {/* Installer signature */}
             <Text style={{ fontWeight: 'bold', marginTop: 20, marginBottom: 6, fontSize: 10 }}>Handtekening installateur</Text>
