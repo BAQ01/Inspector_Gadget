@@ -6,6 +6,7 @@ import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './PDFReport';
 import ExcelJS from 'exceljs';
 import { DEFECT_LIBRARY } from '../constants'; // NIEUW: Importeer de hardcoded lijst
+import { parsePlaceResult, fetchPlaces, lookupAddressBAG, type ParsedPlace } from '../utils/placesSearch';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -95,6 +96,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [expandedCompanyUserId, setExpandedCompanyUserId] = useState<string | null>(null);
+  const [companyEditBuffer, setCompanyEditBuffer] = useState<Record<string, string>>({});
   const [adminKofferSearch, setAdminKofferSearch] = useState('');
   const [expandedInstrumentId, setExpandedInstrumentId] = useState<number | null>(null);
   const [instrumentOwnerSearch, setInstrumentOwnerSearch] = useState('');
@@ -105,7 +107,7 @@ export default function AdminDashboard() {
   
   // New Item States
   const [newInstrument, setNewInstrument] = useState({ name: '', serial: '', calibration: '' });
-  const [newCompany, setNewCompany] = useState({ name: '', address: '', postalCode: '', city: '', phone: '', email: '' });
+  const [newCompany, setNewCompany] = useState({ name: '', address: '', postalCode: '', city: '', phone: '', email: '', website: '' });
 
   const [editingSettingId, setEditingSettingId] = useState<number | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
@@ -125,7 +127,10 @@ export default function AdminDashboard() {
   const [editClientForm, setEditClientForm] = useState<Partial<Client>>({});
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [newClientForm, setNewClientForm] = useState<Partial<Client>>({ name: '', contacts: [] });
-  const [isImportingClients, setIsImportingClients] = useState(false);
+  const [placesQuery, setPlacesQuery] = useState('');
+  const [placesResults, setPlacesResults] = useState<any[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+
   const [expandedProjectIds, setExpandedProjectIds] = useState<Set<number>>(new Set());
 
   // PROJECTEN TAB STATES
@@ -371,6 +376,54 @@ const fetchOptions = async () => {
     fetchClientInspections(client.name);
   };
 
+  const searchPlaces = async (query: string) => {
+    setIsSearchingPlaces(true);
+    setPlacesResults(await fetchPlaces(query));
+    setIsSearchingPlaces(false);
+  };
+
+  // Vul de edit-buffer met Places resultaat (geen DB-aanroep — gebruiker klikt nog op Opslaan)
+  const handleBatchUpdateUser = (parsed: ParsedPlace) => {
+    setCompanyEditBuffer(b => ({ ...b, company_name: parsed.name, company_address: parsed.address, company_postal_code: parsed.postalCode, company_city: parsed.city, company_phone: parsed.phone }));
+  };
+
+  const handleSaveUserCompany = async (u: any) => {
+    const buf = companyEditBuffer;
+    const { error } = await supabase.from('profiles').update(buf).eq('id', u.id);
+    if (error) { alert("Fout bij opslaan: " + error.message); return; }
+    const companyName = buf.company_name?.trim();
+    if (companyName) {
+      const merged = { ...u, ...buf };
+      if (u.role === 'installer') {
+        const { data: existing } = await supabase.from('clients').select('id, contacts').ilike('name', companyName);
+        if (existing && existing.length > 0) {
+          const client = existing[0];
+          const contacts: ClientContact[] = client.contacts || [];
+          if (merged.full_name?.trim() && !contacts.find((c: ClientContact) => c.name.toLowerCase() === merged.full_name.trim().toLowerCase())) {
+            contacts.push({ id: crypto.randomUUID(), name: merged.full_name.trim(), role: 'Medewerker', phone: '', email: merged.contact_email || '' });
+          }
+          await supabase.from('clients').update({ name: companyName, address: buf.company_address || '', postal_code: buf.company_postal_code || '', city: buf.company_city || '', phone: buf.company_phone || '', email: buf.company_email || '', contacts }).eq('id', client.id);
+        } else {
+          const contacts: ClientContact[] = merged.full_name?.trim() ? [{ id: crypto.randomUUID(), name: merged.full_name.trim(), role: 'Medewerker', phone: '', email: merged.contact_email || '' }] : [];
+          await supabase.from('clients').insert({ name: companyName, address: buf.company_address || '', postal_code: buf.company_postal_code || '', city: buf.company_city || '', phone: buf.company_phone || '', email: buf.company_email || '', contacts });
+        }
+        fetchClients();
+      } else {
+        const companyData = { address: buf.company_address || '', postalCode: buf.company_postal_code || '', city: buf.company_city || '', phone: buf.company_phone || '', email: buf.company_email || '' };
+        const { data: existing } = await supabase.from('form_options').select('id').eq('category', 'iv_company').ilike('label', companyName);
+        if (existing && existing.length > 0) {
+          await supabase.from('form_options').update({ label: companyName, data: companyData }).eq('id', existing[0].id);
+        } else {
+          await supabase.from('form_options').insert({ category: 'iv_company', label: companyName, data: companyData });
+        }
+        fetchOptions();
+      }
+    }
+    fetchUsers();
+    setExpandedCompanyUserId(null);
+    setCompanyEditBuffer({});
+  };
+
   const handleCreateClient = async () => {
     if (!newClientForm.name?.trim()) return alert('Naam is verplicht.');
     const { data, error } = await supabase.from('clients')
@@ -415,12 +468,17 @@ const fetchOptions = async () => {
     fetchClients();
   };
 
-  const handleImportFromInspections = async () => {
-    setIsImportingClients(true);
-    const { data: allInspections } = await supabase.from('inspections').select('client_name, report_data');
-    const existingNames = new Set(clients.map(c => c.name.toLowerCase()));
+  // Stille achtergrond-sync: voegt ontbrekende klanten toe vanuit inspecties én installateurprofielen
+  const autoSyncClients = async () => {
+    const [{ data: allInspections }, { data: allProfiles }, { data: existing }] = await Promise.all([
+      supabase.from('inspections').select('client_name, report_data'),
+      supabase.from('profiles').select('full_name, contact_email, company_name, company_address, company_postal_code, company_city, company_phone, company_email').eq('role', 'installer').not('company_name', 'is', null).neq('company_name', ''),
+      supabase.from('clients').select('name'),
+    ]);
+    const existingNames = new Set((existing || []).map((c: any) => c.name.trim().toLowerCase()));
     const seen = new Set<string>();
     const toInsert: Partial<Client>[] = [];
+
     for (const insp of allInspections || []) {
       const name = insp.client_name?.trim();
       if (!name || seen.has(name.toLowerCase()) || existingNames.has(name.toLowerCase())) continue;
@@ -428,47 +486,55 @@ const fetchOptions = async () => {
       seen.add(name.toLowerCase());
       const m = insp.report_data?.meta || {};
       const contacts: ClientContact[] = [];
-      if (m.clientContactPerson?.trim()) {
-        contacts.push({ id: crypto.randomUUID(), name: m.clientContactPerson.trim(), role: 'Contactpersoon', phone: m.clientPhone || '', email: m.clientEmail || '' });
-      }
+      if (m.clientContactPerson?.trim()) contacts.push({ id: crypto.randomUUID(), name: m.clientContactPerson.trim(), role: 'Contactpersoon', phone: m.clientPhone || '', email: m.clientEmail || '' });
       toInsert.push({ name, address: m.clientAddress || '', postal_code: m.clientPostalCode || '', city: m.clientCity || '', phone: m.clientPhone || '', email: m.clientEmail || '', contacts });
     }
-    if (toInsert.length === 0) { alert('Geen nieuwe klanten gevonden.'); setIsImportingClients(false); return; }
-    await supabase.from('clients').insert(toInsert);
-    fetchClients();
-    alert(`${toInsert.length} klant(en) geïmporteerd.`);
-    setIsImportingClients(false);
-  };
 
-  const handleImportFromProfiles = async () => {
-    setIsImportingClients(true);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('full_name, contact_email, company_name, company_address, company_postal_code, company_city, company_phone, company_email')
-      .not('company_name', 'is', null)
-      .neq('company_name', '');
-
-    const { data: existing } = await supabase.from('clients').select('name');
-    const existingNames = new Set((existing || []).map((c: any) => c.name.trim().toLowerCase()));
-
-    const toInsert = (profiles || []).reduce<any[]>((acc, p) => {
+    for (const p of allProfiles || []) {
       const name = p.company_name?.trim();
-      if (!name || existingNames.has(name.toLowerCase())) return acc;
-      existingNames.add(name.toLowerCase());
-      const contacts: ClientContact[] = [];
-      if (p.full_name?.trim()) {
-        contacts.push({ id: crypto.randomUUID(), name: p.full_name.trim(), role: 'Medewerker', phone: '', email: p.contact_email || '' });
-      }
-      acc.push({ name, address: p.company_address || '', postal_code: p.company_postal_code || '', city: p.company_city || '', phone: p.company_phone || '', email: p.company_email || '', contacts });
-      return acc;
-    }, []);
+      if (!name || seen.has(name.toLowerCase()) || existingNames.has(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
+      const contacts: ClientContact[] = p.full_name?.trim() ? [{ id: crypto.randomUUID(), name: p.full_name.trim(), role: 'Medewerker', phone: '', email: p.contact_email || '' }] : [];
+      toInsert.push({ name, address: p.company_address || '', postal_code: p.company_postal_code || '', city: p.company_city || '', phone: p.company_phone || '', email: p.company_email || '', contacts });
+    }
 
-    if (!toInsert.length) { alert('Alle bedrijven zijn al aanwezig als klant.'); setIsImportingClients(false); return; }
-    await supabase.from('clients').insert(toInsert);
-    fetchClients();
-    alert(`${toInsert.length} bedrijf/bedrijven geïmporteerd uit gebruikersprofielen.`);
-    setIsImportingClients(false);
+    if (toInsert.length > 0) { await supabase.from('clients').insert(toInsert); fetchClients(); }
   };
+
+  // Voeg één installateur zijn bedrijf toe als klant (of voeg medewerker toe als al bestaat)
+  const handleAddInstallerToClients = async (u: any) => {
+    const name = u.company_name?.trim();
+    if (!name) return alert('Vul eerst een bedrijfsnaam in voor deze gebruiker.');
+    const { data: existing } = await supabase.from('clients').select('id, name, contacts').ilike('name', name);
+    if (existing && existing.length > 0) {
+      const client = existing[0];
+      const contacts: ClientContact[] = client.contacts || [];
+      if (u.full_name?.trim() && !contacts.find((c: ClientContact) => c.name.toLowerCase() === u.full_name.trim().toLowerCase())) {
+        contacts.push({ id: crypto.randomUUID(), name: u.full_name.trim(), role: 'Medewerker', phone: '', email: u.contact_email || '' });
+        await supabase.from('clients').update({ contacts }).eq('id', client.id);
+      }
+      alert(`Klant "${name}" bestaat al. ${u.full_name ? 'Medewerker toegevoegd als er nog niet aanwezig.' : ''}`);
+    } else {
+      const contacts: ClientContact[] = [];
+      if (u.full_name?.trim()) contacts.push({ id: crypto.randomUUID(), name: u.full_name.trim(), role: 'Medewerker', phone: '', email: u.contact_email || '' });
+      await supabase.from('clients').insert({ name, address: u.company_address || '', postal_code: u.company_postal_code || '', city: u.company_city || '', phone: u.company_phone || '', email: u.company_email || '', contacts });
+      alert(`✅ "${name}" toegevoegd als klant.`);
+    }
+    fetchClients();
+  };
+
+  // Voeg één inspecteur/admin zijn bedrijf toe als Inspectiebedrijf in Instellingen
+  const handleAddInspectorToSettings = async (u: any) => {
+    const name = u.company_name?.trim();
+    if (!name) return alert('Vul eerst een bedrijfsnaam in voor deze gebruiker.');
+    const { data: existing } = await supabase.from('form_options').select('id').eq('category', 'iv_company').ilike('label', name);
+    if (existing && existing.length > 0) { alert(`Inspectiebedrijf "${name}" staat al in de instellingen.`); return; }
+    await supabase.from('form_options').insert({ category: 'iv_company', label: name, data: { address: u.company_address || '', postalCode: u.company_postal_code || '', city: u.company_city || '', phone: u.company_phone || '', email: u.company_email || '' } });
+    fetchOptions();
+    alert(`✅ "${name}" toegevoegd aan Instellingen → Inspectiebedrijf.`);
+  };
+
+  useEffect(() => { autoSyncClients(); }, []);
 
   useEffect(() => {
     if (activeTab === 'inspections') { fetchInspections(); fetchInstallers(); }
@@ -673,13 +739,30 @@ const handleLoadDefaultLibrary = async () => {
 // --- SETTINGS HANDLERS ---
   const startEditCompany = (item: any) => {
       setEditingSettingId(item.id); setEditingCategory('iv_company');
-      setNewCompany({ name: item.label, address: item.data?.address || '', postalCode: item.data?.postalCode || '', city: item.data?.city || '', phone: item.data?.phone || '', email: item.data?.email || '' });
+      setNewCompany({ name: item.label, address: item.data?.address || '', postalCode: item.data?.postalCode || '', city: item.data?.city || '', phone: item.data?.phone || '', email: item.data?.email || '', website: item.data?.website || '' });
   };
   const handleSaveCompany = async () => {
       if (!newCompany.name) return alert("Naam verplicht");
-      const payload = { label: newCompany.name, data: { address: newCompany.address, postalCode: newCompany.postalCode, city: newCompany.city, phone: newCompany.phone, email: newCompany.email } };
-      if (editingSettingId) await supabase.from('form_options').update(payload).eq('id', editingSettingId);
-      else await supabase.from('form_options').insert({ category: 'iv_company', ...payload });
+      const payload = { label: newCompany.name, data: { address: newCompany.address, postalCode: newCompany.postalCode, city: newCompany.city, phone: newCompany.phone, email: newCompany.email, website: newCompany.website } };
+      if (editingSettingId) {
+          const oldEntry = companiesList.find(c => c.id === editingSettingId);
+          const oldLabel = oldEntry?.label;
+          await supabase.from('form_options').update(payload).eq('id', editingSettingId);
+          // Sync: update all inspector/admin profiles that use this company name
+          if (oldLabel) {
+              await supabase.from('profiles').update({
+                  company_name: newCompany.name,
+                  company_address: newCompany.address,
+                  company_postal_code: newCompany.postalCode,
+                  company_city: newCompany.city,
+                  company_phone: newCompany.phone,
+                  company_email: newCompany.email,
+              }).ilike('company_name', oldLabel).in('role', ['inspector', 'admin']);
+          }
+          fetchUsers();
+      } else {
+          await supabase.from('form_options').insert({ category: 'iv_company', ...payload });
+      }
       cancelEditSettings(); fetchOptions();
   };
 
@@ -696,7 +779,7 @@ const handleLoadDefaultLibrary = async () => {
   };
 
   const deleteOption = async (id: number) => { if (window.confirm("Verwijderen?")) { await supabase.from('form_options').delete().eq('id', id); cancelEditSettings(); fetchOptions(); } };
-  const cancelEditSettings = () => { setEditingSettingId(null); setEditingCategory(null); setNewCompany({ name: '', address: '', postalCode: '', city: '', phone: '', email: '' }); setNewInstrument({ name: '', serial: '', calibration: '' }); };
+  const cancelEditSettings = () => { setEditingSettingId(null); setEditingCategory(null); setNewCompany({ name: '', address: '', postalCode: '', city: '', phone: '', email: '', website: '' }); setNewInstrument({ name: '', serial: '', calibration: '' }); };
 
   // --- ORDER HANDLERS ---
   const handleEdit = (insp: any) => {
@@ -714,6 +797,26 @@ const handleLoadDefaultLibrary = async () => {
       setEditingId(insp.id); setModalTab('basis'); setShowOrderModal(true);
   };
 
+  const upsertClientFromOrder = async () => {
+    const name = newOrder.clientName.trim();
+    if (!name) return;
+    const { data: existing } = await supabase.from('clients').select('id, contacts').ilike('name', name);
+    if (existing && existing.length > 0) {
+      const client = existing[0];
+      const contacts: ClientContact[] = client.contacts || [];
+      const contactName = newOrder.clientContactPerson?.trim();
+      if (contactName && !contacts.find((c: ClientContact) => c.name.toLowerCase() === contactName.toLowerCase())) {
+        contacts.push({ id: crypto.randomUUID(), name: contactName, role: 'Contactpersoon', phone: newOrder.clientPhone || '', email: newOrder.clientEmail || '' });
+      }
+      await supabase.from('clients').update({ address: newOrder.clientAddress || '', postal_code: newOrder.clientPostalCode || '', city: newOrder.clientCity || '', phone: newOrder.clientPhone || '', email: newOrder.clientEmail || '', contacts }).eq('id', client.id);
+    } else {
+      const contacts: ClientContact[] = newOrder.clientContactPerson?.trim()
+        ? [{ id: crypto.randomUUID(), name: newOrder.clientContactPerson.trim(), role: 'Contactpersoon', phone: newOrder.clientPhone || '', email: newOrder.clientEmail || '' }]
+        : [];
+      await supabase.from('clients').insert({ name, address: newOrder.clientAddress || '', postal_code: newOrder.clientPostalCode || '', city: newOrder.clientCity || '', phone: newOrder.clientPhone || '', email: newOrder.clientEmail || '', contacts });
+    }
+  };
+
   const handleSaveOrder = async () => {
     if (!newOrder.clientName) return alert("Klantnaam verplicht.");
     const metaData = { ...newOrder, totalComponents: 0, inspectionInterval: 5, usageFunctions: { kantoorfunctie: false }, inspectionBasis: { nta8220: true, verzekering: false } };
@@ -721,11 +824,11 @@ const handleLoadDefaultLibrary = async () => {
         const existingInsp = inspections.find(i => i.id === editingId); if (!existingInsp) return;
         const updatedReportData = { ...existingInsp.report_data, meta: { ...existingInsp.report_data.meta, ...metaData } };
         const { error } = await supabase.from('inspections').update({ client_name: newOrder.clientName, report_data: updatedReportData }).eq('id', editingId);
-        if (error) alert("Fout: " + error.message); else { alert("Opgeslagen!"); closeModal(); fetchInspections(); }
+        if (error) { alert("Fout: " + error.message); } else { await upsertClientFromOrder(); alert("Opgeslagen!"); closeModal(); fetchInspections(); }
     } else {
         const initialData = { meta: metaData, measurements: { installationType: 'TN-S', mainFuse: '3x63A', mainsVoltage: '400 V', selectedInstruments: [] }, defects: [] };
         const { error } = await supabase.from('inspections').insert({ client_name: newOrder.clientName, status: 'new', scope_type: '10', report_data: initialData });
-        if (error) alert('Fout: ' + error.message); else { alert('Aangemaakt!'); closeModal(); fetchInspections(); }
+        if (error) { alert('Fout: ' + error.message); } else { await upsertClientFromOrder(); alert('Aangemaakt!'); closeModal(); fetchInspections(); }
     }
   };
 
@@ -1165,6 +1268,37 @@ const handleLoadDefaultLibrary = async () => {
       if (error) alert("Fout bij opslaan: " + error.message); else fetchUsers();
   };
 
+  // Updates one profile field and syncs the full company data to form_options (inspector/admin) or clients (installer)
+  const handleUpdateProfileAndSync = async (u: any, field: string, value: string) => {
+      const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', u.id);
+      if (error) { alert("Fout bij opslaan: " + error.message); return; }
+      const merged = { ...u, [field]: value };
+      const companyName = merged.company_name?.trim();
+      if (companyName) {
+          if (u.role === 'installer') {
+              const { data: existing } = await supabase.from('clients').select('id').ilike('name', companyName);
+              if (existing && existing.length > 0) {
+                  await supabase.from('clients').update({
+                      address: merged.company_address || '',
+                      postal_code: merged.company_postal_code || '',
+                      city: merged.company_city || '',
+                      phone: merged.company_phone || '',
+                      email: merged.company_email || '',
+                  }).eq('id', existing[0].id);
+              }
+          } else {
+              const { data: existing } = await supabase.from('form_options').select('id').eq('category', 'iv_company').ilike('label', companyName);
+              if (existing && existing.length > 0) {
+                  await supabase.from('form_options').update({
+                      label: merged.company_name,
+                      data: { address: merged.company_address || '', postalCode: merged.company_postal_code || '', city: merged.company_city || '', phone: merged.company_phone || '', email: merged.company_email || '' }
+                  }).eq('id', existing[0].id);
+              }
+          }
+      }
+      fetchUsers();
+  };
+
   const handleCreateUser = async () => {
     if (!newUser.email || !newUser.password) return alert("Vul email en wachtwoord in.");
     try {
@@ -1198,6 +1332,32 @@ const handleLoadDefaultLibrary = async () => {
             const { data: profile } = await supabase.from('profiles').select('id').eq('email', newUser.email.trim()).single();
             if (profile) {
                 await supabase.from('profiles').update(profilePayload).eq('id', profile.id);
+            }
+        }
+
+        // Bedrijfsgegevens automatisch doorsturen op basis van rol
+        if (newUser.company_name?.trim()) {
+            const companyName = newUser.company_name.trim();
+            if (newUser.role === 'installer') {
+                const { data: existingClient } = await supabase.from('clients').select('id, contacts').ilike('name', companyName);
+                if (existingClient && existingClient.length > 0) {
+                    const client = existingClient[0];
+                    const contacts: ClientContact[] = client.contacts || [];
+                    if (newUser.full_name?.trim() && !contacts.find((c: ClientContact) => c.name.toLowerCase() === newUser.full_name.trim().toLowerCase())) {
+                        contacts.push({ id: crypto.randomUUID(), name: newUser.full_name.trim(), role: 'Medewerker', phone: '', email: newUser.contact_email || '' });
+                        await supabase.from('clients').update({ contacts }).eq('id', client.id);
+                    }
+                } else {
+                    const contacts: ClientContact[] = newUser.full_name?.trim()
+                        ? [{ id: crypto.randomUUID(), name: newUser.full_name.trim(), role: 'Medewerker', phone: '', email: newUser.contact_email || '' }]
+                        : [];
+                    await supabase.from('clients').insert({ name: companyName, address: newUser.company_address || '', postal_code: newUser.company_postal_code || '', city: newUser.company_city || '', phone: newUser.company_phone || '', email: newUser.company_email || '', contacts });
+                }
+            } else {
+                const { data: existingCompany } = await supabase.from('form_options').select('id').eq('category', 'iv_company').ilike('label', companyName);
+                if (!existingCompany || existingCompany.length === 0) {
+                    await supabase.from('form_options').insert({ category: 'iv_company', label: companyName, data: { address: newUser.company_address || '', postalCode: newUser.company_postal_code || '', city: newUser.company_city || '', phone: newUser.company_phone || '', email: newUser.company_email || '' } });
+                }
             }
         }
 
@@ -1422,7 +1582,10 @@ const handleLoadDefaultLibrary = async () => {
                                     <td className="px-4 py-3 text-sm"><select className="border rounded p-1 text-sm bg-white cursor-pointer" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}><option value="inspector">Inspector</option><option value="admin">Admin</option><option value="installer">Installateur</option></select></td>
                                     <td className="px-4 py-3 text-right text-sm">
                                         <div className="flex justify-end gap-2">
-                                            <button onClick={() => setExpandedCompanyUserId(expandedCompanyUserId === u.id ? null : u.id)} className={`p-2 rounded transition-colors ${expandedCompanyUserId === u.id ? 'text-blue-700 bg-blue-100' : 'text-blue-400 hover:text-blue-700 bg-blue-50 hover:bg-blue-100'}`} title="Bedrijfsgegevens"><Building size={18}/></button>
+                                            <button onClick={() => {
+                                              if (expandedCompanyUserId === u.id) { setExpandedCompanyUserId(null); setCompanyEditBuffer({}); }
+                                              else { setExpandedCompanyUserId(u.id); setPlacesResults([]); setPlacesQuery(''); setCompanyEditBuffer({ company_name: u.company_name || '', company_address: u.company_address || '', company_postal_code: u.company_postal_code || '', company_city: u.company_city || '', company_phone: u.company_phone || '', company_email: u.company_email || '' }); }
+                                            }} className={`p-2 rounded transition-colors ${expandedCompanyUserId === u.id ? 'text-blue-700 bg-blue-100' : 'text-blue-400 hover:text-blue-700 bg-blue-50 hover:bg-blue-100'}`} title="Bedrijfsgegevens"><Building size={18}/></button>
                                             {u.role !== 'installer' && <button onClick={() => { setExpandedUserId(isExpanded ? null : u.id); setAdminKofferSearch(''); }} className={`p-2 rounded transition-colors ${isExpanded ? 'text-emerald-700 bg-emerald-100' : 'text-emerald-400 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`} title="Koffer beheren"><Wrench size={18}/></button>}
                                             <button onClick={() => openPasswordModal(u)} className="text-orange-400 hover:text-orange-600 bg-orange-50 p-2 rounded hover:bg-orange-100 transition-colors" title="Wachtwoord Resetten"><Key size={18}/></button>
                                             <button onClick={() => handleDeleteUser(u.id)} className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded hover:bg-red-100 transition-colors" title="Verwijder"><Trash2 size={18}/></button>
@@ -1458,9 +1621,41 @@ const handleLoadDefaultLibrary = async () => {
                                     </tr>
                                 )}
                                 {expandedCompanyUserId === u.id && (
-                                    <tr className="bg-blue-50">
-                                        <td colSpan={7} className="px-4 py-4 border-b border-blue-200">
-                                            <h3 className="font-bold text-sm text-blue-800 mb-3 flex items-center gap-2"><Building size={16}/> Bedrijfsgegevens: {u.full_name || u.email}</h3>
+                                    <tr className={u.role === 'installer' ? 'bg-emerald-50' : 'bg-blue-50'}>
+                                        <td colSpan={7} className={`px-4 py-4 border-b ${u.role === 'installer' ? 'border-emerald-200' : 'border-blue-200'}`}>
+                                            {/* Zoekbalk */}
+                                            <div className="relative mb-3">
+                                              <div className="flex gap-1.5">
+                                                <input type="text" placeholder="Zoek bedrijf om velden in te vullen..."
+                                                  className="flex-1 border rounded p-1.5 text-xs bg-white"
+                                                  value={expandedCompanyUserId === u.id ? placesQuery : ''}
+                                                  onChange={e => setPlacesQuery(e.target.value)}
+                                                  onKeyDown={e => e.key === 'Enter' && searchPlaces(placesQuery)} />
+                                                <button onClick={() => searchPlaces(placesQuery)} disabled={isSearchingPlaces}
+                                                  className="px-2 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50 shrink-0">
+                                                  {isSearchingPlaces ? <RefreshCw size={11} className="animate-spin"/> : <Search size={11}/>}
+                                                </button>
+                                              </div>
+                                              {placesResults.length > 0 && expandedCompanyUserId === u.id && (
+                                                <div className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border rounded shadow-lg max-h-48 overflow-y-auto">
+                                                  {placesResults.map((p, i) => {
+                                                    const parsed = parsePlaceResult(p);
+                                                    return (
+                                                      <button key={i} className="w-full text-left px-2 py-1.5 hover:bg-blue-50 text-xs border-b last:border-0"
+                                                        onClick={() => { handleBatchUpdateUser(parsed); setPlacesResults([]); setPlacesQuery(''); }}>
+                                                        <div className="font-bold text-gray-800">{parsed.name}</div>
+                                                        <div className="text-gray-500">{p.formattedAddress}</div>
+                                                      </button>
+                                                    );
+                                                  })}
+                                                  <button className="w-full text-center text-xs text-gray-400 py-1 hover:bg-gray-50" onClick={() => setPlacesResults([])}>Sluiten</button>
+                                                </div>
+                                              )}
+                                            </div>
+                                            <h3 className={`font-bold text-sm flex items-center gap-2 mb-3 ${u.role === 'installer' ? 'text-emerald-800' : 'text-blue-800'}`}>
+                                                <Building size={16}/>
+                                                {u.role === 'installer' ? 'Klantbedrijf' : 'Inspectiebedrijf'}: {u.full_name || u.email}
+                                            </h3>
                                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                                 {([
                                                     ['company_name',        'Bedrijfsnaam',  'text'],
@@ -1473,11 +1668,17 @@ const handleLoadDefaultLibrary = async () => {
                                                     <div key={field}>
                                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{label}</label>
                                                         <input type={type} className="w-full border rounded p-1.5 text-sm bg-white"
-                                                            defaultValue={u[field] || ''}
-                                                            onBlur={e => { if (e.target.value !== (u[field] || '')) handleUpdateProfile(u.id, field, e.target.value); }}
+                                                            value={companyEditBuffer[field] ?? ''}
+                                                            onChange={e => setCompanyEditBuffer(b => ({ ...b, [field]: e.target.value }))}
                                                             placeholder="—" />
                                                     </div>
                                                 ))}
+                                            </div>
+                                            <div className="flex justify-end mt-3">
+                                                <button onClick={() => handleSaveUserCompany(u)}
+                                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold text-white ${u.role === 'installer' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                                                    Opslaan
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -1497,10 +1698,60 @@ const handleLoadDefaultLibrary = async () => {
                  <div className="bg-white rounded-lg shadow p-6 h-fit">
                      <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><Building size={20}/> Inspectiebedrijf</h2>
                      <div className="bg-gray-50 p-4 rounded border mb-4 space-y-3">
+                         {/* Places zoeking — alleen actief als form bewerkbaar is */}
+                         {(editingSettingId === null || editingCategory === 'iv_company') && (
+                           <div className="relative">
+                             <div className="flex gap-1.5">
+                               <input type="text" placeholder="Zoek bedrijf..." className="flex-1 border rounded p-2 text-sm bg-white"
+                                 value={placesQuery} onChange={e => setPlacesQuery(e.target.value)}
+                                 onKeyDown={e => e.key === 'Enter' && searchPlaces(placesQuery)} />
+                               <button onClick={() => searchPlaces(placesQuery)} disabled={isSearchingPlaces}
+                                 className="px-3 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 shrink-0">
+                                 {isSearchingPlaces ? <RefreshCw size={14} className="animate-spin"/> : <Search size={14}/>}
+                               </button>
+                             </div>
+                             {placesResults.length > 0 && (
+                               <div className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border rounded shadow-lg max-h-56 overflow-y-auto">
+                                 {placesResults.map((p, i) => {
+                                   const parsed = parsePlaceResult(p);
+                                   return (
+                                     <button key={i} className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b last:border-0"
+                                       onClick={() => {
+                                         setNewCompany({ name: parsed.name, address: parsed.address, postalCode: parsed.postalCode, city: parsed.city, phone: parsed.phone, email: newCompany.email, website: parsed.website });
+                                         setPlacesResults([]); setPlacesQuery('');
+                                       }}>
+                                       <div className="font-bold text-gray-800">{parsed.name}</div>
+                                       <div className="text-xs text-gray-500">{p.formattedAddress}</div>
+                                     </button>
+                                   );
+                                 })}
+                                 <button className="w-full text-center text-xs text-gray-400 py-1.5 hover:bg-gray-50" onClick={() => setPlacesResults([])}>Sluiten</button>
+                               </div>
+                             )}
+                           </div>
+                         )}
                          <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bedrijfsnaam</label><input className="w-full border rounded p-2 text-sm font-bold" value={newCompany.name} onChange={e => setNewCompany({...newCompany, name: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div>
                          <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adres</label><input className="w-full border rounded p-2 text-sm" value={newCompany.address} onChange={e => setNewCompany({...newCompany, address: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} placeholder="Straat + Nr" /></div>
-                         <div className="flex gap-2"><div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-2 text-sm" value={newCompany.postalCode} onChange={e => setNewCompany({...newCompany, postalCode: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div><div className="w-2/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label><input className="w-full border rounded p-2 text-sm" value={newCompany.city} onChange={e => setNewCompany({...newCompany, city: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div></div>
+                         <div className="flex gap-2">
+                           <div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-2 text-sm" value={newCompany.postalCode} onChange={e => setNewCompany({...newCompany, postalCode: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div>
+                           <div className="w-2/3">
+                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label>
+                             <div className="relative">
+                               <input className="w-full border rounded p-2 text-sm pr-8" value={newCompany.city} onChange={e => setNewCompany({...newCompany, city: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} />
+                               <button title="Adres aanvullen via postcode (PDOK)" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 disabled:opacity-30"
+                                 disabled={editingSettingId !== null && editingCategory !== 'iv_company'}
+                                 onClick={async () => {
+                                   const result = await lookupAddressBAG(newCompany.postalCode, newCompany.address);
+                                   if (result) setNewCompany(c => ({ ...c, city: result.city }));
+                                   else alert('Adres niet gevonden. Controleer postcode en huisnummer.');
+                                 }}>
+                                 <MapPin size={14}/>
+                               </button>
+                             </div>
+                           </div>
+                         </div>
                          <div className="flex gap-2"><div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoon</label><input className="w-full border rounded p-2 text-sm" value={newCompany.phone} onChange={e => setNewCompany({...newCompany, phone: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div><div className="w-1/2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-mail</label><input className="w-full border rounded p-2 text-sm" value={newCompany.email} onChange={e => setNewCompany({...newCompany, email: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} /></div></div>
+                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Website</label><input type="url" className="w-full border rounded p-2 text-sm" value={newCompany.website} onChange={e => setNewCompany({...newCompany, website: e.target.value})} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} placeholder="https://" /></div>
                          <div className="flex gap-2 pt-2"><button onClick={handleSaveCompany} disabled={editingSettingId !== null && editingCategory !== 'iv_company'} className={`w-full py-2 rounded font-bold text-sm text-white ${editingSettingId && editingCategory === 'iv_company' ? 'bg-blue-600' : 'bg-emerald-600 disabled:opacity-50'}`}>{editingSettingId && editingCategory === 'iv_company' ? 'Opslaan' : 'Toevoegen'}</button>{editingSettingId && editingCategory === 'iv_company' && <button onClick={cancelEditSettings} className="w-auto px-4 bg-gray-300 rounded font-bold text-xs">X</button>}</div>
                      </div>
                      <ul className="divide-y max-h-[400px] overflow-y-auto">{companiesList.map((item) => (<li key={item.id} className="py-3 flex justify-between items-start text-gray-700"><div><div className="font-bold text-sm">{item.label}</div><div className="text-xs text-gray-500">{item.data?.address ? `${item.data.address}, ` : ''}{item.data?.city}</div></div><div className="flex gap-2"><button onClick={() => startEditCompany(item)} className="text-blue-400 hover:text-blue-600"><Pencil size={16}/></button><button onClick={() => deleteOption(item.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button></div></li>))}</ul>
@@ -1779,20 +2030,63 @@ const handleLoadDefaultLibrary = async () => {
                 </div>
                 <div className="flex gap-1.5">
                   <button onClick={() => setShowNewClientForm(v => !v)} className="flex-1 flex items-center justify-center gap-1 bg-emerald-600 text-white text-xs font-bold py-1.5 rounded-lg hover:bg-emerald-700"><Plus size={13}/> Nieuw</button>
-                  <button onClick={handleImportFromInspections} disabled={isImportingClients} className="flex-1 flex items-center justify-center gap-1 bg-gray-100 text-gray-700 text-xs font-bold py-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-50" title="Importeer unieke klanten uit bestaande inspecties">
-                    {isImportingClients ? <RefreshCw size={13} className="animate-spin"/> : <Download size={13}/>} Importeer
-                  </button>
-                  <button onClick={handleImportFromProfiles} disabled={isImportingClients} className="flex-1 flex items-center justify-center gap-1 bg-blue-50 text-blue-700 text-xs font-bold py-1.5 rounded-lg hover:bg-blue-100 disabled:opacity-50" title="Importeer bedrijven uit gebruikersprofielen">
-                    {isImportingClients ? <RefreshCw size={13} className="animate-spin"/> : <Users size={13}/>} Gebruikers
-                  </button>
                 </div>
                 {showNewClientForm && (
                   <div className="space-y-1.5 pt-1 border-t border-gray-100">
+                    {/* Places zoekbalk */}
+                    <div className="relative">
+                      <div className="flex gap-1">
+                        <input
+                          type="text" placeholder="Zoek bedrijf..." className="flex-1 border rounded p-1.5 text-sm"
+                          value={placesQuery} onChange={e => setPlacesQuery(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && searchPlaces(placesQuery)} />
+                        <button onClick={() => searchPlaces(placesQuery)} disabled={isSearchingPlaces}
+                          className="px-2 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700 disabled:opacity-50 shrink-0">
+                          {isSearchingPlaces ? <RefreshCw size={12} className="animate-spin"/> : <Search size={12}/>}
+                        </button>
+                      </div>
+                      {placesResults.length > 0 && (
+                        <div className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border rounded shadow-lg max-h-48 overflow-y-auto">
+                          {placesResults.map((p, i) => {
+                            const parsed = parsePlaceResult(p);
+                            return (
+                              <button key={i} className="w-full text-left px-2 py-1.5 hover:bg-blue-50 text-xs border-b last:border-0"
+                                onClick={() => {
+                                  setNewClientForm(f => ({ ...f, name: parsed.name, address: parsed.address, postal_code: parsed.postalCode, city: parsed.city, phone: parsed.phone, website: parsed.website }));
+                                  setPlacesResults([]); setPlacesQuery('');
+                                }}>
+                                <div className="font-bold text-gray-800">{parsed.name}</div>
+                                <div className="text-gray-500">{p.formattedAddress}</div>
+                              </button>
+                            );
+                          })}
+                          <button className="w-full text-center text-xs text-gray-400 py-1 hover:bg-gray-50" onClick={() => setPlacesResults([])}>Sluiten</button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 text-center">— of vul handmatig in —</p>
                     <input type="text" placeholder="Naam *" className="w-full border rounded p-1.5 text-sm" value={newClientForm.name || ''} onChange={e => setNewClientForm(f => ({ ...f, name: e.target.value }))} />
-                    <input type="text" placeholder="Stad" className="w-full border rounded p-1.5 text-sm" value={newClientForm.city || ''} onChange={e => setNewClientForm(f => ({ ...f, city: e.target.value }))} />
+                    <input type="text" placeholder="Adres (straat + nr)" className="w-full border rounded p-1.5 text-sm" value={newClientForm.address || ''} onChange={e => setNewClientForm(f => ({ ...f, address: e.target.value }))} />
                     <div className="flex gap-1">
+                      <input type="text" placeholder="Postcode" className="w-1/3 border rounded p-1.5 text-sm" value={newClientForm.postal_code || ''} onChange={e => setNewClientForm(f => ({ ...f, postal_code: e.target.value }))} />
+                      <div className="flex-1 relative">
+                        <input type="text" placeholder="Plaats" className="w-full border rounded p-1.5 text-sm pr-7" value={newClientForm.city || ''} onChange={e => setNewClientForm(f => ({ ...f, city: e.target.value }))} />
+                        <button title="Adres opzoeken via postcode (PDOK)" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600"
+                          onClick={async () => {
+                            const result = await lookupAddressBAG(newClientForm.postal_code || '', newClientForm.address || '');
+                            if (result) setNewClientForm(f => ({ ...f, city: result.city }));
+                            else alert('Adres niet gevonden. Controleer postcode en huisnummer.');
+                          }}>
+                          <MapPin size={13}/>
+                        </button>
+                      </div>
+                    </div>
+                    <input type="tel" placeholder="Telefoon" className="w-full border rounded p-1.5 text-sm" value={newClientForm.phone || ''} onChange={e => setNewClientForm(f => ({ ...f, phone: e.target.value }))} />
+                    <input type="email" placeholder="E-mail" className="w-full border rounded p-1.5 text-sm" value={newClientForm.email || ''} onChange={e => setNewClientForm(f => ({ ...f, email: e.target.value }))} />
+                    <input type="url" placeholder="Website" className="w-full border rounded p-1.5 text-sm" value={newClientForm.website || ''} onChange={e => setNewClientForm(f => ({ ...f, website: e.target.value }))} />
+                    <div className="flex gap-1 pt-1">
                       <button onClick={handleCreateClient} className="flex-1 bg-emerald-600 text-white text-xs py-1.5 rounded font-bold hover:bg-emerald-700">Aanmaken</button>
-                      <button onClick={() => { setShowNewClientForm(false); setNewClientForm({ name: '', contacts: [] }); }} className="flex-1 bg-gray-100 text-gray-600 text-xs py-1.5 rounded hover:bg-gray-200">Annuleren</button>
+                      <button onClick={() => { setShowNewClientForm(false); setNewClientForm({ name: '', contacts: [] }); setPlacesQuery(''); setPlacesResults([]); }} className="flex-1 bg-gray-100 text-gray-600 text-xs py-1.5 rounded hover:bg-gray-200">Annuleren</button>
                     </div>
                   </div>
                 )}
@@ -1822,7 +2116,7 @@ const handleLoadDefaultLibrary = async () => {
                 {clients.length === 0 && (
                   <div className="p-6 text-center text-gray-400 text-sm">
                     <Building size={32} className="mx-auto mb-2 text-gray-300"/>
-                    Nog geen klanten.<br/>Klik "Nieuw" of "Importeer".
+                    Nog geen klanten. Klik "Nieuw" om er een toe te voegen.
                   </div>
                 )}
               </div>
@@ -2112,6 +2406,35 @@ const handleLoadDefaultLibrary = async () => {
                                 </select>
                                 <hr className="my-2 border-gray-200" />
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Bedrijfsgegevens (optioneel)</p>
+                                <div className="relative">
+                                  <div className="flex gap-1.5">
+                                    <input type="text" placeholder="Zoek bedrijf..." className="flex-1 border rounded p-2 text-sm bg-white"
+                                      value={placesQuery} onChange={e => setPlacesQuery(e.target.value)}
+                                      onKeyDown={e => e.key === 'Enter' && searchPlaces(placesQuery)} />
+                                    <button onClick={() => searchPlaces(placesQuery)} disabled={isSearchingPlaces}
+                                      className="px-3 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 shrink-0">
+                                      {isSearchingPlaces ? <RefreshCw size={14} className="animate-spin"/> : <Search size={14}/>}
+                                    </button>
+                                  </div>
+                                  {placesResults.length > 0 && (
+                                    <div className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border rounded shadow-lg max-h-48 overflow-y-auto">
+                                      {placesResults.map((p, i) => {
+                                        const parsed = parsePlaceResult(p);
+                                        return (
+                                          <button key={i} className="w-full text-left px-2 py-1.5 hover:bg-blue-50 text-sm border-b last:border-0"
+                                            onClick={() => {
+                                              setNewUser(u => ({ ...u, company_name: parsed.name, company_address: parsed.address, company_postal_code: parsed.postalCode, company_city: parsed.city, company_phone: parsed.phone, company_email: u.company_email }));
+                                              setPlacesResults([]); setPlacesQuery('');
+                                            }}>
+                                            <div className="font-bold text-gray-800">{parsed.name}</div>
+                                            <div className="text-xs text-gray-500">{p.formattedAddress}</div>
+                                          </button>
+                                        );
+                                      })}
+                                      <button className="w-full text-center text-xs text-gray-400 py-1 hover:bg-gray-50" onClick={() => setPlacesResults([])}>Sluiten</button>
+                                    </div>
+                                  )}
+                                </div>
                                 <input className="w-full border rounded p-2" type="text" placeholder="Bedrijfsnaam" value={newUser.company_name} onChange={e => setNewUser({...newUser, company_name: e.target.value})} />
                                 <input className="w-full border rounded p-2" type="text" placeholder="Adres" value={newUser.company_address} onChange={e => setNewUser({...newUser, company_address: e.target.value})} />
                                 <div className="flex gap-2">

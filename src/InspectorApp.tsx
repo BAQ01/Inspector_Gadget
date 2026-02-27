@@ -4,9 +4,10 @@ import { DEFECT_LIBRARY, calculateSample, COMPANIES } from './constants';
 import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './components/PDFReport';
 import { compressImage, uploadPhotoToCloud } from './utils';
+import { parsePlaceResult, fetchPlaces, lookupAddressBAG } from './utils/placesSearch';
 import SignatureCanvas from 'react-signature-canvas';
 import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown, UserCircle, Save, LogOut, Settings} from 'lucide-react';
-import { UsageFunctions, Defect, Classification, Instrument, InspectionMeta, BoardMeasurement } from './types';
+import { UsageFunctions, Defect, Classification, Instrument, InspectionMeta, BoardMeasurement, ClientContact } from './types';
 import { supabase } from './supabase';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -95,6 +96,14 @@ const [userProfile, setUserProfile] = useState<any>({
 
   const [activeTab, setActiveTab] = useState<typeof STEPS[number]>('setup');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [placesQuery, setPlacesQuery] = useState('');
+  const [placesResults, setPlacesResults] = useState<any[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const searchPlaces = async (query: string) => {
+    setIsSearchingPlaces(true);
+    setPlacesResults(await fetchPlaces(query));
+    setIsSearchingPlaces(false);
+  };
   
   const [dbCompanies, setDbCompanies] = useState<any[]>([]);
   const [dbInstruments, setDbInstruments] = useState<any[]>([]);
@@ -757,23 +766,48 @@ const handleCloudMerge = async () => {
           if (error) {
               alert("Fout bij opslaan: " + error.message);
           } else {
-              // Als bedrijfsnaam nieuw is (staat nog niet in de admin-lijst), voeg toe aan form_options
               const companyName = userProfile.company_name?.trim();
-              const alreadyExists = dbCompanies.some(c => c.label === companyName);
-              if (companyName && !alreadyExists) {
-                  const { data: inserted } = await supabase.from('form_options').insert({
-                      category: 'iv_company',
-                      label: companyName,
-                      data: {
-                          address: userProfile.company_address || '',
-                          postalCode: userProfile.company_postal_code || '',
-                          city: userProfile.company_city || '',
-                          phone: userProfile.company_phone || '',
-                          email: userProfile.company_email || '',
+              if (companyName) {
+                  if (userRole === 'installer') {
+                      // Installateur → bedrijf opslaan als klant
+                      const { data: existingClient } = await supabase.from('clients').select('id, contacts').ilike('name', companyName);
+                      if (existingClient && existingClient.length > 0) {
+                          const client = existingClient[0];
+                          const contacts: ClientContact[] = client.contacts || [];
+                          const name = userProfile.full_name?.trim();
+                          if (name && !contacts.find((c: ClientContact) => c.name.toLowerCase() === name.toLowerCase())) {
+                              contacts.push({ id: crypto.randomUUID(), name, role: 'Medewerker', phone: '', email: userProfile.contact_email || '' });
+                          }
+                          // Also update address/phone/email of the existing client
+                          await supabase.from('clients').update({
+                              address: userProfile.company_address || '',
+                              postal_code: userProfile.company_postal_code || '',
+                              city: userProfile.company_city || '',
+                              phone: userProfile.company_phone || '',
+                              email: userProfile.company_email || '',
+                              contacts,
+                          }).eq('id', client.id);
+                      } else {
+                          const contacts: ClientContact[] = userProfile.full_name?.trim()
+                              ? [{ id: crypto.randomUUID(), name: userProfile.full_name.trim(), role: 'Medewerker', phone: '', email: userProfile.contact_email || '' }]
+                              : [];
+                          await supabase.from('clients').insert({ name: companyName, address: userProfile.company_address || '', postal_code: userProfile.company_postal_code || '', city: userProfile.company_city || '', phone: userProfile.company_phone || '', email: userProfile.company_email || '', contacts });
                       }
-                  }).select().single();
-                  if (inserted) {
-                      setDbCompanies(prev => [...prev, inserted]);
+                  } else {
+                      // Inspecteur / Admin → bedrijf opslaan als inspectiebedrijf in form_options
+                      const companyData = { address: userProfile.company_address || '', postalCode: userProfile.company_postal_code || '', city: userProfile.company_city || '', phone: userProfile.company_phone || '', email: userProfile.company_email || '' };
+                      const existing = dbCompanies.find(c => c.label.toLowerCase() === companyName.toLowerCase());
+                      if (existing) {
+                          await supabase.from('form_options').update({ label: companyName, data: companyData }).eq('id', existing.id);
+                          setDbCompanies(prev => prev.map(c => c.id === existing.id ? { ...c, label: companyName, data: companyData } : c));
+                      } else {
+                          const { data: inserted } = await supabase.from('form_options').insert({
+                              category: 'iv_company',
+                              label: companyName,
+                              data: companyData,
+                          }).select().single();
+                          if (inserted) setDbCompanies(prev => [...prev, inserted]);
+                      }
                   }
               }
               alert("✅ Profiel succesvol opgeslagen!");
@@ -1126,8 +1160,40 @@ const handleCloudMerge = async () => {
                
                <div className="bg-gray-50 p-4 rounded border">
                    <h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Inspectiebedrijf</h2>
+                   {/* Google Places zoeking */}
+                   {!meta.isContributionMode && (
+                     <div className="relative mb-3">
+                       <div className="flex gap-1.5">
+                         <input type="text" placeholder="Zoek bedrijf..." className="flex-1 border rounded p-2 text-sm bg-white"
+                           value={placesQuery} onChange={e => setPlacesQuery(e.target.value)}
+                           onKeyDown={e => e.key === 'Enter' && searchPlaces(placesQuery)} />
+                         <button onClick={() => searchPlaces(placesQuery)} disabled={isSearchingPlaces}
+                           className="px-3 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 shrink-0">
+                           {isSearchingPlaces ? <RefreshCw size={14} className="animate-spin"/> : <Search size={14}/>}
+                         </button>
+                       </div>
+                       {placesResults.length > 0 && (
+                         <div className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border rounded shadow-lg max-h-48 overflow-y-auto">
+                           {placesResults.map((p, i) => {
+                             const parsed = parsePlaceResult(p);
+                             return (
+                               <button key={i} className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b last:border-0"
+                                 onClick={() => {
+                                   setMeta({ inspectionCompany: parsed.name, inspectionCompanyAddress: parsed.address, inspectionCompanyPostalCode: parsed.postalCode, inspectionCompanyCity: parsed.city, inspectionCompanyPhone: parsed.phone, inspectionCompanyEmail: '' });
+                                   setPlacesResults([]); setPlacesQuery('');
+                                 }}>
+                                 <div className="font-bold text-gray-800">{parsed.name}</div>
+                                 <div className="text-xs text-gray-500">{p.formattedAddress}</div>
+                               </button>
+                             );
+                           })}
+                           <button className="w-full text-center text-xs text-gray-400 py-1 hover:bg-gray-50" onClick={() => setPlacesResults([])}>Sluiten</button>
+                         </div>
+                       )}
+                     </div>
+                   )}
                    <div className="grid grid-cols-1 gap-3">
-                       <ClearableInput 
+                       <ClearableInput
                            list="companies-list" 
                            className={`border rounded p-2 w-full ${meta.isContributionMode ? 'bg-gray-100' : ''}`} 
                            disabled={meta.isContributionMode} 
@@ -1547,6 +1613,36 @@ const handleCloudMerge = async () => {
                             </div>
                         )}                        {profileTab === 'bedrijf' && (
                             <div className="space-y-4">
+                                {/* Google Places zoeking */}
+                                <div className="relative">
+                                  <div className="flex gap-1.5">
+                                    <input type="text" placeholder="Zoek bedrijf..." className="flex-1 border rounded p-2.5 text-sm"
+                                      value={placesQuery} onChange={e => setPlacesQuery(e.target.value)}
+                                      onKeyDown={e => e.key === 'Enter' && searchPlaces(placesQuery)} />
+                                    <button onClick={() => searchPlaces(placesQuery)} disabled={isSearchingPlaces}
+                                      className="px-3 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 disabled:opacity-50 shrink-0">
+                                      {isSearchingPlaces ? <RefreshCw size={16} className="animate-spin"/> : <Search size={16}/>}
+                                    </button>
+                                  </div>
+                                  {placesResults.length > 0 && (
+                                    <div className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border rounded shadow-lg max-h-48 overflow-y-auto">
+                                      {placesResults.map((p, i) => {
+                                        const parsed = parsePlaceResult(p);
+                                        return (
+                                          <button key={i} className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b last:border-0"
+                                            onClick={() => {
+                                              setUserProfile({ ...userProfile, company_name: parsed.name, company_address: parsed.address, company_postal_code: parsed.postalCode, company_city: parsed.city, company_phone: parsed.phone });
+                                              setPlacesResults([]); setPlacesQuery('');
+                                            }}>
+                                            <div className="font-bold text-gray-800">{parsed.name}</div>
+                                            <div className="text-xs text-gray-500">{p.formattedAddress}</div>
+                                          </button>
+                                        );
+                                      })}
+                                      <button className="w-full text-center text-xs text-gray-400 py-1 hover:bg-gray-50" onClick={() => setPlacesResults([])}>Sluiten</button>
+                                    </div>
+                                  )}
+                                </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bedrijfsnaam</label>
                                     <ClearableInput
@@ -1577,7 +1673,22 @@ const handleCloudMerge = async () => {
                                     </datalist>
                                 </div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adres</label><input className="w-full border rounded p-3" value={userProfile.company_address} onChange={e => setUserProfile({...userProfile, company_address: e.target.value})} /></div>
-                                <div className="flex gap-3"><div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-3" value={userProfile.company_postal_code} onChange={e => setUserProfile({...userProfile, company_postal_code: e.target.value})} /></div><div className="w-2/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label><input className="w-full border rounded p-3" value={userProfile.company_city} onChange={e => setUserProfile({...userProfile, company_city: e.target.value})} /></div></div>
+                                <div className="flex gap-3">
+                                  <div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-3" value={userProfile.company_postal_code} onChange={e => setUserProfile({...userProfile, company_postal_code: e.target.value})} /></div>
+                                  <div className="w-2/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label>
+                                    <div className="relative">
+                                      <input className="w-full border rounded p-3 pr-10" value={userProfile.company_city} onChange={e => setUserProfile({...userProfile, company_city: e.target.value})} />
+                                      <button title="Adres opzoeken via postcode (PDOK)" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600"
+                                        onClick={async () => {
+                                          const r = await lookupAddressBAG(userProfile.company_postal_code || '', userProfile.company_address || '');
+                                          if (r) setUserProfile({ ...userProfile, company_city: r.city });
+                                          else alert('Adres niet gevonden. Controleer postcode en huisnummer.');
+                                        }}>
+                                        <MapPin size={16}/>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoon</label><input className="w-full border rounded p-3" value={userProfile.company_phone} onChange={e => setUserProfile({...userProfile, company_phone: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-mail</label><input className="w-full border rounded p-3" value={userProfile.company_email} onChange={e => setUserProfile({...userProfile, company_email: e.target.value})} /></div></div>
                             </div>
                         )}

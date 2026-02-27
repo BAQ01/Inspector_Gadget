@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, type ReactNode } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { LogOut, ArrowLeft, Upload, FileText, User, X } from 'lucide-react';
+import { LogOut, ArrowLeft, Upload, FileText, User, X, Search, RefreshCw, MapPin } from 'lucide-react';
 import { Defect, InspectionDbRow } from './types';
 import { compressImage, uploadPhotoToCloud } from './utils';
+import { parsePlaceResult, fetchPlaces, lookupAddressBAG } from './utils/placesSearch';
 import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './components/PDFReport';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -39,14 +40,6 @@ const PROFILE_TABS: { id: ProfileTab; label: string }[] = [
   { id: 'handtekening', label: 'Handtekening' },
 ];
 
-const COMPANY_FIELDS: { field: string; label: string; placeholder: string; type?: string }[] = [
-  { field: 'name',       label: 'Bedrijfsnaam',   placeholder: 'Installatiebedrijf B.V.' },
-  { field: 'address',    label: 'Adres',           placeholder: 'Straat 1' },
-  { field: 'postalCode', label: 'Postcode',         placeholder: '1234 AB' },
-  { field: 'city',       label: 'Plaats',           placeholder: 'Amsterdam' },
-  { field: 'phone',      label: 'Telefoon',         placeholder: '020-1234567' },
-  { field: 'email',      label: 'E-mail',           placeholder: 'info@bedrijf.nl', type: 'email' },
-];
 
 export default function InstallerApp({ supabase, userId, onLogout }: InstallerAppProps) {
   // Navigation
@@ -68,6 +61,14 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
   const [isSaving, setIsSaving]       = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [placesQuery, setPlacesQuery] = useState('');
+  const [placesResults, setPlacesResults] = useState<any[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const searchPlaces = async (query: string) => {
+    setIsSearchingPlaces(true);
+    setPlacesResults(await fetchPlaces(query));
+    setIsSearchingPlaces(false);
+  };
   const [isUploading, setIsUploading] = useState<Record<string, boolean>>({});
   const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null);
 
@@ -297,21 +298,83 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
             <>
               <div className="bg-white rounded-xl shadow p-4 space-y-3">
                 <p className="font-semibold text-gray-700 text-sm border-b pb-2">Bedrijfsgegevens</p>
-                {COMPANY_FIELDS.map(f => (
-                  <div key={f.field}>
-                    <label className="text-xs text-gray-500">{f.label}</label>
-                    <input
-                      type={f.type || 'text'}
-                      className="w-full border border-gray-300 rounded-lg p-2 mt-0.5 text-sm"
-                      value={(userProfile.installer_company as any)[f.field] || ''}
-                      onChange={e => setUserProfile(prev => ({
-                        ...prev,
-                        installer_company: { ...prev.installer_company, [f.field]: e.target.value },
-                      }))}
-                      placeholder={f.placeholder}
-                    />
+                {/* Google Places zoeking */}
+                <div className="relative">
+                  <div className="flex gap-1.5">
+                    <input type="text" placeholder="Zoek bedrijf..." className="flex-1 border border-gray-300 rounded-lg p-2 text-sm"
+                      value={placesQuery} onChange={e => setPlacesQuery(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && searchPlaces(placesQuery)} />
+                    <button onClick={() => searchPlaces(placesQuery)} disabled={isSearchingPlaces}
+                      className="px-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 shrink-0">
+                      {isSearchingPlaces ? <RefreshCw size={15} className="animate-spin"/> : <Search size={15}/>}
+                    </button>
                   </div>
-                ))}
+                  {placesResults.length > 0 && (
+                    <div className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {placesResults.map((p, i) => {
+                        const parsed = parsePlaceResult(p);
+                        return (
+                          <button key={i} className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b last:border-0"
+                            onClick={() => {
+                              setUserProfile(prev => ({ ...prev, installer_company: { ...prev.installer_company, name: parsed.name, address: parsed.address, postalCode: parsed.postalCode, city: parsed.city, phone: parsed.phone } }));
+                              setPlacesResults([]); setPlacesQuery('');
+                            }}>
+                            <div className="font-bold text-gray-800">{parsed.name}</div>
+                            <div className="text-xs text-gray-500">{p.formattedAddress}</div>
+                          </button>
+                        );
+                      })}
+                      <button className="w-full text-center text-xs text-gray-400 py-1.5 hover:bg-gray-50" onClick={() => setPlacesResults([])}>Sluiten</button>
+                    </div>
+                  )}
+                </div>
+                {/* Bedrijfsnaam */}
+                <div>
+                  <label className="text-xs text-gray-500">Bedrijfsnaam</label>
+                  <input className="w-full border border-gray-300 rounded-lg p-2 mt-0.5 text-sm" value={userProfile.installer_company.name || ''}
+                    onChange={e => setUserProfile(prev => ({ ...prev, installer_company: { ...prev.installer_company, name: e.target.value } }))} placeholder="Installatiebedrijf B.V." />
+                </div>
+                {/* Adres */}
+                <div>
+                  <label className="text-xs text-gray-500">Adres</label>
+                  <input className="w-full border border-gray-300 rounded-lg p-2 mt-0.5 text-sm" value={userProfile.installer_company.address || ''}
+                    onChange={e => setUserProfile(prev => ({ ...prev, installer_company: { ...prev.installer_company, address: e.target.value } }))} placeholder="Straat 1" />
+                </div>
+                {/* Postcode + Plaats */}
+                <div className="flex gap-2">
+                  <div className="w-1/3">
+                    <label className="text-xs text-gray-500">Postcode</label>
+                    <input className="w-full border border-gray-300 rounded-lg p-2 mt-0.5 text-sm" value={userProfile.installer_company.postalCode || ''}
+                      onChange={e => setUserProfile(prev => ({ ...prev, installer_company: { ...prev.installer_company, postalCode: e.target.value } }))} placeholder="1234 AB" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-500">Plaats</label>
+                    <div className="relative mt-0.5">
+                      <input className="w-full border border-gray-300 rounded-lg p-2 pr-8 text-sm" value={userProfile.installer_company.city || ''}
+                        onChange={e => setUserProfile(prev => ({ ...prev, installer_company: { ...prev.installer_company, city: e.target.value } }))} placeholder="Amsterdam" />
+                      <button title="Adres opzoeken via postcode (PDOK)" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600"
+                        onClick={async () => {
+                          const r = await lookupAddressBAG(userProfile.installer_company.postalCode || '', userProfile.installer_company.address || '');
+                          if (r) setUserProfile(prev => ({ ...prev, installer_company: { ...prev.installer_company, city: r.city } }));
+                          else alert('Adres niet gevonden. Controleer postcode en huisnummer.');
+                        }}>
+                        <MapPin size={14}/>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {/* Telefoon */}
+                <div>
+                  <label className="text-xs text-gray-500">Telefoon</label>
+                  <input className="w-full border border-gray-300 rounded-lg p-2 mt-0.5 text-sm" value={userProfile.installer_company.phone || ''}
+                    onChange={e => setUserProfile(prev => ({ ...prev, installer_company: { ...prev.installer_company, phone: e.target.value } }))} placeholder="020-1234567" />
+                </div>
+                {/* E-mail */}
+                <div>
+                  <label className="text-xs text-gray-500">E-mail</label>
+                  <input type="email" className="w-full border border-gray-300 rounded-lg p-2 mt-0.5 text-sm" value={userProfile.installer_company.email || ''}
+                    onChange={e => setUserProfile(prev => ({ ...prev, installer_company: { ...prev.installer_company, email: e.target.value } }))} placeholder="info@bedrijf.nl" />
+                </div>
               </div>
               <button onClick={handleSaveCompany} disabled={isSavingProfile}
                 className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 disabled:opacity-50">
