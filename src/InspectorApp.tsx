@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useInspectionStore } from './store';
-import { DEFECT_LIBRARY, calculateSample, INSTRUMENTS, COMPANIES } from './constants';
+import { DEFECT_LIBRARY, calculateSample, COMPANIES } from './constants';
 import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './components/PDFReport';
 import { compressImage, uploadPhotoToCloud } from './utils';
@@ -62,15 +62,15 @@ export default function InspectorApp({ userRole, onLogout, onOpenAdmin }: { user
   const [showProfile, setShowProfile] = useState(false);
   const [profileTab, setProfileTab] = useState<'persoonlijk' | 'bedrijf' | 'handtekening' | 'instrumenten'>('persoonlijk');
 const [userProfile, setUserProfile] = useState<any>({
-      full_name: '', scios_nr: '', phone: '', contact_email: '', company_name: '', company_address: '', 
-      company_postal_code: '', company_city: '', company_phone: '', company_email: '', signature_url: '', instruments: []
+      full_name: '', scios_nr: '', phone: '', contact_email: '', company_name: '', company_address: '',
+      company_postal_code: '', company_city: '', company_phone: '', company_email: '', signature_url: '',
+      instruments: [], linked_instruments: [], instrument_usage: {}
   });
   const [loginEmail, setLoginEmail] = useState('');
   const profileSigPad = useRef<SignatureCanvas>(null);
 
-  // Voor het toevoegen van een instrument aan je profiel
+  // Voor het toevoegen van een instrument aan je profiel (koffer)
   const [newProfInst, setNewProfInst] = useState({ name: '', serialNumber: '', calibrationDate: '' });
-  const [editingInstId, setEditingInstId] = useState<string | null>(null); // NIEUW: Onthoudt welk instrument we bewerken
 
   const getCalibrationStatus = (dateString: string) => {
       // Direct 'ok' teruggeven voor niet-datum waarden om rode/oranje kleuren te voorkomen
@@ -85,10 +85,10 @@ const [userProfile, setUserProfile] = useState<any>({
       return 'ok';
   };
 
-  const { 
-    meta, defects, measurements, customInstruments, customLibrary, 
-    setMeta, setUsageFunction, setMeasurements, addDefect, updateDefect, 
-    removeDefect, addInstrument, removeInstrument, addCustomInstrument, 
+  const {
+    meta, defects, measurements, customLibrary,
+    setMeta, setUsageFunction, setMeasurements, addDefect, updateDefect,
+    removeDefect, addInstrument, removeInstrument,
     importState, mergeState, resetState, setCustomLibrary,
     addBoard, updateBoard, removeBoard
   } = useInspectionStore();
@@ -102,14 +102,32 @@ const [userProfile, setUserProfile] = useState<any>({
 
   const ACTIVE_LIBRARY = customLibrary && customLibrary.length > 0 ? customLibrary : DEFECT_LIBRARY;
 
-  const mappedDbInstruments: Instrument[] = dbInstruments.map(item => ({
-      id: `db_${item.id}`,
-      name: item.label,
-      serialNumber: item.data?.serialNumber || 'Onbekend',
-      calibrationDate: item.data?.calibrationDate || 'Onbekend'
+  // Centrale instrumentenlijst: alle form_options rijen gemapped naar Instrument
+  const allInstruments: Instrument[] = dbInstruments.map(item => ({
+    id: String(item.id),
+    name: item.label,
+    serialNumber: item.data?.serialNumber || '',
+    calibrationDate: item.data?.calibrationDate || ''
   }));
-  
-  const ALL_INSTRUMENTS_OPTIONS = [...(userProfile.instruments || []), ...mappedDbInstruments, ...INSTRUMENTS, ...customInstruments];
+
+  // Smart 3-tier sortering: Koffer (linked) → Eerder gebruikt → Alle overigen
+  const buildSortedInstruments = (insts: Instrument[], linkedIds: number[], usageMap: Record<string, number>) => {
+    const linkedSet = new Set(linkedIds.map(String));
+    const getUsage = (i: Instrument) => usageMap[i.id] ?? 0;
+    const tier1 = insts.filter(i => linkedSet.has(i.id))
+      .sort((a, b) => getUsage(b) - getUsage(a) || a.name.localeCompare(b.name, 'nl'));
+    const tier2 = insts.filter(i => !linkedSet.has(i.id) && getUsage(i) > 0)
+      .sort((a, b) => getUsage(b) - getUsage(a));
+    const tier3 = insts.filter(i => !linkedSet.has(i.id) && getUsage(i) === 0)
+      .sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+    return { tier1, tier2, tier3 };
+  };
+
+  const { tier1, tier2, tier3 } = buildSortedInstruments(
+    allInstruments,
+    userProfile.linked_instruments ?? [],
+    userProfile.instrument_usage ?? {}
+  );
 
   const [showWorkModal, setShowWorkModal] = useState(false);
   const [availableWork, setAvailableWork] = useState<any[]>([]);
@@ -137,10 +155,17 @@ const [userProfile, setUserProfile] = useState<any>({
   const [customAction, setCustomAction] = useState('');
 
   const [showNewInstrumentForm, setShowNewInstrumentForm] = useState(false);
+  const [newInstSearchQuery, setNewInstSearchQuery] = useState('');
+  const [showCreatePhase, setShowCreatePhase] = useState(false);
   const [newInstName, setNewInstName] = useState('');
   const [newInstSn, setNewInstSn] = useState('');
   const [newInstDate, setNewInstDate] = useState('');
   const [selectedInstrumentId, setSelectedInstrumentId] = useState('');
+  // Koffer tab states
+  const [kofferSearch, setKofferSearch] = useState('');
+  const [showKofferNewForm, setShowKofferNewForm] = useState(false);
+  const [editingKofferInstId, setEditingKofferInstId] = useState<string | null>(null);
+  const [kofferEditFields, setKofferEditFields] = useState({ name: '', serialNumber: '', calibrationDate: '' });
   const [isSearchingBag, setIsSearchingBag] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -152,11 +177,12 @@ const [userProfile, setUserProfile] = useState<any>({
 
   useEffect(() => {
       const fetchOptions = async () => {
-          // Haal de bestaande opties op
+          // Haal alle form_options op
           const { data: optionsData } = await supabase.from('form_options').select('*');
+          const rawInstruments = optionsData?.filter(x => x.category === 'instrument') ?? [];
           if (optionsData) {
               setDbCompanies(optionsData.filter(x => x.category === 'iv_company'));
-              setDbInstruments(optionsData.filter(x => x.category === 'instrument'));
+              setDbInstruments(rawInstruments);
           }
 
           // Haal alle inspecteur- en admin-profielen op voor de snelkeuze
@@ -169,19 +195,49 @@ const [userProfile, setUserProfile] = useState<any>({
               setInspectorProfiles(profilesData.filter(p => p.full_name));
           }
 
-          // NIEUW: Haal de centrale bibliotheek op
+          // Haal de centrale bibliotheek op
           const { data: libraryData } = await supabase.from('defect_library').select('*');
           if (libraryData && libraryData.length > 0) {
               setCustomLibrary(libraryData);
           }
-        // NIEUW: Haal het persoonlijke profiel op & AUTO-FILL
+
+          // Haal het persoonlijke profiel op & AUTO-FILL
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
               setLoginEmail(session.user.email || '');
               const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
               if (profileData) {
-                  setUserProfile({ ...userProfile, ...profileData });                  
-                  // AUTO-FILL: Vul het rapport in als deze velden nog leeg zijn!
+                  let finalProfile = { ...profileData };
+
+                  // Eenmalige migratie: als er legacy instrumenten in profiles.instruments staan
+                  // maar nog geen linked_instruments, verplaats ze naar de centrale database
+                  const legacyInsts: any[] = profileData.instruments ?? [];
+                  const alreadyMigrated = (profileData.linked_instruments ?? []).length > 0;
+                  if (legacyInsts.length > 0 && !alreadyMigrated) {
+                      const newLinkedIds: number[] = [];
+                      for (const leg of legacyInsts) {
+                          const match = rawInstruments.find(
+                              (r: any) => r.label === leg.name && (r.data?.serialNumber ?? '') === (leg.serialNumber ?? '')
+                          );
+                          if (match) {
+                              newLinkedIds.push(match.id);
+                          } else {
+                              const { data: upserted } = await supabase.from('form_options').upsert({
+                                  category: 'instrument',
+                                  label: leg.name,
+                                  data: { serialNumber: leg.serialNumber || '', calibrationDate: leg.calibrationDate || '' }
+                              }, { onConflict: 'label' }).select().single();
+                              if (upserted) {
+                                  newLinkedIds.push(upserted.id);
+                                  setDbInstruments(prev => prev.some((r: any) => r.id === upserted.id) ? prev : [...prev, upserted]);
+                              }
+                          }
+                      }
+                      await supabase.from('profiles').update({ linked_instruments: newLinkedIds, instruments: [] }).eq('id', session.user.id);
+                      finalProfile = { ...finalProfile, linked_instruments: newLinkedIds, instruments: [] };
+                  }
+
+                  setUserProfile({ ...userProfile, ...finalProfile });
                   useInspectionStore.getState().setMeta({
                       inspectorName: useInspectionStore.getState().meta.inspectorName || profileData.full_name || '',
                       sciosRegistrationNumber: useInspectionStore.getState().meta.sciosRegistrationNumber || profileData.scios_nr || '',
@@ -213,6 +269,78 @@ const [userProfile, setUserProfile] = useState<any>({
   
   const goNext = () => { if (currentStepIndex < STEPS.length - 1) { setActiveTab(STEPS[currentStepIndex + 1]); window.scrollTo(0, 0); }};
   const goPrev = () => { if (currentStepIndex > 0) { setActiveTab(STEPS[currentStepIndex - 1]); window.scrollTo(0, 0); }};
+
+  // --- INSTRUMENT HELPERS ---
+  const incrementUsage = async (instrumentId: string) => {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) return;
+    const currentUsage = userProfile.instrument_usage ?? {};
+    const updatedUsage = { ...currentUsage, [instrumentId]: (currentUsage[instrumentId] ?? 0) + 1 };
+    setUserProfile((prev: any) => ({ ...prev, instrument_usage: updatedUsage }));
+    supabase.from('profiles').update({ instrument_usage: updatedUsage }).eq('id', session.user.id)
+      .then(({ error }) => { if (error) console.warn('Usage update failed:', error.message); });
+  };
+
+  const linkInstrument = async (formOptionsId: number) => {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) return;
+    const currentLinked: number[] = userProfile.linked_instruments ?? [];
+    if (currentLinked.includes(formOptionsId)) return;
+    const updated = [...currentLinked, formOptionsId];
+    setUserProfile((prev: any) => ({ ...prev, linked_instruments: updated }));
+    await supabase.from('profiles').update({ linked_instruments: updated }).eq('id', session.user.id);
+  };
+
+  const unlinkInstrument = async (formOptionsId: number) => {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) return;
+    const updated = (userProfile.linked_instruments ?? []).filter((id: number) => id !== formOptionsId);
+    setUserProfile((prev: any) => ({ ...prev, linked_instruments: updated }));
+    await supabase.from('profiles').update({ linked_instruments: updated }).eq('id', session.user.id);
+  };
+
+  const updateInstrumentInDb = async (formOptionsId: number, fields: { name: string; serialNumber: string; calibrationDate: string }) => {
+    const { error } = await supabase.from('form_options').update({
+      label: fields.name,
+      data: { serialNumber: fields.serialNumber, calibrationDate: fields.calibrationDate }
+    }).eq('id', formOptionsId);
+    if (error) { alert('Fout bij opslaan: ' + error.message); return; }
+    setDbInstruments((prev: any[]) => prev.map(item =>
+      item.id === formOptionsId
+        ? { ...item, label: fields.name, data: { serialNumber: fields.serialNumber, calibrationDate: fields.calibrationDate } }
+        : item
+    ));
+  };
+
+  const handleCreateInstrumentFromMetingen = async () => {
+    if (!newInstName.trim()) return;
+    // Exacte dubbel-check (naam + serienummer)
+    const duplicate = allInstruments.find(
+      i => i.name.trim().toLowerCase() === newInstName.trim().toLowerCase()
+        && i.serialNumber.trim().toLowerCase() === newInstSn.trim().toLowerCase()
+    );
+    if (duplicate) {
+      if (window.confirm(`Er bestaat al "${duplicate.name} (SN: ${duplicate.serialNumber})". Koppelen aan je profiel en toevoegen aan de meting?`)) {
+        addInstrument(duplicate);
+        await linkInstrument(Number(duplicate.id));
+        await incrementUsage(duplicate.id);
+      }
+      setShowNewInstrumentForm(false); setNewInstSearchQuery(''); setShowCreatePhase(false); setNewInstName(''); setNewInstSn(''); setNewInstDate('');
+      return;
+    }
+    const { data: inserted, error } = await supabase.from('form_options').insert({
+      category: 'instrument',
+      label: newInstName.trim(),
+      data: { serialNumber: newInstSn.trim() || '', calibrationDate: newInstDate || 'n.v.t.' }
+    }).select().single();
+    if (error) { alert('Fout bij aanmaken: ' + error.message); return; }
+    const newInst: Instrument = { id: String(inserted.id), name: inserted.label, serialNumber: inserted.data.serialNumber, calibrationDate: inserted.data.calibrationDate };
+    setDbInstruments((prev: any[]) => [...prev, inserted]);
+    await linkInstrument(inserted.id);
+    addInstrument(newInst);
+    await incrementUsage(String(inserted.id));
+    setShowNewInstrumentForm(false); setNewInstSearchQuery(''); setShowCreatePhase(false); setNewInstName(''); setNewInstSn(''); setNewInstDate('');
+  };
 
   const mainCategories = Array.from(new Set(ACTIVE_LIBRARY.map(d => d.category))).sort();
   const subCategories = selectedMainCategory
@@ -436,7 +564,7 @@ const handleCloudMerge = async () => {
     if(!window.confirm("Inleveren bij kantoor?")) return;
 
     setIsGenerating(true);
-    const finalReportData = { meta, measurements, customInstruments, defects };
+    const finalReportData = { meta, measurements, defects };
 
     const { error: updateError } = await supabase
       .from('inspections')
@@ -487,11 +615,10 @@ const handleCloudMerge = async () => {
     setIsGenerating(true);
     
     // We gebruiken hier expliciet 'finalInspectorName' om zeker te zijn dat de update mee gaat
-    const reportData = { 
-        meta: { ...meta, inspectorName: finalInspectorName }, 
-        measurements, 
-        defects, 
-        customInstruments 
+    const reportData = {
+        meta: { ...meta, inspectorName: finalInspectorName },
+        measurements,
+        defects,
     };    
     // Naamgeving bepalen voor in de lijst
     let uploadClientName = meta.clientName;
@@ -614,17 +741,18 @@ const handleCloudMerge = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
           const { error } = await supabase.from('profiles').update({
-              full_name: userProfile.full_name, 
+              full_name: userProfile.full_name,
               scios_nr: userProfile.scios_nr,
               phone: userProfile.phone,
               contact_email: userProfile.contact_email,
-              company_name: userProfile.company_name,              company_address: userProfile.company_address,
-              company_postal_code: userProfile.company_postal_code, 
+              company_name: userProfile.company_name,
+              company_address: userProfile.company_address,
+              company_postal_code: userProfile.company_postal_code,
               company_city: userProfile.company_city,
-              company_phone: userProfile.company_phone, 
+              company_phone: userProfile.company_phone,
               company_email: userProfile.company_email,
               signature_url: userProfile.signature_url,
-              instruments: userProfile.instruments // Zorgt dat de koffer wordt opgeslagen
+              // linked_instruments en instrument_usage worden direct opgeslagen via link/unlink acties
           }).eq('id', session.user.id);
           
           if (error) {
@@ -649,7 +777,7 @@ const handleCloudMerge = async () => {
                       setDbCompanies(prev => [...prev, inserted]);
                   }
               }
-              alert("✅ Profiel en koffer succesvol opgeslagen!");
+              alert("✅ Profiel succesvol opgeslagen!");
           }
       }
       setIsGenerating(false);
@@ -689,8 +817,8 @@ const handleCloudMerge = async () => {
       }
   };
   
-  const handleBackupDownload = () => { 
-    const data = JSON.stringify({ meta, measurements, defects, customInstruments }, null, 2); 
+  const handleBackupDownload = () => {
+    const data = JSON.stringify({ meta, measurements, defects }, null, 2); 
     const blob = new Blob([data], { type: 'application/json' }); 
     const url = URL.createObjectURL(blob); 
     const a = document.createElement('a'); a.href = url; 
@@ -698,8 +826,8 @@ const handleCloudMerge = async () => {
     a.click(); URL.revokeObjectURL(url); 
   };
 
-  const handleShareFindings = async () => { 
-    const data = JSON.stringify({ meta, measurements, defects, customInstruments }, null, 2); 
+  const handleShareFindings = async () => {
+    const data = JSON.stringify({ meta, measurements, defects }, null, 2); 
     const blob = new Blob([data], { type: 'application/json' }); 
     const file = new File([blob], 'findings.json', { type: 'application/json' }); 
     if (navigator.canShare && navigator.canShare({ files: [file] })) { 
@@ -782,7 +910,7 @@ const handleCloudMerge = async () => {
     const baseFileName = `${meta.date || 'Datum'}_${meta.clientName || 'Klant'}_${meta.projectLocation || 'Project'}_${meta.projectCity || 'Plaats'}`;
 
     try { 
-      const jsonData = JSON.stringify({ meta, measurements, defects, customInstruments }, null, 2); 
+      const jsonData = JSON.stringify({ meta, measurements, defects }, null, 2); 
       const jsonBlob = new Blob([jsonData], { type: 'application/json' }); 
       const jsonUrl = URL.createObjectURL(jsonBlob); 
       const jsonLink = document.createElement('a'); 
@@ -1087,45 +1215,65 @@ const handleCloudMerge = async () => {
                 <div className="bg-blue-50 p-4 rounded border border-blue-100 mb-4">
                 <label className="block text-xs font-bold text-blue-800 uppercase mb-2">Gebruikte Meetinstrumenten</label>
                 <div className="flex gap-2 mb-3">
-                    <select className="border rounded p-2 w-full bg-white" value={selectedInstrumentId} onChange={(e) => { const inst = ALL_INSTRUMENTS_OPTIONS.find(i => i.id === e.target.value); if (inst) { addInstrument(inst); setSelectedInstrumentId(''); } else { setSelectedInstrumentId(e.target.value); } }}>
+                    <select className="border rounded p-2 w-full bg-white" value={selectedInstrumentId} onChange={(e) => {
+                        const id = e.target.value;
+                        const inst = [...tier1, ...tier2, ...tier3].find(i => i.id === id);
+                        if (inst) { addInstrument(inst); incrementUsage(inst.id); setSelectedInstrumentId(''); }
+                    }}>
                         <option value="" disabled>-- Selecteer Meetinstrument --</option>
-                        {ALL_INSTRUMENTS_OPTIONS.map(i => (<option key={i.id} value={i.id}>{i.name} {i.serialNumber !== 'Onbekend' ? `(SN: ${i.serialNumber})` : ''}</option>))}
+                        {tier1.length > 0 && <optgroup label="⭐ Mijn Koffer">{tier1.map(i => <option key={i.id} value={i.id}>{i.name} (SN: {i.serialNumber || 'Onbekend'})</option>)}</optgroup>}
+                        {tier2.length > 0 && <optgroup label="🕐 Eerder Gebruikt">{tier2.map(i => <option key={i.id} value={i.id}>{i.name} (SN: {i.serialNumber || 'Onbekend'})</option>)}</optgroup>}
+                        {tier3.length > 0 && <optgroup label="Alle Instrumenten">{tier3.map(i => <option key={i.id} value={i.id}>{i.name} (SN: {i.serialNumber || 'Onbekend'})</option>)}</optgroup>}
                     </select>
-                    <button onClick={() => setShowNewInstrumentForm(true)} className="bg-blue-600 text-white p-2 rounded whitespace-nowrap flex items-center gap-1 text-sm font-bold"><PlusCircle size={16} /> Nieuw</button>
+                    <button onClick={() => { setShowNewInstrumentForm(true); setNewInstSearchQuery(''); setShowCreatePhase(false); setNewInstName(''); setNewInstSn(''); setNewInstDate(''); }} className="bg-blue-600 text-white p-2 rounded whitespace-nowrap flex items-center gap-1 text-sm font-bold"><PlusCircle size={16} /> Nieuw</button>
                 </div>
             {showNewInstrumentForm && (
                 <div className="bg-white p-3 rounded border border-blue-200 mb-3 animate-fadeIn">
-                    <h3 className="text-[10px] font-bold text-blue-800 uppercase mb-2">Eenmalig instrument toevoegen</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
-                        <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Naam" value={newInstName} onChange={e => setNewInstName(e.target.value)} />
-                        <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Serienummer" value={newInstSn} onChange={e => setNewInstSn(e.target.value)} />
-                        <div className="flex gap-1 w-full md:col-span-2">
-                            <input 
-                                className="border p-2 rounded text-sm bg-white flex-grow min-w-0" 
-                                type={(newInstDate === 'Indicatief' || newInstDate === 'n.v.t.') ? 'text' : 'date'} 
-                                placeholder="Kalibratie-/ controledatum" 
-                                value={newInstDate} 
-                                max="2100-12-31"
-                                onChange={e => { const val = e.target.value; if (val.length <= 10) setNewInstDate(val); }}
-                                onBlur={e => { if (e.target.value.startsWith('000')) setNewInstDate(''); }}
-                                disabled={newInstDate === 'Indicatief' || newInstDate === 'n.v.t.'}
-                                title="Kalibratie-/ controledatum"
-                            />
-                            <select className="border p-2 rounded text-sm bg-white cursor-pointer shrink-0" onChange={e => { if (e.target.value === 'date') setNewInstDate(''); else setNewInstDate(e.target.value); }} value={(newInstDate === 'Indicatief' || newInstDate === 'n.v.t.') ? newInstDate : 'date'}>
-                                <option value="date">Datum</option>
-                                <option value="Indicatief">Indicatief</option>
-                                <option value="n.v.t.">n.v.t.</option>
-                            </select>
+                    <h3 className="text-[10px] font-bold text-blue-800 uppercase mb-2">Instrument toevoegen</h3>
+                    {/* Fase 1: Zoeken */}
+                    <input className="border p-2 rounded text-sm w-full mb-2" placeholder="Zoek bestaand instrument op naam of serienummer..." value={newInstSearchQuery} onChange={e => { setNewInstSearchQuery(e.target.value); setShowCreatePhase(false); }} autoFocus />
+                    {newInstSearchQuery.trim().length > 0 && (() => {
+                        const q = newInstSearchQuery.trim().toLowerCase();
+                        const matches = allInstruments.filter(i => i.name.toLowerCase().includes(q) || i.serialNumber.toLowerCase().includes(q));
+                        return (
+                            <div className="mb-2">
+                                {matches.length > 0 ? (
+                                    <div className="border rounded divide-y max-h-40 overflow-y-auto mb-2">
+                                        {matches.map(i => (
+                                            <button key={i.id} onClick={() => { addInstrument(i); linkInstrument(Number(i.id)); incrementUsage(i.id); setShowNewInstrumentForm(false); setNewInstSearchQuery(''); }} className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors">
+                                                <span className="font-medium text-sm">{i.name}</span> <span className="text-xs text-gray-500">(SN: {i.serialNumber || 'Onbekend'})</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-gray-500 italic mb-2">Geen bestaand instrument gevonden.</p>
+                                )}
+                                {!showCreatePhase && (
+                                    <button onClick={() => { setShowCreatePhase(true); setNewInstName(newInstSearchQuery.trim()); }} className="text-xs text-blue-600 underline hover:text-blue-800">Niets gevonden? Nieuw instrument aanmaken →</button>
+                                )}
+                            </div>
+                        );
+                    })()}
+                    {/* Fase 2: Aanmaken (alleen na expliciete klik) */}
+                    {showCreatePhase && (
+                        <div className="border-t pt-3 mt-1 animate-fadeIn">
+                            <p className="text-[10px] font-bold text-blue-700 uppercase mb-2">Nieuw instrument aanmaken in database</p>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
+                                <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Naam" value={newInstName} onChange={e => setNewInstName(e.target.value)} />
+                                <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Serienummer" value={newInstSn} onChange={e => setNewInstSn(e.target.value)} />
+                                <div className="flex gap-1 w-full md:col-span-2">
+                                    <input className="border p-2 rounded text-sm bg-white flex-grow min-w-0" type={(newInstDate === 'Indicatief' || newInstDate === 'n.v.t.') ? 'text' : 'date'} placeholder="Kalibratie-/ controledatum" value={newInstDate} max="2100-12-31" onChange={e => { const val = e.target.value; if (val.length <= 10) setNewInstDate(val); }} onBlur={e => { if (e.target.value.startsWith('000')) setNewInstDate(''); }} disabled={newInstDate === 'Indicatief' || newInstDate === 'n.v.t.'} title="Kalibratie-/ controledatum" />
+                                    <select className="border p-2 rounded text-sm bg-white cursor-pointer shrink-0" onChange={e => { if (e.target.value === 'date') setNewInstDate(''); else setNewInstDate(e.target.value); }} value={(newInstDate === 'Indicatief' || newInstDate === 'n.v.t.') ? newInstDate : 'date'}>
+                                        <option value="date">Datum</option>
+                                        <option value="Indicatief">Indicatief</option>
+                                        <option value="n.v.t.">n.v.t.</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button onClick={() => handleCreateInstrumentFromMetingen()} className="w-full bg-green-600 text-white py-2 rounded text-xs font-bold hover:bg-green-700 shadow-sm transition-colors">Aanmaken in database &amp; toevoegen aan meting</button>
                         </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={() => { setShowNewInstrumentForm(false); setNewInstName(''); setNewInstSn(''); setNewInstDate(''); }} className="flex-1 bg-gray-100 text-gray-600 py-2 rounded text-xs font-bold hover:bg-gray-200 transition-colors">Annuleren</button>
-                        <button onClick={() => { 
-                            if (!newInstName) return; 
-                            const newInst = { id: 'custom_' + generateId(), name: newInstName, serialNumber: newInstSn || 'Onbekend', calibrationDate: newInstDate || 'n.v.t.' }; 
-                            addCustomInstrument(newInst); addInstrument(newInst); setNewInstName(''); setNewInstSn(''); setNewInstDate(''); setShowNewInstrumentForm(false); 
-                        }} className="flex-[2] bg-green-600 text-white py-2 rounded text-xs font-bold hover:bg-green-700 shadow-sm transition-colors">Toevoegen aan meting</button>
-                    </div>
+                    )}
+                    <button onClick={() => { setShowNewInstrumentForm(false); setNewInstSearchQuery(''); setShowCreatePhase(false); setNewInstName(''); setNewInstSn(''); setNewInstDate(''); }} className="mt-2 w-full bg-gray-100 text-gray-600 py-2 rounded text-xs font-bold hover:bg-gray-200 transition-colors">Annuleren</button>
                 </div>
             )}
 
@@ -1450,116 +1598,111 @@ const handleCloudMerge = async () => {
                                 )}
                             </div>
                         )}
-                        {profileTab === 'instrumenten' && (
-                            <div className="space-y-4">
-                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm text-blue-800 mb-4">
-                                    Beheer hier je persoonlijke meetinstrumenten. Deze verschijnen automatisch bovenaan je keuzelijst tijdens een inspectie!
-                                </div>
-                                
-                                {/* Instrument Toevoegen / Bewerken */}
-                                <div className="bg-gray-50 p-3 rounded border border-gray-200">
-                                    <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">
-                                        {editingInstId ? 'Instrument Bewerken' : 'Nieuw Instrument Toevoegen'}
-                                    </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
-                                        <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Naam (bijv. Fluke 1664)" value={newProfInst.name} onChange={e => setNewProfInst({...newProfInst, name: e.target.value})} />
-                                        <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Serienummer" value={newProfInst.serialNumber} onChange={e => setNewProfInst({...newProfInst, serialNumber: e.target.value})} />
-                                        
-                                        {/* Datumveld met type-kiezer en lengte-beveiliging */}
-                                        <div className="flex gap-1 w-full md:col-span-2">
-                                            <input 
-                                                className="border p-2 rounded text-sm bg-white flex-grow min-w-0" 
-                                                type={(newProfInst.calibrationDate === 'Indicatief' || newProfInst.calibrationDate === 'n.v.t.') ? 'text' : 'date'} 
-                                                placeholder="Kalibratie-/ controledatum" 
-                                                value={newProfInst.calibrationDate} 
-                                                max="2100-12-31"
-                                                onChange={e => {
-                                                    const val = e.target.value;
-                                                    // Blokkeert invoer langer dan een standaard datum (YYYY-MM-DD = 10 tekens)
-                                                    if (val.length <= 10) {
-                                                        setNewProfInst({...newProfInst, calibrationDate: val});
-                                                    }
-                                                }}
-                                                onBlur={(e) => {
-                                                    // Herstelt veld als browser 0001-01-01 oid invult bij incomplete typactie
-                                                    if (e.target.value.startsWith('000')) {
-                                                        setNewProfInst({...newProfInst, calibrationDate: ''});
-                                                    }
-                                                }}
-                                                disabled={newProfInst.calibrationDate === 'Indicatief' || newProfInst.calibrationDate === 'n.v.t.'}
-                                                title="Kalibratie-/ controledatum"
-                                            />
-                                            <select 
-                                                className="border p-2 rounded text-sm bg-white cursor-pointer shrink-0" 
-                                                onChange={e => {
-                                                    if (e.target.value === 'date') setNewProfInst({...newProfInst, calibrationDate: ''});
-                                                    else setNewProfInst({...newProfInst, calibrationDate: e.target.value});
-                                                }}
-                                                value={(newProfInst.calibrationDate === 'Indicatief' || newProfInst.calibrationDate === 'n.v.t.') ? newProfInst.calibrationDate : 'date'}
-                                            >
-                                                <option value="date">Datum</option>
-                                                <option value="Indicatief">Indicatief</option>
-                                                <option value="n.v.t.">n.v.t.</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        {editingInstId && (
-                                            <button onClick={() => {
-                                                setEditingInstId(null);
-                                                setNewProfInst({ name: '', serialNumber: '', calibrationDate: '' });
-                                            }} className="bg-gray-400 text-white px-4 py-2 rounded text-xs font-bold hover:bg-gray-500 w-full md:w-auto">Annuleren</button>
-                                        )}
-                                        <button onClick={() => {
-                                            if(!newProfInst.name) return;
-                                            if (editingInstId) {
-                                                const updated = (userProfile.instruments || []).map((i: any) => 
-                                                    i.id === editingInstId ? { ...i, ...newProfInst } : i
-                                                );
-                                                setUserProfile({...userProfile, instruments: updated});
-                                                setEditingInstId(null);
-                                            } else {
-                                                const updated = [...(userProfile.instruments || []), { ...newProfInst, id: 'prof_' + generateId() }];
-                                                setUserProfile({...userProfile, instruments: updated});
-                                            }
-                                            setNewProfInst({ name: '', serialNumber: '', calibrationDate: '' });
-                                        }} className="bg-emerald-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-emerald-700 w-full md:w-auto flex-1 md:flex-none">
-                                            {editingInstId ? 'Wijziging Opslaan' : 'Toevoegen aan Koffer'}
-                                        </button>
-                                    </div>
+                        {profileTab === 'instrumenten' && (() => {
+                            const linkedSet = new Set((userProfile.linked_instruments ?? []).map(String));
+                            const filteredInsts = allInstruments.filter(i =>
+                                kofferSearch === '' ||
+                                i.name.toLowerCase().includes(kofferSearch.toLowerCase()) ||
+                                i.serialNumber.toLowerCase().includes(kofferSearch.toLowerCase())
+                            );
+                            const sortedInsts = [...filteredInsts].sort((a, b) => {
+                                const aL = linkedSet.has(a.id), bL = linkedSet.has(b.id);
+                                if (aL !== bL) return aL ? -1 : 1;
+                                return a.name.localeCompare(b.name, 'nl');
+                            });
+                            return (
+                            <div className="space-y-3">
+                                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-800">
+                                    Vink instrumenten aan om ze aan je koffer toe te voegen. Gekoppelde instrumenten (⭐) staan bovenaan in je keuzelijst tijdens een inspectie.
                                 </div>
 
-                                {/* Lijst met instrumenten */}
-                                <div className="space-y-2">
-                                    {(userProfile.instruments || []).length === 0 && <div className="text-sm text-gray-400 italic text-center p-4">Je koffer is nog leeg.</div>}
-                                    {(userProfile.instruments || []).map((inst: any) => {
+                                {/* Zoekbalk */}
+                                <input type="text" className="w-full border rounded p-2.5 text-sm" placeholder="Zoek op naam of serienummer..." value={kofferSearch} onChange={e => setKofferSearch(e.target.value)} />
+
+                                {/* Nieuw instrument aanmaken */}
+                                <div>
+                                    <button onClick={() => { setShowKofferNewForm(f => !f); setNewProfInst({ name: '', serialNumber: '', calibrationDate: '' }); }} className="text-sm text-blue-600 font-bold underline hover:text-blue-800">
+                                        {showKofferNewForm ? '▲ Annuleren' : '+ Nieuw instrument aanmaken in database'}
+                                    </button>
+                                    {showKofferNewForm && (
+                                        <div className="mt-2 p-3 border rounded bg-gray-50 animate-fadeIn">
+                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
+                                                <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Naam" value={newProfInst.name} onChange={e => setNewProfInst({...newProfInst, name: e.target.value})} />
+                                                <input className="border p-2 rounded text-sm w-full md:col-span-1" placeholder="Serienummer" value={newProfInst.serialNumber} onChange={e => setNewProfInst({...newProfInst, serialNumber: e.target.value})} />
+                                                <div className="flex gap-1 w-full md:col-span-2">
+                                                    <input className="border p-2 rounded text-sm bg-white flex-grow min-w-0" type={(newProfInst.calibrationDate === 'Indicatief' || newProfInst.calibrationDate === 'n.v.t.') ? 'text' : 'date'} placeholder="Kalibratie-/ controledatum" value={newProfInst.calibrationDate} max="2100-12-31" onChange={e => { const v = e.target.value; if (v.length <= 10) setNewProfInst({...newProfInst, calibrationDate: v}); }} onBlur={e => { if (e.target.value.startsWith('000')) setNewProfInst({...newProfInst, calibrationDate: ''}); }} disabled={newProfInst.calibrationDate === 'Indicatief' || newProfInst.calibrationDate === 'n.v.t.'} />
+                                                    <select className="border p-2 rounded text-sm bg-white cursor-pointer shrink-0" onChange={e => { if (e.target.value === 'date') setNewProfInst({...newProfInst, calibrationDate: ''}); else setNewProfInst({...newProfInst, calibrationDate: e.target.value}); }} value={(newProfInst.calibrationDate === 'Indicatief' || newProfInst.calibrationDate === 'n.v.t.') ? newProfInst.calibrationDate : 'date'}>
+                                                        <option value="date">Datum</option>
+                                                        <option value="Indicatief">Indicatief</option>
+                                                        <option value="n.v.t.">n.v.t.</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <button onClick={async () => {
+                                                if (!newProfInst.name.trim()) return;
+                                                const dup = allInstruments.find(i => i.name.trim().toLowerCase() === newProfInst.name.trim().toLowerCase() && i.serialNumber.trim().toLowerCase() === newProfInst.serialNumber.trim().toLowerCase());
+                                                if (dup) { alert(`"${dup.name} (SN: ${dup.serialNumber})" bestaat al. Vink het aan in de lijst.`); return; }
+                                                const { data: ins, error } = await supabase.from('form_options').insert({ category: 'instrument', label: newProfInst.name.trim(), data: { serialNumber: newProfInst.serialNumber.trim(), calibrationDate: newProfInst.calibrationDate || 'n.v.t.' } }).select().single();
+                                                if (error) { alert('Fout: ' + error.message); return; }
+                                                setDbInstruments((prev: any[]) => [...prev, ins]);
+                                                await linkInstrument(ins.id);
+                                                setShowKofferNewForm(false);
+                                                setNewProfInst({ name: '', serialNumber: '', calibrationDate: '' });
+                                            }} className="w-full bg-emerald-600 text-white py-2 rounded text-sm font-bold hover:bg-emerald-700">Aanmaken &amp; toevoegen aan koffer</button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Instrumentenlijst */}
+                                <div className="space-y-1 max-h-[50vh] overflow-y-auto pr-1">
+                                    {sortedInsts.length === 0 && <p className="text-sm text-gray-400 italic text-center py-6">Geen instrumenten gevonden.</p>}
+                                    {sortedInsts.map(inst => {
+                                        const isLinked = linkedSet.has(inst.id);
                                         const status = getCalibrationStatus(inst.calibrationDate);
+                                        const isEditingThis = editingKofferInstId === inst.id;
                                         return (
-                                            <div key={inst.id} className={`flex justify-between items-center p-3 rounded border shadow-sm ${status === 'expired' ? 'bg-red-50 border-red-200' : status === 'warning' ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}>
-                                                <div>
-                                                    <div className="font-bold text-sm text-gray-800">{inst.name}</div>
-                                                    <div className="text-xs text-gray-500">SN: {inst.serialNumber || 'Onbekend'} | Kalibratie-/ controledatum: <span className={status === 'expired' ? 'text-red-600 font-bold' : status === 'warning' ? 'text-orange-600 font-bold' : ''}>{inst.calibrationDate || 'Onbekend'}</span></div>
-                                                </div>
-                                                <div className="flex gap-1">
-                                                    <button onClick={() => {
-                                                        setEditingInstId(inst.id);
-                                                        setNewProfInst({ name: inst.name, serialNumber: inst.serialNumber || '', calibrationDate: inst.calibrationDate || '' });
-                                                    }} className="text-blue-400 hover:text-blue-600 p-2"><Pencil size={18}/></button>
-                                                    <button onClick={() => {
-                                                        const updated = (userProfile.instruments || []).filter((i: any) => i.id !== inst.id);
-                                                        setUserProfile({...userProfile, instruments: updated});
-                                                        if (editingInstId === inst.id) {
-                                                            setEditingInstId(null);
-                                                            setNewProfInst({ name: '', serialNumber: '', calibrationDate: '' });
-                                                        }
-                                                    }} className="text-red-400 hover:text-red-600 p-2"><Trash2 size={18}/></button>
-                                                </div>
+                                            <div key={inst.id} className={`rounded border p-3 transition-colors ${isLinked ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-gray-200'} ${status === 'expired' ? 'border-red-300' : ''}`}>
+                                                {isEditingThis ? (
+                                                    <div className="space-y-2">
+                                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                                                            <input className="border p-2 rounded text-sm w-full md:col-span-1" value={kofferEditFields.name} onChange={e => setKofferEditFields(f => ({...f, name: e.target.value}))} placeholder="Naam" />
+                                                            <input className="border p-2 rounded text-sm w-full md:col-span-1" value={kofferEditFields.serialNumber} onChange={e => setKofferEditFields(f => ({...f, serialNumber: e.target.value}))} placeholder="Serienummer" />
+                                                            <div className="flex gap-1 w-full md:col-span-2">
+                                                                <input className="border p-2 rounded text-sm bg-white flex-grow min-w-0" type={(kofferEditFields.calibrationDate === 'Indicatief' || kofferEditFields.calibrationDate === 'n.v.t.') ? 'text' : 'date'} value={kofferEditFields.calibrationDate} max="2100-12-31" onChange={e => { const v = e.target.value; if (v.length <= 10) setKofferEditFields(f => ({...f, calibrationDate: v})); }} onBlur={e => { if (e.target.value.startsWith('000')) setKofferEditFields(f => ({...f, calibrationDate: ''})); }} disabled={kofferEditFields.calibrationDate === 'Indicatief' || kofferEditFields.calibrationDate === 'n.v.t.'} />
+                                                                <select className="border p-2 rounded text-sm bg-white cursor-pointer shrink-0" onChange={e => { if (e.target.value === 'date') setKofferEditFields(f => ({...f, calibrationDate: ''})); else setKofferEditFields(f => ({...f, calibrationDate: e.target.value})); }} value={(kofferEditFields.calibrationDate === 'Indicatief' || kofferEditFields.calibrationDate === 'n.v.t.') ? kofferEditFields.calibrationDate : 'date'}>
+                                                                    <option value="date">Datum</option>
+                                                                    <option value="Indicatief">Indicatief</option>
+                                                                    <option value="n.v.t.">n.v.t.</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setEditingKofferInstId(null)} className="flex-1 bg-gray-200 text-gray-700 py-1.5 rounded text-xs font-bold">Annuleren</button>
+                                                            <button onClick={async () => { await updateInstrumentInDb(Number(inst.id), kofferEditFields); setEditingKofferInstId(null); }} className="flex-[2] bg-blue-600 text-white py-1.5 rounded text-xs font-bold hover:bg-blue-700">Wijziging opslaan (gedeeld)</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-3">
+                                                        <input type="checkbox" checked={isLinked} onChange={() => isLinked ? unlinkInstrument(Number(inst.id)) : linkInstrument(Number(inst.id))} className="h-5 w-5 text-emerald-600 rounded cursor-pointer shrink-0" />
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="font-bold text-sm text-gray-800 flex items-center gap-1">
+                                                                {isLinked && <span className="text-emerald-500">⭐</span>}
+                                                                {inst.name}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500">SN: {inst.serialNumber || 'Onbekend'} | Kalibratie: <span className={status === 'expired' ? 'text-red-600 font-bold' : status === 'warning' ? 'text-orange-500 font-bold' : ''}>{inst.calibrationDate || 'Onbekend'}</span></div>
+                                                        </div>
+                                                        {isLinked && (
+                                                            <button onClick={() => { setEditingKofferInstId(inst.id); setKofferEditFields({ name: inst.name, serialNumber: inst.serialNumber, calibrationDate: inst.calibrationDate }); }} className="text-blue-400 hover:text-blue-600 p-1.5 shrink-0" title="Bewerken (wijziging is gedeeld)"><Pencil size={16}/></button>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
                                 </div>
                             </div>
-                        )}
+                            );
+                        })()}
                     </div>
                     
                     <div className="p-4 border-t bg-gray-50 flex gap-3">

@@ -51,6 +51,14 @@ export interface Instrument {
   calibrationDate: string;
 }
 
+// Represents a form_options row with category='instrument' (Single Source of Truth)
+export interface DbInstrument {
+  id: number;
+  name: string;
+  serialNumber: string;
+  calibrationDate: string;
+}
+
 export interface BoardMeasurement {
   id: string;
   name: string;             
@@ -179,21 +187,19 @@ export interface InspectionState {
   meta: InspectionMeta;
   measurements: Measurements;
   defects: Defect[];
-  customInstruments: Instrument[];
   customLibrary: LibraryDefect[] | null;
 
   setMeta: (meta: Partial<InspectionMeta>) => void;
   setUsageFunction: (key: keyof UsageFunctions, value: boolean) => void;
   setMeasurements: (data: Partial<Measurements>) => void;
-  
+
   addDefect: (defect: Defect) => void;
   updateDefect: (id: string, defect: Defect) => void;
   removeDefect: (id: string) => void;
-  
+
   addInstrument: (instrument: Instrument) => void;
   removeInstrument: (id: string) => void;
 
-  addCustomInstrument: (instrument: Instrument) => void;
   setCustomLibrary: (lib: LibraryDefect[] | null) => void;
   
   importState: (data: any) => void;

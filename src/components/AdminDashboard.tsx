@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'; 
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Calendar, User, Download, RefreshCw, Plus, X, MapPin, Trash2, Lock, FileText, Search, ChevronLeft, ChevronRight, Database, Users, Shield, UserPlus, FileSpreadsheet, Pencil, Settings, Building, Wrench, Key, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Hash, Mail, Phone, Briefcase, Clock, BookOpen, UploadCloud } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer'; 
@@ -92,7 +92,9 @@ export default function AdminDashboard() {
   const [passwordResetUser, setPasswordResetUser] = useState<{id: string, email: string} | null>(null);
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [users, setUsers] = useState<any[]>([]);
-  
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [adminKofferSearch, setAdminKofferSearch] = useState('');
+
 // Options Lists
   const [companiesList, setCompaniesList] = useState<any[]>([]);
   const [instrumentsList, setInstrumentsList] = useState<any[]>([]);
@@ -254,7 +256,15 @@ export default function AdminDashboard() {
       </th>
   );
 
-  const fetchUsers = async () => { const { data } = await supabase.from('profiles').select('*').order('email'); setUsers(data || []); };
+  const fetchUsers = async () => { const { data } = await supabase.from('profiles').select('id, email, full_name, scios_nr, phone, contact_email, role, linked_instruments').order('email'); setUsers(data || []); };
+
+  const handleAdminToggleInstrument = async (userId: string, instrumentId: number, currentLinked: number[]) => {
+    const isLinked = currentLinked.includes(instrumentId);
+    const updated = isLinked ? currentLinked.filter(id => id !== instrumentId) : [...currentLinked, instrumentId];
+    const { error } = await supabase.from('profiles').update({ linked_instruments: updated }).eq('id', userId);
+    if (error) { alert('Fout bij opslaan: ' + error.message); return; }
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, linked_instruments: updated } : u));
+  };
 const fetchOptions = async () => {
       const { data } = await supabase.from('form_options').select('*').order('label');
       if (data) {
@@ -1046,17 +1056,57 @@ const handleLoadDefaultLibrary = async () => {
                     <table className="min-w-full">
                         <thead className="bg-gray-50 border-b"><tr><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Login Email</th><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Volledige Naam</th><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Telefoon</th><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Contact Email</th><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">SCIOS Nr</th><th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Rol</th><th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Acties</th></tr></thead>
                         <tbody className="divide-y divide-gray-200">
-                            {users.map(u => (
-                                <tr key={u.id} className="hover:bg-gray-50">
+                            {users.map(u => {
+                                const isExpanded = expandedUserId === u.id;
+                                const userLinked: number[] = u.linked_instruments ?? [];
+                                return (
+                                <React.Fragment key={u.id}>
+                                <tr className="hover:bg-gray-50">
                                     <td className="px-4 py-3 text-sm font-bold text-gray-700">{u.email}</td>
                                     <td className="px-4 py-3 text-sm"><input className="border rounded p-1 w-full text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.full_name || ''} onBlur={(e) => { if(e.target.value !== (u.full_name||'')) handleUpdateProfile(u.id, 'full_name', e.target.value); }} placeholder="Naam..." /></td>
                                     <td className="px-4 py-3 text-sm"><input className="border rounded p-1 w-28 text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.phone || ''} onBlur={(e) => { if(e.target.value !== (u.phone||'')) handleUpdateProfile(u.id, 'phone', e.target.value); }} placeholder="06-..." /></td>
                                     <td className="px-4 py-3 text-sm"><input className="border rounded p-1 w-full text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.contact_email || ''} onBlur={(e) => { if(e.target.value !== (u.contact_email||'')) handleUpdateProfile(u.id, 'contact_email', e.target.value); }} placeholder={u.email} /></td>
                                     <td className="px-4 py-3 text-sm"><input className="border rounded p-1 w-24 text-sm bg-transparent hover:bg-white focus:bg-white transition-colors" defaultValue={u.scios_nr || ''} onBlur={(e) => { if(e.target.value !== (u.scios_nr||'')) handleUpdateProfile(u.id, 'scios_nr', e.target.value); }} placeholder="Optioneel" /></td>
                                     <td className="px-4 py-3 text-sm"><select className="border rounded p-1 text-sm bg-white cursor-pointer" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}><option value="inspector">Inspector</option><option value="admin">Admin</option></select></td>
-                                    <td className="px-4 py-3 text-right text-sm"><div className="flex justify-end gap-2"><button onClick={() => openPasswordModal(u)} className="text-orange-400 hover:text-orange-600 bg-orange-50 p-2 rounded hover:bg-orange-100 transition-colors" title="Wachtwoord Resetten"><Key size={18}/></button><button onClick={() => handleDeleteUser(u.id)} className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded hover:bg-red-100 transition-colors" title="Verwijder"><Trash2 size={18}/></button></div></td>
+                                    <td className="px-4 py-3 text-right text-sm">
+                                        <div className="flex justify-end gap-2">
+                                            <button onClick={() => { setExpandedUserId(isExpanded ? null : u.id); setAdminKofferSearch(''); }} className={`p-2 rounded transition-colors ${isExpanded ? 'text-emerald-700 bg-emerald-100' : 'text-emerald-400 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`} title="Koffer beheren"><Wrench size={18}/></button>
+                                            <button onClick={() => openPasswordModal(u)} className="text-orange-400 hover:text-orange-600 bg-orange-50 p-2 rounded hover:bg-orange-100 transition-colors" title="Wachtwoord Resetten"><Key size={18}/></button>
+                                            <button onClick={() => handleDeleteUser(u.id)} className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded hover:bg-red-100 transition-colors" title="Verwijder"><Trash2 size={18}/></button>
+                                        </div>
+                                    </td>
                                 </tr>
-                            ))}
+                                {isExpanded && (
+                                    <tr className="bg-emerald-50">
+                                        <td colSpan={7} className="px-4 py-4 border-b border-emerald-200">
+                                            <div className="max-w-2xl">
+                                                <h3 className="font-bold text-sm text-emerald-800 mb-3 flex items-center gap-2"><Wrench size={16}/> Koffer: {u.full_name || u.email} ({userLinked.length} gekoppeld)</h3>
+                                                <input type="text" placeholder="Zoek instrument..." className="w-full border rounded p-2 text-sm mb-3" value={adminKofferSearch} onChange={e => setAdminKofferSearch(e.target.value)} />
+                                                <div className="max-h-64 overflow-y-auto space-y-1">
+                                                    {instrumentsList
+                                                        .filter(item => adminKofferSearch === '' || item.label.toLowerCase().includes(adminKofferSearch.toLowerCase()) || (item.data?.serialNumber || '').toLowerCase().includes(adminKofferSearch.toLowerCase()))
+                                                        .map(item => {
+                                                            const isLinked = userLinked.includes(item.id);
+                                                            return (
+                                                                <label key={item.id} className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${isLinked ? 'bg-emerald-100' : 'hover:bg-gray-100 bg-white'}`}>
+                                                                    <input type="checkbox" checked={isLinked} onChange={() => handleAdminToggleInstrument(u.id, item.id, userLinked)} className="h-4 w-4 text-emerald-600 rounded" />
+                                                                    <div>
+                                                                        <span className="text-sm font-medium">{item.label}</span>
+                                                                        <span className="text-xs text-gray-500 ml-2">SN: {item.data?.serialNumber || 'Onbekend'}</span>
+                                                                    </div>
+                                                                </label>
+                                                            );
+                                                        })
+                                                    }
+                                                    {instrumentsList.length === 0 && <p className="text-sm text-gray-400 italic p-2">Geen instrumenten in de database.</p>}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                                </React.Fragment>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

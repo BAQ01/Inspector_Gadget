@@ -79,7 +79,6 @@ const initialState = {
     hasSolarSystem: null,
   },
   defects: [],
-  customInstruments: [],
   customLibrary: null,
 };
 
@@ -153,10 +152,6 @@ export const useInspectionStore = create<InspectionState>()(
         }
       })),
 
-      addCustomInstrument: (inst) => set((state) => ({
-        customInstruments: [...state.customInstruments, inst]
-      })),
-
       setCustomLibrary: (lib) => set(() => ({
         customLibrary: lib
       })),
@@ -165,8 +160,8 @@ export const useInspectionStore = create<InspectionState>()(
         meta: { ...initialState.meta, ...(data.meta || {}) },
         measurements: { ...initialState.measurements, ...(data.measurements || {}) },
         defects: data.defects || [],
-        customInstruments: data.customInstruments || [],
         customLibrary: data.customLibrary || null,
+        // customInstruments ignored for backward compat with old saved JSON
       })),
 
       mergeState: (incoming) => set((state) => {
