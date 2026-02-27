@@ -152,7 +152,6 @@ const [userProfile, setUserProfile] = useState<any>({
   const [staticDescription, setStaticDescription] = useState('');
   const [customComment, setCustomComment] = useState('');
   const [customClassification, setCustomClassification] = useState<Classification>('Yellow');
-  const [customAction, setCustomAction] = useState('');
 
   const [showNewInstrumentForm, setShowNewInstrumentForm] = useState(false);
   const [newInstSearchQuery, setNewInstSearchQuery] = useState('');
@@ -683,47 +682,47 @@ const handleCloudMerge = async () => {
   
   const handleSubCategoryChange = (val: string) => { setSelectedSubCategory(val); setSelectedLibId(''); setIsCustomDefect(false); setStaticDescription(''); };
   
-  const handleDefectChange = (val: string) => { 
-    if (val === 'CUSTOM') { setIsCustomDefect(true); setSelectedLibId(''); setStaticDescription(''); setCustomComment(''); setCustomAction(''); setCustomClassification('Yellow'); } 
-    else { 
-      setIsCustomDefect(false); setSelectedLibId(val); 
-      const libItem = ACTIVE_LIBRARY.find(d => d.id === val); 
-      if (libItem) { setStaticDescription(libItem.description); setCustomClassification(libItem.classification); setCustomAction(libItem.action); } 
-      setCustomComment(''); 
-    } 
+  const handleDefectChange = (val: string) => {
+    if (val === 'CUSTOM') { setIsCustomDefect(true); setSelectedLibId(''); setStaticDescription(''); setCustomComment(''); setCustomClassification('Yellow'); }
+    else {
+      setIsCustomDefect(false); setSelectedLibId(val);
+      const libItem = ACTIVE_LIBRARY.find(d => d.id === val);
+      if (libItem) { setStaticDescription(libItem.description); setCustomClassification(libItem.classification); }
+      setCustomComment('');
+    }
   };
 
-  const handleStartEdit = (d: Defect) => { 
-    setLocation(d.location); setDefectPhoto1(d.photoUrl || null); setDefectPhoto2(d.photoUrl2 || null); 
-    const libItem = ACTIVE_LIBRARY.find(l => l.id === d.libraryId); 
-    if (libItem) { 
-      setIsCreatingCategory(false); setIsCustomDefect(false); setSelectedMainCategory(libItem.category); 
-      setSelectedSubCategory(libItem.subcategory); setSelectedLibId(libItem.id); 
-      setStaticDescription(libItem.description); setCustomClassification(libItem.classification); 
-      setCustomAction(libItem.action); setCustomComment(d.description.replace(libItem.description, '').trim()); 
-    } else { 
-      setIsCustomDefect(true); setSelectedMainCategory(''); setSelectedSubCategory(''); 
-      setStaticDescription(''); setCustomComment(d.description); setCustomClassification(d.classification); setCustomAction(d.action); 
-    } 
-    setEditingId(d.id); window.scrollTo({ top: 0, behavior: 'smooth' }); 
+  const handleStartEdit = (d: Defect) => {
+    setLocation(d.location); setDefectPhoto1(d.photoUrl || null); setDefectPhoto2(d.photoUrl2 || null);
+    const libItem = ACTIVE_LIBRARY.find(l => l.id === d.libraryId);
+    if (libItem) {
+      setIsCreatingCategory(false); setIsCustomDefect(false); setSelectedMainCategory(libItem.category);
+      setSelectedSubCategory(libItem.subcategory); setSelectedLibId(libItem.id);
+      setStaticDescription(libItem.description); setCustomClassification(libItem.classification);
+      setCustomComment(d.description.replace(libItem.description, '').trim());
+    } else {
+      setIsCustomDefect(true); setSelectedMainCategory(''); setSelectedSubCategory('');
+      setStaticDescription(''); setCustomComment(d.description); setCustomClassification(d.classification);
+    }
+    setEditingId(d.id); window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSaveDefect = () => {
     if (!location) return;
-    let finalDescription = '', finalClassification: Classification = 'Yellow', finalAction = '', finalLibId: string | undefined = undefined;
+    let finalDescription = '', finalClassification: Classification = 'Yellow', finalLibId: string | undefined = undefined;
 
     if (isCustomDefect) {
-      finalDescription = customComment; finalClassification = customClassification; finalAction = customAction;
+      finalDescription = customComment; finalClassification = customClassification;
     } else {
       const libItem = ACTIVE_LIBRARY.find(d => d.id === selectedLibId);
       if (!libItem) return;
       finalDescription = customComment ? `${libItem.description}\n\n${customComment}` : libItem.description;
-      finalClassification = libItem.classification; finalAction = libItem.action; finalLibId = libItem.id;
+      finalClassification = libItem.classification; finalLibId = libItem.id;
     }
 
     const defectData: Defect = {
       id: editingId || generateId(), libraryId: finalLibId, location, description: finalDescription,
-      classification: finalClassification, action: finalAction, photoUrl: defectPhoto1 || undefined,
+      classification: finalClassification, photoUrl: defectPhoto1 || undefined,
       photoUrl2: defectPhoto2 || undefined, category: selectedMainCategory || undefined, subcategory: selectedSubCategory || undefined
     };
 
@@ -732,7 +731,7 @@ const handleCloudMerge = async () => {
 
     setLocation(''); setCustomComment(''); setStaticDescription(''); setSelectedMainCategory('');
     setSelectedSubCategory(''); setSelectedLibId(''); setDefectPhoto1(null); setDefectPhoto2(null);
-    setIsCustomDefect(false); setCustomAction(''); setCustomClassification('Yellow');
+    setIsCustomDefect(false); setCustomClassification('Yellow');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

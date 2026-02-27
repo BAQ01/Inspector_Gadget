@@ -68,7 +68,7 @@ export default function AdminDashboard() {
   const [libraryItems, setLibraryItems] = useState<any[]>([]);
   const [showLibraryModal, setShowLibraryModal] = useState(false);
   const [editingLibraryId, setEditingLibraryId] = useState<string | null>(null);
-  const [newLibraryItem, setNewLibraryItem] = useState({ category: '', subcategory: '', shortName: '', description: '', classification: 'Yellow', action: '' });
+  const [newLibraryItem, setNewLibraryItem] = useState({ category: '', subcategory: '', shortName: '', description: '', classification: 'Yellow' });
   const libraryCsvInputRef = useRef<HTMLInputElement>(null);
   const [inspections, setInspections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -298,19 +298,19 @@ const fetchOptions = async () => {
   // --- LIBRARY HANDLERS ---
   const handleEditLibraryItem = (item: any) => {
       setEditingLibraryId(item.id);
-      setNewLibraryItem({ category: item.category, subcategory: item.subcategory, shortName: item.shortName || item["shortName"], description: item.description, classification: item.classification, action: item.action });
+      setNewLibraryItem({ category: item.category, subcategory: item.subcategory, shortName: item.shortName || item["shortName"], description: item.description, classification: item.classification });
       setShowLibraryModal(true);
   };
 
   const handleSaveLibraryItem = async () => {
       if (!newLibraryItem.category || !newLibraryItem.shortName) return alert("Categorie en Korte Naam verplicht.");
-      const payload = { category: newLibraryItem.category, subcategory: newLibraryItem.subcategory, "shortName": newLibraryItem.shortName, description: newLibraryItem.description, classification: newLibraryItem.classification, action: newLibraryItem.action };
+      const payload = { category: newLibraryItem.category, subcategory: newLibraryItem.subcategory, "shortName": newLibraryItem.shortName, description: newLibraryItem.description, classification: newLibraryItem.classification };
       
       if (editingLibraryId) await supabase.from('defect_library').update(payload).eq('id', editingLibraryId);
       else await supabase.from('defect_library').insert(payload);
       
       setShowLibraryModal(false); setEditingLibraryId(null);
-      setNewLibraryItem({ category: '', subcategory: '', shortName: '', description: '', classification: 'Yellow', action: '' });
+      setNewLibraryItem({ category: '', subcategory: '', shortName: '', description: '', classification: 'Yellow' });
       fetchLibrary();
   };
 
@@ -361,7 +361,7 @@ const fetchOptions = async () => {
                   
                   insertData.push({
                       category: cols[0] || 'Overig', subcategory: cols[1] || 'Algemeen', "shortName": shortName,
-                      description: cols[3] || '', classification: cols[4] || 'Yellow', action: cols[5] || 'Herstellen'
+                      description: cols[3] || '', classification: cols[4] || 'Yellow'
                   });
               }
               
@@ -396,12 +396,11 @@ const handleLoadDefaultLibrary = async () => {
 
           // 3. Bouw de lijst om
           const insertData = newItems.map(d => ({
-              category: d.category, 
-              subcategory: d.subcategory, 
-              "shortName": d.shortName, 
-              description: d.description, 
-              classification: d.classification, 
-              action: d.action
+              category: d.category,
+              subcategory: d.subcategory,
+              "shortName": d.shortName,
+              description: d.description,
+              classification: d.classification
           }));
           
           const { error } = await supabase.from('defect_library').insert(insertData);
@@ -1244,7 +1243,7 @@ const handleLoadDefaultLibrary = async () => {
                          <button onClick={handleLoadDefaultLibrary} className="flex items-center gap-2 bg-emerald-100 text-emerald-800 px-3 py-2.5 rounded-lg shadow-sm text-sm font-bold hover:bg-emerald-200 border border-emerald-300"><Database size={16} /> <span className="hidden sm:inline">Laad Standaard</span> NTA8220</button>
                          <button onClick={() => libraryCsvInputRef.current?.click()} className="flex items-center gap-2 bg-white text-blue-700 px-3 py-2.5 rounded-lg shadow-sm text-sm font-bold hover:bg-blue-50 border border-blue-200"><UploadCloud size={16} /> CSV</button>
                          <input type="file" ref={libraryCsvInputRef} onChange={handleLibraryCsvImport} accept=".csv" className="hidden" />
-                         <button onClick={() => { setNewLibraryItem({ category: '', subcategory: '', shortName: '', description: '', classification: 'Yellow', action: 'Herstellen' }); setEditingLibraryId(null); setShowLibraryModal(true); }} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg shadow text-sm font-bold hover:bg-blue-700"><Plus size={16} /> Nieuw Gebrek</button>
+                         <button onClick={() => { setNewLibraryItem({ category: '', subcategory: '', shortName: '', description: '', classification: 'Yellow' }); setEditingLibraryId(null); setShowLibraryModal(true); }} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg shadow text-sm font-bold hover:bg-blue-700"><Plus size={16} /> Nieuw Gebrek</button>
                      </div>
                  </div>
                  <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
@@ -1307,7 +1306,6 @@ const handleLoadDefaultLibrary = async () => {
                                     <option value="Blue">Blue (Herstel)</option>
                                 </select>
                             </div>
-                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Actie</label><input className="w-full border rounded p-2.5" value={newLibraryItem.action} onChange={e => setNewLibraryItem({...newLibraryItem, action: e.target.value})} placeholder="Bijv. Herstellen" /></div>
                         </div>
                     </div>
                     <div className="p-4 border-t bg-gray-50 flex gap-2">

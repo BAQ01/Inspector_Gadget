@@ -11,7 +11,6 @@ export interface LibraryDefect {
   shortName: string;
   description: string;
   classification: Classification;
-  action: string;
 }
 
 // 3. BEDRIJVEN & INSPECTEURS
@@ -36,7 +35,6 @@ export interface Defect {
   location: string;
   description: string;
   classification: Classification;
-  action: string;
   photoUrl?: string;
   photoUrl2?: string;
   category?: string;

@@ -663,7 +663,6 @@ export const PDFReport = ({ meta, defects, measurements }: Props) => {
               <View style={styles.defectBody}>
                  {/* HIER GEBRUIKEN WE cleanDescription OM DE PREFIX TE VERWIJDEREN */}
                  <Text style={{ marginBottom: 5 }}>{cleanDescription(d.description)}</Text>
-                 <Text style={{ fontSize: 9, color: '#444', fontStyle: 'italic' }}>Actie: {d.action}</Text>
                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 5 }}>
                     {d.photoUrl && <Image src={d.photoUrl} style={styles.defectImage} />}
                     {d.photoUrl2 && <Image src={d.photoUrl2} style={styles.defectImage} />}
