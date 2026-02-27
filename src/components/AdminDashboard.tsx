@@ -1160,7 +1160,7 @@ const handleLoadDefaultLibrary = async () => {
             createdAt: normalizeDate(item.created_at),
             updatedAt: formatDateTime(item.updated_at),
             date: normalizeDate(meta.date),
-            finalizedDate: normalizeDate(meta.finalizedDate) || '-',
+            finalizedDate: normalizeDate(meta.finalizedDate) || '',
             
             inspectorName: meta.inspectorName,
             sciosNr: meta.sciosRegistrationNumber,
@@ -1213,13 +1213,15 @@ const handleLoadDefaultLibrary = async () => {
         });
 
         const getVal = (row: any, ...aliases: string[]) => {
-            const colIndex = Object.keys(headers).find(key => 
+            const colIndex = Object.keys(headers).find(key =>
                 aliases.some(alias => headers[parseInt(key)].includes(alias.toLowerCase()))
             );
             if (!colIndex) return '';
             const cell = row.getCell(parseInt(colIndex));
-            if (cell.value && typeof cell.value === 'object' && 'text' in cell.value) { return (cell.value as any).text.toString(); }
-            return cell.value ? cell.value.toString() : '';
+            if (!cell.value) return '';
+            if (cell.value instanceof Date) return cell.value.toISOString().split('T')[0];
+            if (typeof cell.value === 'object' && 'text' in cell.value) return (cell.value as any).text.toString();
+            return cell.value.toString();
         };
 
         const promises: any[] = [];
@@ -1266,9 +1268,13 @@ const handleLoadDefaultLibrary = async () => {
                 const op = async () => {
                     const { data: existing } = await supabase.from('inspections').select('report_data').eq('inspection_number', id).maybeSingle();
                     if (existing) {
+                        // Alleen niet-lege waarden overnemen zodat bestaande data niet wordt gewist
+                        const nonEmptyUpdate = Object.fromEntries(
+                            Object.entries(metaUpdate).filter(([, v]) => v !== '' && v != null)
+                        );
                         const newReportData = {
                             ...existing.report_data,
-                            meta: { ...existing.report_data.meta, ...metaUpdate }
+                            meta: { ...existing.report_data.meta, ...nonEmptyUpdate }
                         };
                         await supabase.from('inspections').update({
                             client_name: clientName,
@@ -2121,9 +2127,9 @@ const handleLoadDefaultLibrary = async () => {
                 <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
                     <div className="p-6 border-b flex justify-between items-center bg-gray-50"><h2 className="text-xl font-bold text-gray-800">{editingId ? 'Opdracht Bewerken' : 'Nieuwe Opdracht'}</h2><button onClick={closeModal}><X size={24}/></button></div>
                     <div className="flex border-b bg-gray-100">
-                        <button onClick={() => setModalTab('basis')} className={`flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 ${modalTab === 'basis' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><Calendar size={16}/> 1. Basis</button>
-                        <button onClick={() => setModalTab('klant')} className={`flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 ${modalTab === 'klant' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><User size={16}/> 2. Opdrachtgever</button>
-                        <button onClick={() => setModalTab('project')} className={`flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 ${modalTab === 'project' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><Building size={16}/> 3. Project</button>
+                        <button onClick={() => { setModalTab('basis'); setPlacesResults([]); setPlacesQuery(''); }} className={`flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 ${modalTab === 'basis' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><Calendar size={16}/> 1. Basis</button>
+                        <button onClick={() => { setModalTab('klant'); setPlacesResults([]); setPlacesQuery(''); }} className={`flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 ${modalTab === 'klant' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><User size={16}/> 2. Opdrachtgever</button>
+                        <button onClick={() => { setModalTab('project'); setPlacesResults([]); setPlacesQuery(''); }} className={`flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 ${modalTab === 'project' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><Building size={16}/> 3. Project</button>
                     </div>
                     
                     <div className="p-6 overflow-y-auto bg-gray-50">
@@ -2179,6 +2185,36 @@ const handleLoadDefaultLibrary = async () => {
                         )}
                         {modalTab === 'klant' && (
                             <div className="space-y-4">
+                                {/* Google Places zoeker */}
+                                <div className="relative">
+                                  <div className="flex gap-1.5">
+                                    <input type="text" placeholder="Zoek opdrachtgever via Google..." className="flex-1 border rounded p-2 text-sm"
+                                      value={placesQuery} onChange={e => setPlacesQuery(e.target.value)}
+                                      onKeyDown={e => e.key === 'Enter' && searchPlaces(placesQuery)} />
+                                    <button onClick={() => searchPlaces(placesQuery)} disabled={isSearchingPlaces}
+                                      className="px-3 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 shrink-0">
+                                      {isSearchingPlaces ? <RefreshCw size={14} className="animate-spin"/> : <Search size={14}/>}
+                                    </button>
+                                  </div>
+                                  {placesResults.length > 0 && (
+                                    <div className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border rounded shadow-lg max-h-56 overflow-y-auto">
+                                      {placesResults.map((p, i) => {
+                                        const parsed = parsePlaceResult(p);
+                                        return (
+                                          <button key={i} className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b last:border-0"
+                                            onClick={() => {
+                                              setNewOrder({ ...newOrder, clientName: parsed.name, clientAddress: parsed.address, clientPostalCode: parsed.postalCode, clientCity: parsed.city, clientPhone: parsed.phone, clientEmail: parsed.website ? newOrder.clientEmail : (parsed.phone ? newOrder.clientEmail : '') });
+                                              setPlacesResults([]); setPlacesQuery('');
+                                            }}>
+                                            <div className="font-bold text-gray-800">{parsed.name}</div>
+                                            <div className="text-xs text-gray-500">{p.formattedAddress}</div>
+                                          </button>
+                                        );
+                                      })}
+                                      <button className="w-full text-center text-xs text-gray-400 py-1.5 hover:bg-gray-50" onClick={() => setPlacesResults([])}>Sluiten</button>
+                                    </div>
+                                  )}
+                                </div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Naam Opdrachtgever</label><input className="w-full border rounded p-2 font-bold" value={newOrder.clientName} onChange={e => setNewOrder({...newOrder, clientName: e.target.value})} placeholder="Bijv. Bakkerij Jansen B.V." /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adres</label><input className="w-full border rounded p-2" value={newOrder.clientAddress} onChange={e => setNewOrder({...newOrder, clientAddress: e.target.value})} /></div>
                                 <div className="flex gap-2"><div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-2" value={newOrder.clientPostalCode} onChange={e => setNewOrder({...newOrder, clientPostalCode: e.target.value})} /></div><div className="w-2/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label><input className="w-full border rounded p-2" value={newOrder.clientCity} onChange={e => setNewOrder({...newOrder, clientCity: e.target.value})} /></div></div>
@@ -2189,6 +2225,36 @@ const handleLoadDefaultLibrary = async () => {
                         )}
                         {modalTab === 'project' && (
                             <div className="space-y-4">
+                                {/* Google Places zoeker */}
+                                <div className="relative">
+                                  <div className="flex gap-1.5">
+                                    <input type="text" placeholder="Zoek locatie via Google..." className="flex-1 border rounded p-2 text-sm"
+                                      value={placesQuery} onChange={e => setPlacesQuery(e.target.value)}
+                                      onKeyDown={e => e.key === 'Enter' && searchPlaces(placesQuery)} />
+                                    <button onClick={() => searchPlaces(placesQuery)} disabled={isSearchingPlaces}
+                                      className="px-3 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 shrink-0">
+                                      {isSearchingPlaces ? <RefreshCw size={14} className="animate-spin"/> : <Search size={14}/>}
+                                    </button>
+                                  </div>
+                                  {placesResults.length > 0 && (
+                                    <div className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border rounded shadow-lg max-h-56 overflow-y-auto">
+                                      {placesResults.map((p, i) => {
+                                        const parsed = parsePlaceResult(p);
+                                        return (
+                                          <button key={i} className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b last:border-0"
+                                            onClick={() => {
+                                              setNewOrder({ ...newOrder, projectLocation: parsed.name, projectAddress: parsed.address, projectPostalCode: parsed.postalCode, projectCity: parsed.city, projectPhone: parsed.phone });
+                                              setPlacesResults([]); setPlacesQuery('');
+                                            }}>
+                                            <div className="font-bold text-gray-800">{parsed.name}</div>
+                                            <div className="text-xs text-gray-500">{p.formattedAddress}</div>
+                                          </button>
+                                        );
+                                      })}
+                                      <button className="w-full text-center text-xs text-gray-400 py-1.5 hover:bg-gray-50" onClick={() => setPlacesResults([])}>Sluiten</button>
+                                    </div>
+                                  )}
+                                </div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Locatienaam (Indien afwijkend)</label><input className="w-full border rounded p-2" value={newOrder.projectLocation} onChange={e => setNewOrder({...newOrder, projectLocation: e.target.value})} placeholder="Bijv. Filiaal Centrum" /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adres</label><input className="w-full border rounded p-2" value={newOrder.projectAddress} onChange={e => setNewOrder({...newOrder, projectAddress: e.target.value})} /></div>
                                 <div className="flex gap-2"><div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-2" value={newOrder.projectPostalCode} onChange={e => setNewOrder({...newOrder, projectPostalCode: e.target.value})} /></div><div className="w-2/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label><input className="w-full border rounded p-2" value={newOrder.projectCity} onChange={e => setNewOrder({...newOrder, projectCity: e.target.value})} /></div></div>
