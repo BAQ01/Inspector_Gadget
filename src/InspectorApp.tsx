@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useInspectionStore } from './store';
 import { DEFECT_LIBRARY, calculateSample, COMPANIES } from './constants';
 import { pdf } from '@react-pdf/renderer';
@@ -106,7 +106,31 @@ const [userProfile, setUserProfile] = useState<any>({
     setPlacesResults(await fetchPlaces(query));
     setIsSearchingPlaces(false);
   };
-  
+
+  // Places states voor Opdrachtgever sectie
+  const [clientPlacesQuery, setClientPlacesQuery] = useState('');
+  const [clientPlacesResults, setClientPlacesResults] = useState<any[]>([]);
+  const [clientIsSearchingPlaces, setClientIsSearchingPlaces] = useState(false);
+  const searchClientPlaces = async (query: string) => {
+    setClientIsSearchingPlaces(true);
+    setClientPlacesResults(await fetchPlaces(query));
+    setClientIsSearchingPlaces(false);
+  };
+
+  // Places states voor Project/Locatie sectie
+  const [projectPlacesQuery, setProjectPlacesQuery] = useState('');
+  const [projectPlacesResults, setProjectPlacesResults] = useState<any[]>([]);
+  const [projectIsSearchingPlaces, setProjectIsSearchingPlaces] = useState(false);
+  const searchProjectPlaces = async (query: string) => {
+    setProjectIsSearchingPlaces(true);
+    setProjectPlacesResults(await fetchPlaces(query));
+    setProjectIsSearchingPlaces(false);
+  };
+
+  // CRM klanten voor autocomplete opdrachtgever
+  const [appClients, setAppClients] = useState<any[]>([]);
+  const [clientFreqMap, setClientFreqMap] = useState<Record<string, number>>({});
+
   const [dbCompanies, setDbCompanies] = useState<any[]>([]);
   const [dbInstruments, setDbInstruments] = useState<any[]>([]);
   const [inspectorProfiles, setInspectorProfiles] = useState<any[]>([]);
@@ -139,6 +163,15 @@ const [userProfile, setUserProfile] = useState<any>({
     userProfile.linked_instruments ?? [],
     userProfile.instrument_usage ?? {}
   );
+
+  // Frequency-sorted client suggestions for opdrachtgever autocomplete
+  const clientSuggestions = useMemo(() => {
+    const freqEntries = Object.entries(clientFreqMap).sort((a, b) => b[1] - a[1]);
+    const freqNames = new Set(freqEntries.map(([n]) => n.toLowerCase()));
+    const freqList = freqEntries.map(([name]) => ({ name }));
+    const crmOnly = appClients.filter(c => !freqNames.has(c.name.toLowerCase())).map(c => ({ name: c.name, address: c.address, postalCode: c.postal_code, city: c.city, phone: c.phone, email: c.email }));
+    return [...freqList, ...crmOnly];
+  }, [clientFreqMap, appClients]);
 
   const [showWorkModal, setShowWorkModal] = useState(false);
   const [availableWork, setAvailableWork] = useState<any[]>([]);
@@ -203,6 +236,16 @@ const [userProfile, setUserProfile] = useState<any>({
               .order('full_name');
           if (profilesData) {
               setInspectorProfiles(profilesData.filter(p => p.full_name));
+          }
+
+          // Haal CRM klanten op voor opdrachtgever autocomplete
+          const { data: clientsData } = await supabase.from('clients').select('*').order('name');
+          setAppClients(clientsData || []);
+          const { data: freqData } = await supabase.from('inspections').select('client_name');
+          if (freqData) {
+            const freq: Record<string, number> = {};
+            freqData.forEach(row => { if (row.client_name) freq[row.client_name] = (freq[row.client_name] || 0) + 1; });
+            setClientFreqMap(freq);
           }
 
           // Haal de centrale bibliotheek op
@@ -1136,8 +1179,54 @@ const handleCloudMerge = async () => {
 
                <div className={`bg-gray-50 p-4 rounded border ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
                  <h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Opdrachtgever</h2>
+                 {/* Google Places zoeker */}
+                 {!meta.isContributionMode && (
+                   <div className="relative mb-3">
+                     <div className="flex gap-1.5">
+                       <input type="text" placeholder="Zoek opdrachtgever via Google..." className="flex-1 border rounded p-2 text-sm bg-white"
+                         value={clientPlacesQuery} onChange={e => setClientPlacesQuery(e.target.value)}
+                         onKeyDown={e => e.key === 'Enter' && searchClientPlaces(clientPlacesQuery)} />
+                       <button onClick={() => searchClientPlaces(clientPlacesQuery)} disabled={clientIsSearchingPlaces}
+                         className="px-3 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 shrink-0">
+                         {clientIsSearchingPlaces ? <RefreshCw size={14} className="animate-spin"/> : <Search size={14}/>}
+                       </button>
+                     </div>
+                     {clientPlacesResults.length > 0 && (
+                       <div className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border rounded shadow-lg max-h-48 overflow-y-auto">
+                         {clientPlacesResults.map((p, i) => {
+                           const parsed = parsePlaceResult(p);
+                           return (
+                             <button key={i} className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b last:border-0"
+                               onClick={() => {
+                                 setMeta({ clientName: parsed.name, clientAddress: parsed.address, clientPostalCode: parsed.postalCode, clientCity: parsed.city, clientPhone: parsed.phone });
+                                 setClientPlacesResults([]); setClientPlacesQuery('');
+                               }}>
+                               <div className="font-bold text-gray-800">{parsed.name}</div>
+                               <div className="text-xs text-gray-500">{p.formattedAddress}</div>
+                             </button>
+                           );
+                         })}
+                         <button className="w-full text-center text-xs text-gray-400 py-1 hover:bg-gray-50" onClick={() => setClientPlacesResults([])}>Sluiten</button>
+                       </div>
+                     )}
+                   </div>
+                 )}
                  <div className="grid grid-cols-1 gap-3">
-                   <input className="border rounded p-2" placeholder="Naam" value={meta.clientName} onChange={(e) => setMeta({ clientName: e.target.value })} />
+                   <div className="relative">
+                     <input className="border rounded p-2 w-full" list="inspector-client-suggestions" placeholder="Naam (kies of typ)" value={meta.clientName}
+                       onChange={(e) => {
+                         const val = e.target.value;
+                         const match = appClients.find(c => c.name === val);
+                         if (match) {
+                           setMeta({ clientName: val, clientAddress: match.address || '', clientPostalCode: match.postal_code || '', clientCity: match.city || '', clientPhone: match.phone || '', clientEmail: match.email || '' });
+                         } else {
+                           setMeta({ clientName: val });
+                         }
+                       }} />
+                     <datalist id="inspector-client-suggestions">
+                       {clientSuggestions.map((s, i) => <option key={i} value={s.name} />)}
+                     </datalist>
+                   </div>
                    <input className="border rounded p-2" placeholder="Adres" value={meta.clientAddress} onChange={(e) => setMeta({ clientAddress: e.target.value })} />
                    <div className="flex gap-2"><input className="border rounded p-2 w-1/3" placeholder="Postcode" value={meta.clientPostalCode} onChange={(e) => setMeta({ clientPostalCode: e.target.value })} /><input className="border rounded p-2 w-2/3" placeholder="Plaats" value={meta.clientCity} onChange={(e) => setMeta({ clientCity: e.target.value })} /></div>
                    <input className="border rounded p-2" placeholder="Contactpersoon" value={meta.clientContactPerson} onChange={(e) => setMeta({ clientContactPerson: e.target.value })} />
@@ -1148,6 +1237,38 @@ const handleCloudMerge = async () => {
                
                <div className={`bg-gray-50 p-4 rounded border ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
                    <h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Projectgegevens</h2>
+                   {/* Google Places zoeker */}
+                   {!meta.isContributionMode && (
+                     <div className="relative mb-3">
+                       <div className="flex gap-1.5">
+                         <input type="text" placeholder="Zoek locatie via Google..." className="flex-1 border rounded p-2 text-sm bg-white"
+                           value={projectPlacesQuery} onChange={e => setProjectPlacesQuery(e.target.value)}
+                           onKeyDown={e => e.key === 'Enter' && searchProjectPlaces(projectPlacesQuery)} />
+                         <button onClick={() => searchProjectPlaces(projectPlacesQuery)} disabled={projectIsSearchingPlaces}
+                           className="px-3 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 shrink-0">
+                           {projectIsSearchingPlaces ? <RefreshCw size={14} className="animate-spin"/> : <Search size={14}/>}
+                         </button>
+                       </div>
+                       {projectPlacesResults.length > 0 && (
+                         <div className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border rounded shadow-lg max-h-48 overflow-y-auto">
+                           {projectPlacesResults.map((p, i) => {
+                             const parsed = parsePlaceResult(p);
+                             return (
+                               <button key={i} className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b last:border-0"
+                                 onClick={() => {
+                                   setMeta({ projectLocation: parsed.name, projectAddress: parsed.address, projectPostalCode: parsed.postalCode, projectCity: parsed.city, projectPhone: parsed.phone });
+                                   setProjectPlacesResults([]); setProjectPlacesQuery('');
+                                 }}>
+                                 <div className="font-bold text-gray-800">{parsed.name}</div>
+                                 <div className="text-xs text-gray-500">{p.formattedAddress}</div>
+                               </button>
+                             );
+                           })}
+                           <button className="w-full text-center text-xs text-gray-400 py-1 hover:bg-gray-50" onClick={() => setProjectPlacesResults([])}>Sluiten</button>
+                         </div>
+                       )}
+                     </div>
+                   )}
                    <div className="grid grid-cols-1 gap-3">
                        <input className="border rounded p-2" placeholder="Locatie" value={meta.projectLocation} onChange={(e) => setMeta({ projectLocation: e.target.value })} />
                        <input className="border rounded p-2" placeholder="Adres" value={meta.projectAddress} onChange={(e) => setMeta({ projectAddress: e.target.value })} />

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { supabase } from '../supabase';
 import { Calendar, User, Download, RefreshCw, Plus, X, MapPin, Trash2, Lock, FileText, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Database, Users, Shield, UserPlus, FileSpreadsheet, Pencil, Settings, Building, Wrench, Key, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Hash, Mail, Phone, Briefcase, Clock, BookOpen, UploadCloud, Globe, StickyNote, FolderOpen, UserCircle2 } from 'lucide-react';
 import type { Client, ClientContact } from '../types';
@@ -138,6 +138,7 @@ export default function AdminDashboard() {
   const [placesQuery, setPlacesQuery] = useState('');
   const [placesResults, setPlacesResults] = useState<any[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const [modalClientFreq, setModalClientFreq] = useState<Record<string, number>>({});
 
   const [expandedProjectIds, setExpandedProjectIds] = useState<Set<number>>(new Set());
 
@@ -368,6 +369,15 @@ const fetchOptions = async () => {
     setClients(data || []);
   };
 
+  const fetchModalClientFreq = async () => {
+    const { data } = await supabase.from('inspections').select('client_name');
+    if (data) {
+      const freq: Record<string, number> = {};
+      data.forEach(row => { if (row.client_name) freq[row.client_name] = (freq[row.client_name] || 0) + 1; });
+      setModalClientFreq(freq);
+    }
+  };
+
   const fetchClientInspections = async (clientName: string) => {
     const { data } = await supabase.from('inspections')
       .select('id, inspection_number, created_at, status, report_data')
@@ -547,10 +557,20 @@ const fetchOptions = async () => {
 
   useEffect(() => { autoSyncClients(); }, []);
 
+  // Frequency-sorted client suggestions for the order modal
+  const modalClientSuggestions = useMemo(() => {
+    const freqEntries = Object.entries(modalClientFreq).sort((a, b) => b[1] - a[1]);
+    const freqNames = new Set(freqEntries.map(([n]) => n.toLowerCase()));
+    const freqSuggestions = freqEntries.map(([name]) => ({ name }));
+    const crmOnly = clients.filter(c => !freqNames.has(c.name.toLowerCase())).map(c => ({ name: c.name }));
+    return [...freqSuggestions, ...crmOnly];
+  }, [modalClientFreq, clients]);
+
   useEffect(() => {
     if (activeTab === 'inspections') { fetchInspections(); fetchInstallers(); }
     if (activeTab === 'users') fetchUsers();
     if (activeTab === 'settings' || showOrderModal) { fetchOptions(); fetchUsers(); }
+    if (showOrderModal) { fetchClients(); fetchModalClientFreq(); }
     if (activeTab === 'library') fetchLibrary();
     if (activeTab === 'clients') fetchClients();
     if (activeTab === 'agenda') fetchAgendaInspections();
@@ -2215,7 +2235,27 @@ const handleLoadDefaultLibrary = async () => {
                                     </div>
                                   )}
                                 </div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Naam Opdrachtgever</label><input className="w-full border rounded p-2 font-bold" value={newOrder.clientName} onChange={e => setNewOrder({...newOrder, clientName: e.target.value})} placeholder="Bijv. Bakkerij Jansen B.V." /></div>
+                                <div>
+                                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Naam Opdrachtgever</label>
+                                  <input
+                                    className="w-full border rounded p-2 font-bold"
+                                    list="modal-client-suggestions"
+                                    value={newOrder.clientName}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      const match = clients.find(c => c.name === val);
+                                      if (match) {
+                                        setNewOrder({ ...newOrder, clientName: val, clientAddress: match.address || newOrder.clientAddress, clientPostalCode: (match as any).postal_code || newOrder.clientPostalCode, clientCity: match.city || newOrder.clientCity, clientPhone: match.phone || newOrder.clientPhone, clientEmail: match.email || newOrder.clientEmail });
+                                      } else {
+                                        setNewOrder({ ...newOrder, clientName: val });
+                                      }
+                                    }}
+                                    placeholder="Bijv. Bakkerij Jansen B.V."
+                                  />
+                                  <datalist id="modal-client-suggestions">
+                                    {modalClientSuggestions.map((s, i) => <option key={i} value={s.name} />)}
+                                  </datalist>
+                                </div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adres</label><input className="w-full border rounded p-2" value={newOrder.clientAddress} onChange={e => setNewOrder({...newOrder, clientAddress: e.target.value})} /></div>
                                 <div className="flex gap-2"><div className="w-1/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postcode</label><input className="w-full border rounded p-2" value={newOrder.clientPostalCode} onChange={e => setNewOrder({...newOrder, clientPostalCode: e.target.value})} /></div><div className="w-2/3"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plaats</label><input className="w-full border rounded p-2" value={newOrder.clientCity} onChange={e => setNewOrder({...newOrder, clientCity: e.target.value})} /></div></div>
                                 <hr className="border-gray-200"/>
