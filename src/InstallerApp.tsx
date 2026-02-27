@@ -1,8 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, type ReactNode } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { LogOut, ArrowLeft, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { LogOut, ArrowLeft, Upload, FileText, User, X } from 'lucide-react';
 import { Defect, InspectionDbRow } from './types';
 import { compressImage, uploadPhotoToCloud } from './utils';
+import { pdf } from '@react-pdf/renderer';
+import { PDFReport } from './components/PDFReport';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface InstallerAppProps {
@@ -19,29 +21,79 @@ const CLASSIFICATION_STYLE: Record<string, { border: string; badge: string; labe
   Blue:   { border: '#3b82f6', badge: 'bg-blue-500 text-white',   label: 'Blauw' },
 };
 
+const USAGE_LABELS: Record<string, string> = {
+  woonfunctie: 'Woonfunctie', bijeenkomstfunctie: 'Bijeenkomstfunctie', celfunctie: 'Celfunctie',
+  gezondheidszorgfunctie: 'Gezondheidszorgfunctie', industriefunctie: 'Industriefunctie',
+  kantoorfunctie: 'Kantoorfunctie', logiesfunctie: 'Logiesfunctie', onderwijsfunctie: 'Onderwijsfunctie',
+  sportfunctie: 'Sportfunctie', winkelfunctie: 'Winkelfunctie',
+  overigeGebruiksfunctie: 'Overige gebruiksfunctie', bouwwerkGeenGebouw: 'Bouwwerk geen gebouw',
+};
+
+type Screen = 'overview' | 'inspection' | 'signature' | 'profile';
+type InspectionTab = 'basis' | 'gebreken';
+type ProfileTab = 'persoonlijk' | 'bedrijf' | 'handtekening';
+
+const PROFILE_TABS: { id: ProfileTab; label: string }[] = [
+  { id: 'persoonlijk', label: 'Persoonlijk' },
+  { id: 'bedrijf', label: 'Mijn Bedrijf' },
+  { id: 'handtekening', label: 'Handtekening' },
+];
+
+const COMPANY_FIELDS: { field: string; label: string; placeholder: string; type?: string }[] = [
+  { field: 'name',       label: 'Bedrijfsnaam',   placeholder: 'Installatiebedrijf B.V.' },
+  { field: 'address',    label: 'Adres',           placeholder: 'Straat 1' },
+  { field: 'postalCode', label: 'Postcode',         placeholder: '1234 AB' },
+  { field: 'city',       label: 'Plaats',           placeholder: 'Amsterdam' },
+  { field: 'phone',      label: 'Telefoon',         placeholder: '020-1234567' },
+  { field: 'email',      label: 'E-mail',           placeholder: 'info@bedrijf.nl', type: 'email' },
+];
+
 export default function InstallerApp({ supabase, userId, onLogout }: InstallerAppProps) {
-  const [installerName, setInstallerName] = useState('');
+  // Navigation
+  const [screen, setScreen] = useState<Screen>('overview');
+  const [inspectionTab, setInspectionTab] = useState<InspectionTab>('basis');
+  const [profileTab, setProfileTab] = useState<ProfileTab>('persoonlijk');
+
+  // Data
   const [inspections, setInspections] = useState<InspectionDbRow[]>([]);
   const [selectedInspection, setSelectedInspection] = useState<InspectionDbRow | null>(null);
-  const [currentDefectIndex, setCurrentDefectIndex] = useState(0);
   const [localDefects, setLocalDefects] = useState<Defect[]>([]);
-  const [showSignature, setShowSignature] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [userProfile, setUserProfile] = useState({
+    full_name: '', phone: '', contact_email: '', signature_url: '',
+    installer_company: { name: '', address: '', postalCode: '', city: '', phone: '', email: '' },
+  });
+
+  // UI state
   const [loadingInspections, setLoadingInspections] = useState(true);
+  const [isSaving, setIsSaving]       = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isUploading, setIsUploading] = useState<Record<string, boolean>>({});
+  const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null);
 
-  const sigPad = useRef<SignatureCanvas>(null);
-  const fileInput1Ref = useRef<HTMLInputElement>(null);
-  const fileInput2Ref = useRef<HTMLInputElement>(null);
+  // Refs
+  const sigPad        = useRef<SignatureCanvas>(null);
+  const profileSigPad = useRef<SignatureCanvas>(null);
 
-  useEffect(() => {
-    fetchProfile();
-    fetchInspections();
-  }, []);
+  useEffect(() => { fetchProfile(); fetchInspections(); }, []);
+
+  // ---- DATA FETCHERS ----
 
   const fetchProfile = async () => {
-    const { data } = await supabase.from('profiles').select('full_name').eq('id', userId).single();
-    if (data) setInstallerName(data.full_name || '');
+    const { data } = await supabase
+      .from('profiles')
+      .select('full_name, phone, contact_email, signature_url, installer_company')
+      .eq('id', userId)
+      .single();
+    if (data) {
+      setUserProfile({
+        full_name:           data.full_name || '',
+        phone:               data.phone || '',
+        contact_email:       data.contact_email || '',
+        signature_url:       data.signature_url || '',
+        installer_company:   data.installer_company || { name: '', address: '', postalCode: '', city: '', phone: '', email: '' },
+      });
+    }
   };
 
   const fetchInspections = async () => {
@@ -56,46 +108,49 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
     setLoadingInspections(false);
   };
 
+  // ---- INSPECTION ACTIONS ----
+
   const handleOpenInspection = (row: InspectionDbRow) => {
     setSelectedInspection(row);
     setLocalDefects([...row.report_data.defects]);
-    setCurrentDefectIndex(0);
-    setShowSignature(false);
+    setInspectionTab('basis');
+    setScreen('inspection');
   };
 
-  const handleBack = () => {
-    setSelectedInspection(null);
-    setShowSignature(false);
-  };
+  const updateDefect = (defectId: string, changes: Partial<Defect>) =>
+    setLocalDefects(prev => prev.map(d => d.id === defectId ? { ...d, ...changes } : d));
 
-  const updateCurrentDefect = (changes: Partial<Defect>) => {
-    setLocalDefects(prev =>
-      prev.map((d, i) => (i === currentDefectIndex ? { ...d, ...changes } : d))
-    );
-  };
-
-  const handlePhotoUpload = async (slot: 1 | 2, file: File) => {
-    setIsUploading(true);
+  const handlePhotoUpload = async (defectId: string, slot: 1 | 2, file: File) => {
+    const key = `${defectId}-${slot}`;
+    setIsUploading(prev => ({ ...prev, [key]: true }));
     try {
       const compressed = await compressImage(file, 'defect');
       const url = await uploadPhotoToCloud(compressed);
-      if (url) {
-        if (slot === 1) updateCurrentDefect({ repairPhotoUrl1: url });
-        else updateCurrentDefect({ repairPhotoUrl2: url });
-      }
-    } catch {
-      alert('Fout bij uploaden foto.');
-    } finally {
-      setIsUploading(false);
-    }
+      if (url) updateDefect(defectId, slot === 1 ? { repairPhotoUrl1: url } : { repairPhotoUrl2: url });
+    } catch { alert('Fout bij uploaden foto.'); }
+    finally { setIsUploading(prev => ({ ...prev, [key]: false })); }
+  };
+
+  const handleDownloadOriginalPDF = async () => {
+    if (!selectedInspection?.report_data) return;
+    setIsGeneratingPdf(true);
+    try {
+      const { meta, defects, measurements } = selectedInspection.report_data;
+      const blob = await pdf(
+        <PDFReport meta={meta} defects={defects || []} measurements={measurements} />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Rapport_${meta.date || 'Datum'}_${meta.clientName || 'Klant'}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    } catch (e) { console.error(e); alert('Fout bij genereren PDF'); }
+    finally { setIsGeneratingPdf(false); }
   };
 
   const handleSubmit = async () => {
     if (!selectedInspection) return;
-    if (sigPad.current?.isEmpty()) {
-      alert('Zet uw handtekening om in te dienen.');
-      return;
-    }
+    if (sigPad.current?.isEmpty()) { alert('Zet uw handtekening om in te dienen.'); return; }
     setIsSaving(true);
     const sigData = sigPad.current?.getCanvas().toDataURL('image/png');
     const updatedReportData = {
@@ -104,7 +159,7 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
       meta: {
         ...selectedInspection.report_data.meta,
         installerSignature: sigData,
-        installerName: installerName,
+        installerName: userProfile.full_name,
         repairDate: new Date().toISOString().split('T')[0],
       },
     };
@@ -113,33 +168,207 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
       .update({ report_data: updatedReportData, status: 'ter_controle' })
       .eq('id', selectedInspection.id);
     setIsSaving(false);
-    if (error) {
-      alert('Fout bij indienen: ' + error.message);
-      return;
-    }
-    setSelectedInspection(null);
-    setShowSignature(false);
+    if (error) { alert('Fout bij indienen: ' + error.message); return; }
+    setScreen('overview');
     fetchInspections();
   };
 
-  const allRepaired = localDefects.length > 0 && localDefects.every(d => d.isRepaired === true);
-  const repairedCount = localDefects.filter(d => d.isRepaired).length;
-  const currentDefect = localDefects[currentDefectIndex];
-  const isLastDefect = currentDefectIndex === localDefects.length - 1;
-  const isFirstDefect = currentDefectIndex === 0;
-  const cs = currentDefect
-    ? (CLASSIFICATION_STYLE[currentDefect.classification] ?? CLASSIFICATION_STYLE['Blue'])
-    : null;
+  // ---- PROFILE ACTIONS ----
 
-  // --- SCREEN: SIGNATURE ---
-  if (selectedInspection && showSignature) {
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
+    const { error } = await supabase.from('profiles').update({
+      full_name:     userProfile.full_name,
+      phone:         userProfile.phone,
+      contact_email: userProfile.contact_email,
+    }).eq('id', userId);
+    setIsSavingProfile(false);
+    if (error) alert('Fout: ' + error.message); else alert('Opgeslagen!');
+  };
+
+  const handleSaveCompany = async () => {
+    setIsSavingProfile(true);
+    const { error } = await supabase.from('profiles').update({
+      installer_company: userProfile.installer_company,
+    }).eq('id', userId);
+    setIsSavingProfile(false);
+    if (error) alert('Fout: ' + error.message); else alert('Bedrijfsgegevens opgeslagen!');
+  };
+
+  const saveProfileSignature = async () => {
+    if (!profileSigPad.current || profileSigPad.current.isEmpty()) return alert('Teken eerst een handtekening.');
+    const sigUrl = profileSigPad.current.getCanvas().toDataURL('image/png');
+    setUserProfile(prev => ({ ...prev, signature_url: sigUrl }));
+    setIsSavingProfile(true);
+    const { error } = await supabase.from('profiles').update({ signature_url: sigUrl }).eq('id', userId);
+    setIsSavingProfile(false);
+    if (error) alert('Fout: ' + error.message);
+  };
+
+  // ---- COMPUTED ----
+  const allRepaired    = localDefects.length > 0 && localDefects.every(d => d.isRepaired === true);
+  const repairedCount  = localDefects.filter(d => d.isRepaired).length;
+  const isSubmitted    = selectedInspection?.status === 'ter_controle';
+
+  // ================================================================
+  // PHOTO ZOOM OVERLAY (renders on top of everything)
+  // ================================================================
+  if (zoomedPhoto) {
+    return (
+      <div
+        className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+        onClick={() => setZoomedPhoto(null)}
+      >
+        <button className="absolute top-4 right-4 text-white bg-black/40 rounded-full p-2 z-10">
+          <X size={24} />
+        </button>
+        <img
+          src={zoomedPhoto}
+          className="max-w-full max-h-full object-contain select-none"
+          style={{ touchAction: 'pinch-zoom' }}
+          onClick={e => e.stopPropagation()}
+          alt="Vergrote foto"
+        />
+      </div>
+    );
+  }
+
+  // ================================================================
+  // SCREEN: PROFILE
+  // ================================================================
+  if (screen === 'profile') {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <header className="bg-white shadow-sm px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => setShowSignature(false)}
-            className="flex items-center gap-1 text-gray-600 hover:text-gray-900"
-          >
+          <button onClick={() => setScreen('overview')} className="flex items-center gap-1 text-gray-600 hover:text-gray-900">
+            <ArrowLeft size={18} /> Terug
+          </button>
+          <span className="font-bold text-gray-800">Mijn Profiel</span>
+          <div />
+        </header>
+
+        <div className="bg-white border-b">
+          <div className="flex max-w-lg mx-auto">
+            {PROFILE_TABS.map(tab => (
+              <button key={tab.id} onClick={() => setProfileTab(tab.id)}
+                className={`flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  profileTab === tab.id ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 p-4 max-w-lg mx-auto w-full space-y-4">
+
+          {/* ---- TAB: PERSOONLIJK ---- */}
+          {profileTab === 'persoonlijk' && (
+            <>
+              <div className="bg-white rounded-xl shadow p-4 space-y-3">
+                <p className="font-semibold text-gray-700 text-sm border-b pb-2">Persoonlijke gegevens</p>
+                {[
+                  { key: 'full_name',     label: 'Volledige naam',  placeholder: 'Je naam', type: 'text' },
+                  { key: 'phone',         label: 'Telefoon',        placeholder: '06-...', type: 'tel' },
+                  { key: 'contact_email', label: 'Contact e-mail',  placeholder: 'jouw@email.nl', type: 'email' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="text-xs text-gray-500">{f.label}</label>
+                    <input
+                      type={f.type}
+                      className="w-full border border-gray-300 rounded-lg p-2 mt-0.5 text-sm"
+                      value={(userProfile as any)[f.key]}
+                      onChange={e => setUserProfile(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      placeholder={f.placeholder}
+                    />
+                  </div>
+                ))}
+              </div>
+              <button onClick={handleSaveProfile} disabled={isSavingProfile}
+                className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 disabled:opacity-50">
+                {isSavingProfile ? 'Opslaan...' : 'Opslaan'}
+              </button>
+            </>
+          )}
+
+          {/* ---- TAB: MIJN BEDRIJF ---- */}
+          {profileTab === 'bedrijf' && (
+            <>
+              <div className="bg-white rounded-xl shadow p-4 space-y-3">
+                <p className="font-semibold text-gray-700 text-sm border-b pb-2">Bedrijfsgegevens</p>
+                {COMPANY_FIELDS.map(f => (
+                  <div key={f.field}>
+                    <label className="text-xs text-gray-500">{f.label}</label>
+                    <input
+                      type={f.type || 'text'}
+                      className="w-full border border-gray-300 rounded-lg p-2 mt-0.5 text-sm"
+                      value={(userProfile.installer_company as any)[f.field] || ''}
+                      onChange={e => setUserProfile(prev => ({
+                        ...prev,
+                        installer_company: { ...prev.installer_company, [f.field]: e.target.value },
+                      }))}
+                      placeholder={f.placeholder}
+                    />
+                  </div>
+                ))}
+              </div>
+              <button onClick={handleSaveCompany} disabled={isSavingProfile}
+                className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 disabled:opacity-50">
+                {isSavingProfile ? 'Opslaan...' : 'Opslaan'}
+              </button>
+            </>
+          )}
+
+          {/* ---- TAB: HANDTEKENING ---- */}
+          {profileTab === 'handtekening' && (
+            <div className="bg-white rounded-xl shadow p-4 space-y-4">
+              <p className="font-semibold text-gray-700 text-sm border-b pb-2">Handtekening</p>
+              {userProfile.signature_url ? (
+                <div className="space-y-3">
+                  <img src={userProfile.signature_url}
+                    className="border rounded-lg h-32 w-full object-contain bg-gray-50 p-2"
+                    alt="Opgeslagen handtekening" />
+                  <button
+                    onClick={() => setUserProfile(prev => ({ ...prev, signature_url: '' }))}
+                    className="text-sm text-red-500 underline">
+                    Opnieuw tekenen
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-white">
+                    <SignatureCanvas ref={profileSigPad}
+                      canvasProps={{ className: 'w-full', height: 200 }}
+                      backgroundColor="white" penColor="black" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => profileSigPad.current?.clear()}
+                      className="flex-1 py-2 border border-gray-300 rounded-lg text-sm text-gray-600">
+                      Wissen
+                    </button>
+                    <button onClick={saveProfileSignature} disabled={isSavingProfile}
+                      className="flex-1 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold disabled:opacity-50">
+                      {isSavingProfile ? 'Opslaan...' : 'Opslaan'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ================================================================
+  // SCREEN: SIGNATURE
+  // ================================================================
+  if (screen === 'signature' && selectedInspection) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <header className="bg-white shadow-sm px-4 py-3 flex items-center justify-between">
+          <button onClick={() => setScreen('inspection')} className="flex items-center gap-1 text-gray-600 hover:text-gray-900">
             <ArrowLeft size={18} /> Terug
           </button>
           <span className="font-bold text-gray-800">Handtekening plaatsen</span>
@@ -149,43 +378,23 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
         <div className="flex-1 p-4 max-w-lg mx-auto w-full">
           <div className="bg-white rounded-xl shadow p-5 space-y-5">
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-400">Installateur</p>
-                <p className="font-semibold text-gray-800">{installerName}</p>
-              </div>
-              <div>
-                <p className="text-gray-400">Datum herstel</p>
-                <p className="font-semibold text-gray-800">{new Date().toLocaleDateString('nl-NL')}</p>
-              </div>
-              <div>
-                <p className="text-gray-400">Gebreken hersteld</p>
-                <p className="font-semibold text-gray-800">{repairedCount} van {localDefects.length}</p>
-              </div>
+              <div><p className="text-gray-400">Installateur</p><p className="font-semibold">{userProfile.full_name || '-'}</p></div>
+              <div><p className="text-gray-400">Datum herstel</p><p className="font-semibold">{new Date().toLocaleDateString('nl-NL')}</p></div>
+              <div><p className="text-gray-400">Gebreken hersteld</p><p className="font-semibold">{repairedCount} van {localDefects.length}</p></div>
             </div>
 
             <div>
               <p className="text-sm text-gray-500 mb-2 font-medium">Handtekening</p>
               <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-white">
-                <SignatureCanvas
-                  ref={sigPad}
+                <SignatureCanvas ref={sigPad}
                   canvasProps={{ className: 'w-full', height: 200 }}
-                  backgroundColor="white"
-                  penColor="black"
-                />
+                  backgroundColor="white" penColor="black" />
               </div>
-              <button
-                onClick={() => sigPad.current?.clear()}
-                className="mt-1 text-xs text-red-500 underline"
-              >
-                Wissen
-              </button>
+              <button onClick={() => sigPad.current?.clear()} className="mt-1 text-xs text-red-500 underline">Wissen</button>
             </div>
 
-            <button
-              onClick={handleSubmit}
-              disabled={isSaving}
-              className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-50 text-sm"
-            >
+            <button onClick={handleSubmit} disabled={isSaving}
+              className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-50 text-sm">
               {isSaving ? 'Bezig met indienen...' : 'Bevestigen & Indienen ✓'}
             </button>
           </div>
@@ -194,244 +403,290 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
     );
   }
 
-  // --- SCREEN: DEFECT WALKTHROUGH ---
-  if (selectedInspection && currentDefect) {
+  // ================================================================
+  // SCREEN: INSPECTION DETAIL
+  // ================================================================
+  if (screen === 'inspection' && selectedInspection) {
+    const meta = selectedInspection.report_data.meta;
+    const activeUsageFunctions = Object.entries(meta.usageFunctions || {})
+      .filter(([, v]) => v === true)
+      .map(([k]) => USAGE_LABELS[k] || k);
+
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <header className="bg-white shadow-sm px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-1 text-gray-600 hover:text-gray-900"
-          >
+          <button onClick={() => setScreen('overview')} className="flex items-center gap-1 text-gray-600 hover:text-gray-900">
             <ArrowLeft size={18} /> Terug
           </button>
-          <span className="font-bold text-gray-800 truncate max-w-[60%]">
-            {selectedInspection.report_data.meta.clientName}
-          </span>
-          <span className="text-sm text-gray-400">{currentDefectIndex + 1}/{localDefects.length}</span>
+          <span className="font-bold text-gray-800 truncate max-w-[55%]">{meta.clientName}</span>
+          {isSubmitted
+            ? <span className="text-xs bg-purple-100 text-purple-700 font-bold px-2 py-0.5 rounded-full">Ter Controle</span>
+            : <span className="text-xs bg-orange-100 text-orange-700 font-bold px-2 py-0.5 rounded-full">Wacht op Herstel</span>
+          }
         </header>
 
-        {/* Progress bar */}
+        {/* Tab bar */}
         <div className="bg-white border-b">
-          <div className="h-1.5 bg-gray-100">
-            <div
-              className="h-1.5 bg-emerald-500 transition-all duration-300"
-              style={{ width: `${((currentDefectIndex + 1) / localDefects.length) * 100}%` }}
-            />
+          <div className="flex">
+            {([
+              { id: 'basis' as InspectionTab, label: 'Basisgegevens' },
+              { id: 'gebreken' as InspectionTab, label: `Gebreken (${repairedCount}/${localDefects.length})` },
+            ]).map(tab => (
+              <button key={tab.id} onClick={() => setInspectionTab(tab.id)}
+                className={`flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  inspectionTab === tab.id ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-          <p className="text-center text-xs text-gray-400 py-1.5">
-            Gebrek {currentDefectIndex + 1} van {localDefects.length} — {repairedCount} hersteld
-          </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-4 max-w-lg mx-auto w-full">
-          {/* Defect card */}
-          <div
-            className="bg-white rounded-xl shadow border-l-4 p-4"
-            style={{ borderColor: cs?.border }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${cs?.badge}`}>{cs?.label}</span>
-              {currentDefect.isRepaired && (
-                <span className="text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded">
-                  ✓ Hersteld
-                </span>
+        {/* ---- TAB: BASISGEGEVENS ---- */}
+        {inspectionTab === 'basis' && (
+          <div className="flex-1 overflow-y-auto p-4 max-w-lg mx-auto w-full space-y-4 pb-8">
+            {/* Download origineel rapport */}
+            <button onClick={handleDownloadOriginalPDF} disabled={isGeneratingPdf}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 disabled:opacity-50 shadow-sm">
+              <FileText size={16} />
+              {isGeneratingPdf ? 'PDF laden...' : 'Download Origineel Inspectierapport (PDF)'}
+            </button>
+
+            <Section title="Inspectiegegevens">
+              <InfoRow label="Inspectienummer"   value={meta.inspectionNumber} />
+              <InfoRow label="Datum inspectie"   value={meta.date} />
+              <InfoRow label="Scope"             value={meta.sciosScope || meta.scopeType} />
+              <InfoRow label="Inspecteur"        value={meta.inspectorName} />
+              <InfoRow label="SCIOS nr."         value={meta.sciosRegistrationNumber} />
+              {meta.additionalInspectors?.length > 0 && (
+                <InfoRow label="Overige inspecteurs" value={meta.additionalInspectors.join(', ')} />
               )}
-            </div>
-            <p className="font-semibold text-gray-800">{currentDefect.location}</p>
-            <p className="text-sm text-gray-600 mt-1">{currentDefect.description}</p>
-            {currentDefect.category && (
-              <p className="text-xs text-gray-400 mt-1">
-                {currentDefect.category}
-                {currentDefect.subcategory ? ` › ${currentDefect.subcategory}` : ''}
-              </p>
+            </Section>
+
+            <Section title="Klantgegevens">
+              <InfoRow label="Naam"            value={meta.clientName} />
+              <InfoRow label="Adres"           value={meta.clientAddress} />
+              <InfoRow label="Postcode/Plaats" value={`${meta.clientPostalCode || ''} ${meta.clientCity || ''}`.trim()} />
+              <InfoRow label="Contactpersoon"  value={meta.clientContactPerson} />
+              <InfoRow label="Telefoon"        value={meta.clientPhone} />
+              <InfoRow label="E-mail"          value={meta.clientEmail} />
+            </Section>
+
+            <Section title="Projectgegevens">
+              <InfoRow label="Locatie"           value={meta.projectLocation} />
+              <InfoRow label="Adres"             value={meta.projectAddress} />
+              <InfoRow label="Postcode/Plaats"   value={`${meta.projectPostalCode || ''} ${meta.projectCity || ''}`.trim()} />
+              <InfoRow label="Contactpersoon"    value={meta.projectContactPerson} />
+              <InfoRow label="Telefoon"          value={meta.projectPhone} />
+              <InfoRow label="Installatieverant." value={meta.installationResponsible} />
+            </Section>
+
+            <Section title="Inspectiepartij">
+              <InfoRow label="Bedrijf"   value={meta.inspectionCompany} />
+              <InfoRow label="Adres"     value={`${meta.inspectionCompanyAddress || ''}, ${meta.inspectionCompanyPostalCode || ''} ${meta.inspectionCompanyCity || ''}`.trim().replace(/^,\s*/, '')} />
+              <InfoRow label="Telefoon"  value={meta.inspectionCompanyPhone} />
+              <InfoRow label="E-mail"    value={meta.inspectionCompanyEmail} />
+            </Section>
+
+            <Section title="Inspectiegrondslag">
+              <InfoRow label="Grondslag"           value={[meta.inspectionBasis?.nta8220 && 'NTA 8220', meta.inspectionBasis?.verzekering && 'Verzekering'].filter(Boolean).join(', ') || '-'} />
+              <InfoRow label="Inspectie-interval"  value={meta.inspectionInterval ? `${meta.inspectionInterval} jaar` : undefined} />
+              <InfoRow label="Volgende inspectie"  value={meta.nextInspectionDate} />
+            </Section>
+
+            {activeUsageFunctions.length > 0 && (
+              <Section title="Gebruiksfuncties">
+                <div className="flex flex-wrap gap-1.5 px-3 py-2">
+                  {activeUsageFunctions.map(fn => (
+                    <span key={fn} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">{fn}</span>
+                  ))}
+                </div>
+              </Section>
             )}
           </div>
+        )}
 
-          {/* Original photos */}
-          {(currentDefect.photoUrl || currentDefect.photoUrl2) && (
-            <div>
-              <p className="text-xs font-semibold text-gray-500 mb-2">Oorspronkelijke foto('s)</p>
-              <div className="flex gap-2 flex-wrap">
-                {currentDefect.photoUrl && (
-                  <img
-                    src={currentDefect.photoUrl}
-                    className="h-28 w-28 object-cover rounded-lg border"
-                    alt="Foto gebrek"
-                  />
-                )}
-                {currentDefect.photoUrl2 && (
-                  <img
-                    src={currentDefect.photoUrl2}
-                    className="h-28 w-28 object-cover rounded-lg border"
-                    alt="Foto gebrek 2"
-                  />
-                )}
+        {/* ---- TAB: GEBREKEN ---- */}
+        {inspectionTab === 'gebreken' && (
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4 max-w-lg mx-auto w-full space-y-4 pb-32">
+              {localDefects.length === 0 && (
+                <p className="text-center text-gray-400 mt-8 italic">Geen gebreken geregistreerd.</p>
+              )}
+
+              {localDefects.map((defect, i) => {
+                const cs = CLASSIFICATION_STYLE[defect.classification] ?? CLASSIFICATION_STYLE['Blue'];
+                return (
+                  <div key={defect.id} className="bg-white rounded-xl shadow border-l-4" style={{ borderColor: cs.border }}>
+
+                    {/* Defect info */}
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400">#{i + 1}</span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${cs.badge}`}>{cs.label}</span>
+                        </div>
+                        {defect.isRepaired && (
+                          <span className="text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded">✓ Hersteld</span>
+                        )}
+                      </div>
+                      <p className="font-semibold text-gray-800">{defect.location}</p>
+                      <p className="text-sm text-gray-600 mt-1">{defect.description}</p>
+                      {defect.category && (
+                        <p className="text-xs text-gray-400 mt-1">{defect.category}{defect.subcategory ? ` › ${defect.subcategory}` : ''}</p>
+                      )}
+
+                      {/* Original photos (klikbaar) */}
+                      {(defect.photoUrl || defect.photoUrl2) && (
+                        <div className="mt-3">
+                          <p className="text-xs text-gray-400 mb-1.5">Inspecteur foto('s) — klik om te vergroten</p>
+                          <div className="flex gap-2 flex-wrap">
+                            {defect.photoUrl && (
+                              <button onClick={() => setZoomedPhoto(defect.photoUrl!)} className="focus:outline-none">
+                                <img src={defect.photoUrl} className="h-24 w-24 object-cover rounded-lg border cursor-zoom-in hover:opacity-90 transition" alt="Foto gebrek" />
+                              </button>
+                            )}
+                            {defect.photoUrl2 && (
+                              <button onClick={() => setZoomedPhoto(defect.photoUrl2!)} className="focus:outline-none">
+                                <img src={defect.photoUrl2} className="h-24 w-24 object-cover rounded-lg border cursor-zoom-in hover:opacity-90 transition" alt="Foto gebrek 2" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Herstel invoer (alleen als niet ingediend) */}
+                    {!isSubmitted && (
+                      <div className="border-t bg-gray-50 rounded-b-xl p-4 space-y-3">
+                        {/* Hidden file inputs */}
+                        <input id={`p1-${defect.id}`} type="file" accept="image/*" className="hidden"
+                          onChange={e => { if (e.target.files?.[0]) handlePhotoUpload(defect.id, 1, e.target.files[0]); e.target.value = ''; }} />
+                        <input id={`p2-${defect.id}`} type="file" accept="image/*" className="hidden"
+                          onChange={e => { if (e.target.files?.[0]) handlePhotoUpload(defect.id, 2, e.target.files[0]); e.target.value = ''; }} />
+
+                        {/* Foto upload tiles */}
+                        <div className="flex gap-2 flex-wrap">
+                          {/* Slot 1 */}
+                          {defect.repairPhotoUrl1 ? (
+                            <div className="relative">
+                              <button onClick={() => setZoomedPhoto(defect.repairPhotoUrl1!)} className="focus:outline-none">
+                                <img src={defect.repairPhotoUrl1} className="h-20 w-20 object-cover rounded-lg border cursor-zoom-in" alt="Herstel foto 1" />
+                              </button>
+                              <button onClick={() => updateDefect(defect.id, { repairPhotoUrl1: undefined })}
+                                className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow">
+                                ×
+                              </button>
+                            </div>
+                          ) : (
+                            <button onClick={() => document.getElementById(`p1-${defect.id}`)?.click()}
+                              disabled={!!isUploading[`${defect.id}-1`]}
+                              className="h-20 w-20 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg text-gray-400 hover:border-emerald-400 hover:text-emerald-600 disabled:opacity-50 text-xs gap-1 transition">
+                              <Upload size={16} />
+                              <span>{isUploading[`${defect.id}-1`] ? '...' : 'Foto 1'}</span>
+                            </button>
+                          )}
+
+                          {/* Slot 2 */}
+                          {defect.repairPhotoUrl2 ? (
+                            <div className="relative">
+                              <button onClick={() => setZoomedPhoto(defect.repairPhotoUrl2!)} className="focus:outline-none">
+                                <img src={defect.repairPhotoUrl2} className="h-20 w-20 object-cover rounded-lg border cursor-zoom-in" alt="Herstel foto 2" />
+                              </button>
+                              <button onClick={() => updateDefect(defect.id, { repairPhotoUrl2: undefined })}
+                                className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow">
+                                ×
+                              </button>
+                            </div>
+                          ) : (
+                            <button onClick={() => document.getElementById(`p2-${defect.id}`)?.click()}
+                              disabled={!!isUploading[`${defect.id}-2`]}
+                              className="h-20 w-20 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg text-gray-400 hover:border-gray-400 disabled:opacity-50 text-xs gap-1 transition">
+                              <Upload size={16} />
+                              <span>{isUploading[`${defect.id}-2`] ? '...' : 'Foto 2'}</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Herstelopmerking */}
+                        <textarea
+                          value={defect.repairRemarks || ''}
+                          onChange={e => updateDefect(defect.id, { repairRemarks: e.target.value })}
+                          rows={2}
+                          placeholder="Herstelopmerking..."
+                          className="w-full border border-gray-300 rounded-lg p-2.5 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-white"
+                        />
+
+                        {/* Hersteld checkbox */}
+                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-white transition">
+                          <input type="checkbox"
+                            checked={defect.isRepaired === true}
+                            onChange={e => updateDefect(defect.id, { isRepaired: e.target.checked })}
+                            className="w-5 h-5 accent-emerald-600" />
+                          <span className="text-sm font-semibold text-gray-800">Markeer als hersteld ✓</span>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Read-only herstelinfo (als ingediend) */}
+                    {isSubmitted && (defect.repairRemarks || defect.repairPhotoUrl1 || defect.repairPhotoUrl2) && (
+                      <div className="border-t bg-emerald-50 rounded-b-xl p-4 space-y-2">
+                        <p className="text-xs font-semibold text-emerald-700">Ingediende herstelnotities</p>
+                        {defect.repairRemarks && <p className="text-sm text-gray-700">{defect.repairRemarks}</p>}
+                        {(defect.repairPhotoUrl1 || defect.repairPhotoUrl2) && (
+                          <div className="flex gap-2 flex-wrap">
+                            {defect.repairPhotoUrl1 && (
+                              <button onClick={() => setZoomedPhoto(defect.repairPhotoUrl1!)} className="focus:outline-none">
+                                <img src={defect.repairPhotoUrl1} className="h-16 w-16 object-cover rounded border cursor-zoom-in" alt="Herstel foto" />
+                              </button>
+                            )}
+                            {defect.repairPhotoUrl2 && (
+                              <button onClick={() => setZoomedPhoto(defect.repairPhotoUrl2!)} className="focus:outline-none">
+                                <img src={defect.repairPhotoUrl2} className="h-16 w-16 object-cover rounded border cursor-zoom-in" alt="Herstel foto 2" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Vaste footer: Afronden knop */}
+            {!isSubmitted && (
+              <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 max-w-lg mx-auto">
+                <div className="flex items-center justify-between mb-1.5 text-sm">
+                  <span className="text-gray-500">{repairedCount} van {localDefects.length} gebreken gemarkeerd</span>
+                  {allRepaired && <span className="text-emerald-600 font-bold text-xs">✓ Gereed</span>}
+                </div>
+                <button
+                  onClick={() => setScreen('signature')}
+                  disabled={!allRepaired}
+                  className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                  {allRepaired
+                    ? 'Afronden & Ondertekenen →'
+                    : `Nog ${localDefects.length - repairedCount} gebrek${localDefects.length - repairedCount !== 1 ? 'en' : ''} te markeren`}
+                </button>
               </div>
-            </div>
-          )}
-
-          {/* Repair section */}
-          <div className="bg-white rounded-xl shadow p-4 space-y-4">
-            <p className="font-semibold text-gray-700 text-sm border-b pb-2">Herstelregistratie</p>
-
-            {/* Photo 1 */}
-            <div>
-              <p className="text-xs text-gray-500 mb-1.5 font-medium">Foto herstel</p>
-              {currentDefect.repairPhotoUrl1 ? (
-                <div className="flex items-center gap-3">
-                  <img
-                    src={currentDefect.repairPhotoUrl1}
-                    className="h-20 w-20 object-cover rounded-lg border"
-                    alt="Herstel foto"
-                  />
-                  <button
-                    onClick={() => updateCurrentDefect({ repairPhotoUrl1: undefined })}
-                    className="text-xs text-red-500 underline"
-                  >
-                    Verwijderen
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInput1Ref}
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) handlePhotoUpload(1, e.target.files[0]);
-                      e.target.value = '';
-                    }}
-                  />
-                  <button
-                    onClick={() => fileInput1Ref.current?.click()}
-                    disabled={isUploading}
-                    className="flex items-center gap-2 text-sm text-emerald-700 border border-emerald-300 px-3 py-2 rounded-lg hover:bg-emerald-50 disabled:opacity-50"
-                  >
-                    <Upload size={14} />
-                    {isUploading ? 'Uploading...' : 'Foto uploaden'}
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Photo 2 */}
-            <div>
-              <p className="text-xs text-gray-500 mb-1.5 font-medium">Tweede foto (optioneel)</p>
-              {currentDefect.repairPhotoUrl2 ? (
-                <div className="flex items-center gap-3">
-                  <img
-                    src={currentDefect.repairPhotoUrl2}
-                    className="h-20 w-20 object-cover rounded-lg border"
-                    alt="Herstel foto 2"
-                  />
-                  <button
-                    onClick={() => updateCurrentDefect({ repairPhotoUrl2: undefined })}
-                    className="text-xs text-red-500 underline"
-                  >
-                    Verwijderen
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInput2Ref}
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) handlePhotoUpload(2, e.target.files[0]);
-                      e.target.value = '';
-                    }}
-                  />
-                  <button
-                    onClick={() => fileInput2Ref.current?.click()}
-                    disabled={isUploading}
-                    className="flex items-center gap-2 text-sm text-gray-500 border border-gray-300 px-3 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    <Upload size={14} />
-                    {isUploading ? 'Uploading...' : 'Tweede foto uploaden'}
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Remarks */}
-            <div>
-              <p className="text-xs text-gray-500 mb-1.5 font-medium">Herstelopmerking</p>
-              <textarea
-                value={currentDefect.repairRemarks || ''}
-                onChange={(e) => updateCurrentDefect({ repairRemarks: e.target.value })}
-                rows={3}
-                placeholder="Beschrijf wat er gedaan is..."
-                className="w-full border border-gray-300 rounded-lg p-2.5 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              />
-            </div>
-
-            {/* Repaired checkbox */}
-            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
-              <input
-                type="checkbox"
-                checked={currentDefect.isRepaired === true}
-                onChange={(e) => updateCurrentDefect({ isRepaired: e.target.checked })}
-                className="w-5 h-5 rounded accent-emerald-600"
-              />
-              <span className="font-semibold text-gray-800 text-sm">Markeer als hersteld ✓</span>
-            </label>
+            )}
           </div>
-        </div>
-
-        {/* Navigation footer */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex gap-2 max-w-lg mx-auto">
-          <button
-            onClick={() => setCurrentDefectIndex(i => i - 1)}
-            disabled={isFirstDefect}
-            className="flex items-center gap-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-600 disabled:opacity-30"
-          >
-            <ChevronLeft size={16} /> Vorige
-          </button>
-
-          {isLastDefect ? (
-            <button
-              onClick={() => setShowSignature(true)}
-              disabled={!allRepaired}
-              className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
-            >
-              {allRepaired
-                ? 'Afronden & Ondertekenen →'
-                : `Nog ${localDefects.length - repairedCount} te herstellen`}
-            </button>
-          ) : (
-            <button
-              onClick={() => setCurrentDefectIndex(i => i + 1)}
-              className="flex-1 flex items-center justify-center gap-1 bg-gray-800 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-gray-700 transition"
-            >
-              Volgende <ChevronRight size={16} />
-            </button>
-          )}
-        </div>
+        )}
       </div>
     );
   }
 
-  // --- SCREEN: OVERVIEW ---
+  // ================================================================
+  // SCREEN: OVERVIEW
+  // ================================================================
   const statusBadge = (status: string) => {
     if (status === 'herstel_wacht')
-      return (
-        <span className="text-xs bg-orange-100 text-orange-700 font-bold px-2.5 py-1 rounded-full whitespace-nowrap">
-          Wacht op Herstel
-        </span>
-      );
+      return <span className="text-xs bg-orange-100 text-orange-700 font-bold px-2.5 py-1 rounded-full whitespace-nowrap">Wacht op Herstel</span>;
     if (status === 'ter_controle')
-      return (
-        <span className="text-xs bg-purple-100 text-purple-700 font-bold px-2.5 py-1 rounded-full whitespace-nowrap">
-          Ter Controle
-        </span>
-      );
-    return (
-      <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{status}</span>
-    );
+      return <span className="text-xs bg-purple-100 text-purple-700 font-bold px-2.5 py-1 rounded-full whitespace-nowrap">Ter Controle</span>;
+    return <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{status}</span>;
   };
 
   return (
@@ -439,14 +694,19 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
       <header className="bg-white shadow-sm px-4 py-3 flex items-center justify-between">
         <div>
           <p className="font-bold text-gray-800 text-lg">Herstelwerkzaamheden</p>
-          {installerName && <p className="text-xs text-gray-400">{installerName}</p>}
+          {userProfile.full_name && <p className="text-xs text-gray-400">{userProfile.full_name}</p>}
         </div>
-        <button
-          onClick={onLogout}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 border border-gray-200 px-3 py-1.5 rounded-lg"
-        >
-          <LogOut size={14} /> Uitloggen
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setScreen('profile')}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 border border-gray-200 px-2.5 py-1.5 rounded-lg"
+            title="Mijn Profiel">
+            <User size={14} />
+          </button>
+          <button onClick={onLogout}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 border border-gray-200 px-3 py-1.5 rounded-lg">
+            <LogOut size={14} /> Uitloggen
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 p-4 max-w-lg mx-auto w-full">
@@ -455,49 +715,29 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
         ) : inspections.length === 0 ? (
           <div className="text-center mt-16">
             <p className="text-gray-500 font-medium">Geen toegewezen werkzaamheden</p>
-            <p className="text-gray-400 text-sm mt-1">
-              Je hebt momenteel geen inspecties toegewezen gekregen.
-            </p>
-            <button onClick={fetchInspections} className="mt-4 text-sm text-emerald-600 underline">
-              Vernieuwen
-            </button>
+            <p className="text-gray-400 text-sm mt-1">Je hebt momenteel geen inspecties toegewezen gekregen.</p>
+            <button onClick={fetchInspections} className="mt-4 text-sm text-emerald-600 underline">Vernieuwen</button>
           </div>
         ) : (
           <div className="space-y-3">
-            {inspections.map((row) => {
-              const defects = row.report_data.defects || [];
+            {inspections.map(row => {
+              const defects  = row.report_data.defects || [];
               const repaired = defects.filter(d => d.isRepaired).length;
-              const isSubmitted = row.status === 'ter_controle';
               return (
-                <div
-                  key={row.id}
-                  className="bg-white rounded-xl shadow-sm border border-gray-100 p-4"
-                >
+                <div key={row.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="font-semibold text-gray-800 truncate flex-1">
-                      {row.report_data.meta.clientName}
-                    </p>
+                    <p className="font-semibold text-gray-800 truncate flex-1">{row.report_data.meta.clientName}</p>
                     {statusBadge(row.status)}
                   </div>
-                  <p className="text-xs text-gray-500">
-                    {row.report_data.meta.projectAddress}, {row.report_data.meta.projectCity}
-                  </p>
+                  <p className="text-xs text-gray-500">{row.report_data.meta.projectAddress}, {row.report_data.meta.projectCity}</p>
                   <div className="flex items-center justify-between mt-3">
                     <div>
-                      <p className="text-xs text-gray-400">
-                        {row.inspection_number || `#${row.id}`} ·{' '}
-                        {new Date(row.created_at).toLocaleDateString('nl-NL')}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {defects.length} gebreken · {repaired} hersteld
-                      </p>
+                      <p className="text-xs text-gray-400">{row.inspection_number || `#${row.id}`} · {new Date(row.created_at).toLocaleDateString('nl-NL')}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{defects.length} gebreken · {repaired} hersteld</p>
                     </div>
-                    <button
-                      onClick={() => handleOpenInspection(row)}
-                      disabled={isSubmitted}
-                      className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-default transition"
-                    >
-                      {isSubmitted ? 'Ingediend' : 'Open →'}
+                    <button onClick={() => handleOpenInspection(row)}
+                      className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition">
+                      {row.status === 'ter_controle' ? 'Bekijken' : 'Open →'}
                     </button>
                   </div>
                 </div>
@@ -506,6 +746,28 @@ export default function InstallerApp({ supabase, userId, onLogout }: InstallerAp
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ---- Helper components for Basisgegevens ----
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="bg-white rounded-xl shadow overflow-hidden">
+      <div className="bg-gray-100 px-3 py-1.5">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{title}</p>
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="flex items-start gap-2 px-3 py-2 border-b border-gray-50 last:border-0">
+      <span className="text-xs text-gray-400 w-36 shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-gray-800 font-medium flex-1 break-words">{value || '-'}</span>
     </div>
   );
 }

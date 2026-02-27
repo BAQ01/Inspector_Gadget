@@ -127,7 +127,14 @@ export default function AdminDashboard() {
 
     // 1. ZOEKFUNCTIE
     if (searchTerm) {
-        query = query.or(`client_name.ilike.%${searchTerm}%, inspection_number.ilike.%${searchTerm}%, report_data->meta->>projectCity.ilike.%${searchTerm}%, report_data->meta->>projectLocation.ilike.%${searchTerm}%, report_data->meta->>inspectorName.ilike.%${searchTerm}%`);
+        const matchingInstallerIds = installersList
+            .filter(i => i.full_name?.toLowerCase().includes(searchTerm.toLowerCase()))
+            .map(i => i.id);
+        let orFilter = `client_name.ilike.%${searchTerm}%,inspection_number.ilike.%${searchTerm}%,report_data->meta->>projectCity.ilike.%${searchTerm}%,report_data->meta->>projectLocation.ilike.%${searchTerm}%,report_data->meta->>inspectorName.ilike.%${searchTerm}%`;
+        if (matchingInstallerIds.length > 0) {
+            orFilter += `,installer_id.in.(${matchingInstallerIds.join(',')})`;
+        }
+        query = query.or(orFilter);
     }
 
     // 2. SERVER-SIDE SORTERING
@@ -145,7 +152,7 @@ export default function AdminDashboard() {
         query = query.order('report_data->meta->>projectLocation', { ascending: sortConfig.direction === 'asc' });
     } else if (sortConfig.key === 'project_city') {
         query = query.order('report_data->meta->>projectCity', { ascending: sortConfig.direction === 'asc' });
-    } else if (sortConfig.key !== 'inspection_number' && sortConfig.key !== 'inspector') {
+    } else if (sortConfig.key !== 'inspection_number' && sortConfig.key !== 'inspector' && sortConfig.key !== 'installer_name') {
         query = query.order('created_at', { ascending: false });
     }
 
@@ -171,7 +178,18 @@ export default function AdminDashboard() {
             });
         }
 
-        // B. NIEUW: Sorteren op Inspectie ID (Natuurlijke Sortering)
+        // B. Sorteren op Installateur Naam
+        if (sortConfig.key === 'installer_name') {
+            finalData.sort((a, b) => {
+                const nameA = installersList.find(i => i.id === a.installer_id)?.full_name || '';
+                const nameB = installersList.find(i => i.id === b.installer_id)?.full_name || '';
+                return sortConfig.direction === 'asc'
+                    ? nameA.localeCompare(nameB)
+                    : nameB.localeCompare(nameA);
+            });
+        }
+
+        // C. NIEUW: Sorteren op Inspectie ID (Natuurlijke Sortering)
         // Dit zorgt dat ...-2 voor ...-10 komt.
         if (sortConfig.key === 'inspection_number') {
             finalData.sort((a, b) => {
@@ -529,6 +547,12 @@ const handleLoadDefaultLibrary = async () => {
   const handleRejectRepair = async (id: number) => {
       if (!window.confirm('Herstel afkeuren? Installateur moet opnieuw indienen.')) return;
       const { error } = await supabase.from('inspections').update({ status: 'herstel_wacht' }).eq('id', id);
+      if (error) alert('Fout: ' + error.message); else fetchInspections();
+  };
+
+  const handleReopenHerstel = async (id: number) => {
+      if (!window.confirm('Herstel opnieuw openzetten? Status wordt teruggezet naar "Klaar" zodat wijzigingen mogelijk zijn.')) return;
+      const { error } = await supabase.from('inspections').update({ status: 'completed' }).eq('id', id);
       if (error) alert('Fout: ' + error.message); else fetchInspections();
   };
 
@@ -1035,6 +1059,7 @@ const handleLoadDefaultLibrary = async () => {
                             <SortableHeader label="Plaats" sortKey="project_city" />
                             <SortableHeader label="Status" sortKey="status" />
                             <SortableHeader label="Inspecteur" sortKey="inspector" />
+                            <SortableHeader label="Installateur" sortKey="installer_name" />
                             <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Acties</th>
                         </tr>
                     </thead>
@@ -1078,12 +1103,19 @@ const handleLoadDefaultLibrary = async () => {
                             
                             {/* 9. Inspecteur */}
                             <td className="px-4 py-3 text-sm text-gray-500"><User size={16} className="inline mr-1"/> {insp.report_data?.meta?.inspectorName || '-'}</td>
-                            
-                            {/* 10. Acties */}
+
+                            {/* 10. Installateur */}
+                            <td className="px-4 py-3 text-sm text-gray-500">
+                              {insp.installer_id
+                                ? (installersList.find(i => i.id === insp.installer_id)?.full_name || <span className="text-gray-300 italic text-xs">Onbekend</span>)
+                                : <span className="text-gray-300">—</span>}
+                            </td>
+
+                            {/* 11. Acties */}
                             <td className="px-4 py-3 text-right text-sm font-medium">
                                 <div className="flex justify-end gap-2 flex-wrap items-center">
-                                  {/* Assign installer — only when status is 'completed' */}
-                                  {insp.status === 'completed' && (
+                                  {/* Assign installer — only for main reports (not colleague contributions) */}
+                                  {insp.status === 'completed' && !insp.report_data?.meta?.isContributionMode && (
                                     <div className="flex items-center gap-1">
                                       <select
                                         value={assigningInstaller[insp.id] || ''}
@@ -1113,6 +1145,10 @@ const handleLoadDefaultLibrary = async () => {
                                   )}
                                   <button onClick={() => handleEdit(insp)} className="text-blue-500 hover:text-blue-700" title="Bewerken"><Pencil size={16}/></button>
                                   <button onClick={() => handleDownloadPDF(insp)} disabled={isGeneratingPdf} className="text-red-600 font-bold" title="PDF Origineel"><FileText size={16}/></button>
+                                  {/* Heropenen — only when herstel is afgerond */}
+                                  {insp.status === 'herstel_afgerond' && (
+                                    <button onClick={() => handleReopenHerstel(insp.id)} className="text-xs bg-gray-500 text-white px-2 py-0.5 rounded hover:bg-gray-600" title="Herstel opnieuw openzetten">↩ Heropenen</button>
+                                  )}
                                   {/* Herstel PDF — only when repair has been submitted */}
                                   {(insp.status === 'ter_controle' || insp.status === 'herstel_afgerond') && (
                                     <button onClick={() => handleDownloadHerstelPDF(insp)} disabled={isGeneratingPdf} className="text-violet-600 font-bold" title="PDF Herstelrapport"><FileText size={16}/></button>
@@ -1155,7 +1191,7 @@ const handleLoadDefaultLibrary = async () => {
                                     <td className="px-4 py-3 text-sm"><select className="border rounded p-1 text-sm bg-white cursor-pointer" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}><option value="inspector">Inspector</option><option value="admin">Admin</option><option value="installer">Installateur</option></select></td>
                                     <td className="px-4 py-3 text-right text-sm">
                                         <div className="flex justify-end gap-2">
-                                            <button onClick={() => { setExpandedUserId(isExpanded ? null : u.id); setAdminKofferSearch(''); }} className={`p-2 rounded transition-colors ${isExpanded ? 'text-emerald-700 bg-emerald-100' : 'text-emerald-400 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`} title="Koffer beheren"><Wrench size={18}/></button>
+                                            {u.role !== 'installer' && <button onClick={() => { setExpandedUserId(isExpanded ? null : u.id); setAdminKofferSearch(''); }} className={`p-2 rounded transition-colors ${isExpanded ? 'text-emerald-700 bg-emerald-100' : 'text-emerald-400 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}`} title="Koffer beheren"><Wrench size={18}/></button>}
                                             <button onClick={() => openPasswordModal(u)} className="text-orange-400 hover:text-orange-600 bg-orange-50 p-2 rounded hover:bg-orange-100 transition-colors" title="Wachtwoord Resetten"><Key size={18}/></button>
                                             <button onClick={() => handleDeleteUser(u.id)} className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded hover:bg-red-100 transition-colors" title="Verwijder"><Trash2 size={18}/></button>
                                         </div>
