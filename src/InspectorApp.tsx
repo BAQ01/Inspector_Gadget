@@ -1267,21 +1267,6 @@ const handleCloudMerge = async () => {
 
                            <input className="border rounded p-2" placeholder="SCIOS Nr" value={meta.sciosRegistrationNumber} onChange={(e) => setMeta({ sciosRegistrationNumber: e.target.value })} />
                            <input className="border rounded p-2" type="date" value={meta.date} onChange={(e) => setMeta({ date: e.target.value })} />
-                           <input className="border rounded p-2" type="time" value={meta.scheduledTimeStart || ''} onChange={(e) => setMeta({ scheduledTimeStart: e.target.value })} title="Starttijd inspectie" placeholder="Starttijd" />
-                           <select className="border rounded p-2 text-sm" value={meta.estimatedDurationHours ?? ''} onChange={(e) => setMeta({ estimatedDurationHours: e.target.value ? parseFloat(e.target.value) : undefined })} title="Verwachte duur">
-                               <option value="">Duur</option>
-                               <option value="0.5">½ uur</option>
-                               <option value="1">1 uur</option>
-                               <option value="1.5">1½ uur</option>
-                               <option value="2">2 uur</option>
-                               <option value="3">3 uur</option>
-                               <option value="4">4 uur</option>
-                               <option value="6">6 uur</option>
-                               <option value="8">1 dag</option>
-                               <option value="16">2 dagen</option>
-                               <option value="24">3 dagen</option>
-                               <option value="40">1 week</option>
-                           </select>
                        </div>
                    </div>
                </div>

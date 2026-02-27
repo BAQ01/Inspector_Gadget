@@ -327,7 +327,7 @@ export default function AdminDashboard() {
     </th>
   );
 
-  const fetchUsers = async () => { const { data } = await supabase.from('profiles').select('id, email, full_name, scios_nr, phone, contact_email, role, linked_instruments, company_name, company_address, company_postal_code, company_city, company_phone, company_email').order('email'); setUsers(data || []); };
+  const fetchUsers = async () => { const { data } = await supabase.from('profiles').select('id, email, full_name, scios_nr, phone, contact_email, role, linked_instruments, company_name, company_address, company_postal_code, company_city, company_phone, company_email, home_address, home_postal_code, home_city').order('email'); setUsers(data || []); };
 
   const handleAdminToggleInstrument = async (userId: string, instrumentId: number, currentLinked: number[]) => {
     const isLinked = currentLinked.includes(instrumentId);
@@ -1755,6 +1755,7 @@ const handleLoadDefaultLibrary = async () => {
         {activeTab === 'agenda' && (
             <AgendaTab
                 inspections={agendaInspections}
+                users={users}
                 onEdit={(insp) => { handleEdit(insp); }}
                 onReschedule={handleReschedule}
             />
