@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { supabase } from '../supabase';
-import { Calendar, User, Download, RefreshCw, Plus, X, MapPin, Trash2, Lock, FileText, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Database, Users, Shield, UserPlus, FileSpreadsheet, Pencil, Settings, Building, Wrench, Key, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Hash, Mail, Phone, Briefcase, Clock, BookOpen, UploadCloud, Globe, StickyNote, FolderOpen, UserCircle2 } from 'lucide-react';
+import { Calendar, User, Download, RefreshCw, Plus, X, MapPin, Trash2, Lock, FileText, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Database, Users, Shield, UserPlus, FileSpreadsheet, Pencil, Settings, Building, Wrench, Key, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Hash, Mail, Phone, Briefcase, Clock, BookOpen, UploadCloud, Globe, StickyNote, FolderOpen, UserCircle2, GripVertical, ListOrdered } from 'lucide-react';
 import type { Client, ClientContact } from '../types';
 import { pdf } from '@react-pdf/renderer';
 import { PDFReport } from './PDFReport';
@@ -85,9 +85,13 @@ export default function AdminDashboard() {
   
   // MODAL STATES
   const [showOrderModal, setShowOrderModal] = useState(false);
-  const [modalTab, setModalTab] = useState<'basis' | 'klant' | 'project'>('basis');
+  const [modalTab, setModalTab] = useState<'basis' | 'klant' | 'project' | 'bevindingen'>('basis');
   const [newOrder, setNewOrder] = useState(EMPTY_ORDER);
-  const [editingId, setEditingId] = useState<number | null>(null); 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingInspection, setEditingInspection] = useState<any>(null);
+  const [modalDefects, setModalDefects] = useState<any[]>([]);
+  const [adminDragIdx, setAdminDragIdx] = useState<number | null>(null);
+  const [adminDragOverIdx, setAdminDragOverIdx] = useState<number | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
   // SORT & SEARCH
@@ -864,7 +868,7 @@ const handleLoadDefaultLibrary = async () => {
           clientName: meta.clientName || insp.client_name || '', clientAddress: meta.clientAddress || '', clientPostalCode: meta.clientPostalCode || '', clientCity: meta.clientCity || '', clientContactPerson: meta.clientContactPerson || '', clientPhone: meta.clientPhone || '', clientEmail: meta.clientEmail || '',
           projectLocation: meta.projectLocation || '', projectAddress: meta.projectAddress || '', projectPostalCode: meta.projectPostalCode || '', projectCity: meta.projectCity || '', projectContactPerson: meta.projectContactPerson || '', projectPhone: meta.projectPhone || '', projectEmail: meta.projectEmail || '', installationResponsible: meta.installationResponsible || ''
       });
-      setEditingId(insp.id); setModalTab('basis'); setShowOrderModal(true);
+      setEditingId(insp.id); setEditingInspection(insp); setModalDefects(insp.report_data?.defects || []); setModalTab('basis'); setShowOrderModal(true);
   };
 
   const upsertClientFromOrder = async () => {
@@ -892,8 +896,8 @@ const handleLoadDefaultLibrary = async () => {
     const coords = await geocodeAddress(newOrder.projectAddress, newOrder.projectPostalCode, newOrder.projectCity);
     const metaData = { ...newOrder, ...(coords ?? {}), totalComponents: 0, inspectionInterval: 5, usageFunctions: { kantoorfunctie: false }, inspectionBasis: { nta8220: true, verzekering: false } };
     if (editingId) {
-        const existingInsp = inspections.find(i => i.id === editingId); if (!existingInsp) return;
-        const updatedReportData = { ...existingInsp.report_data, meta: { ...existingInsp.report_data.meta, ...metaData } };
+        const existingInsp = editingInspection || inspections.find(i => i.id === editingId); if (!existingInsp) return;
+        const updatedReportData = { ...existingInsp.report_data, meta: { ...existingInsp.report_data.meta, ...metaData }, defects: modalDefects };
         const { error } = await supabase.from('inspections').update({ client_name: newOrder.clientName, report_data: updatedReportData }).eq('id', editingId);
         if (error) { alert("Fout: " + error.message); } else { await upsertClientFromOrder(); logAction('admin', 'inspection_updated', 'inspection', editingId, newOrder.clientName, { projectLocation: newOrder.projectLocation, date: newOrder.date }); alert("Opgeslagen!"); closeModal(); fetchInspections(); }
     } else {
@@ -903,7 +907,7 @@ const handleLoadDefaultLibrary = async () => {
     }
   };
 
-  const closeModal = () => { setShowOrderModal(false); setNewOrder(EMPTY_ORDER); setEditingId(null); };
+  const closeModal = () => { setShowOrderModal(false); setNewOrder(EMPTY_ORDER); setEditingId(null); setEditingInspection(null); setModalDefects([]); setAdminDragIdx(null); setAdminDragOverIdx(null); };
   const handleDelete = async (id: number) => {
     const insp = inspections.find(i => i.id === id);
     if(window.confirm("Verwijderen?")) {
@@ -2147,9 +2151,10 @@ const handleLoadDefaultLibrary = async () => {
                 <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
                     <div className="p-6 border-b flex justify-between items-center bg-gray-50"><h2 className="text-xl font-bold text-gray-800">{editingId ? 'Opdracht Bewerken' : 'Nieuwe Opdracht'}</h2><button onClick={closeModal}><X size={24}/></button></div>
                     <div className="flex border-b bg-gray-100">
-                        <button onClick={() => { setModalTab('basis'); setPlacesResults([]); setPlacesQuery(''); }} className={`flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 ${modalTab === 'basis' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><Calendar size={16}/> 1. Basis</button>
-                        <button onClick={() => { setModalTab('klant'); setPlacesResults([]); setPlacesQuery(''); }} className={`flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 ${modalTab === 'klant' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><User size={16}/> 2. Opdrachtgever</button>
-                        <button onClick={() => { setModalTab('project'); setPlacesResults([]); setPlacesQuery(''); }} className={`flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 ${modalTab === 'project' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><Building size={16}/> 3. Project</button>
+                        <button onClick={() => { setModalTab('basis'); setPlacesResults([]); setPlacesQuery(''); }} className={`flex-1 py-2.5 font-bold text-xs flex items-center justify-center gap-1.5 ${modalTab === 'basis' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><Calendar size={14}/> 1. Basis</button>
+                        <button onClick={() => { setModalTab('klant'); setPlacesResults([]); setPlacesQuery(''); }} className={`flex-1 py-2.5 font-bold text-xs flex items-center justify-center gap-1.5 ${modalTab === 'klant' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><User size={14}/> 2. Opdrachtgever</button>
+                        <button onClick={() => { setModalTab('project'); setPlacesResults([]); setPlacesQuery(''); }} className={`flex-1 py-2.5 font-bold text-xs flex items-center justify-center gap-1.5 ${modalTab === 'project' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><Building size={14}/> 3. Project</button>
+                        {editingId && <button onClick={() => setModalTab('bevindingen')} className={`flex-1 py-2.5 font-bold text-xs flex items-center justify-center gap-1.5 ${modalTab === 'bevindingen' ? 'bg-white text-emerald-600 border-t-2 border-t-emerald-600' : 'text-gray-500'}`}><ListOrdered size={14}/> 4. Bevindingen {modalDefects.length > 0 && <span className="bg-gray-200 text-gray-600 rounded-full px-1.5 text-xs">{modalDefects.length}</span>}</button>}
                     </div>
                     
                     <div className="p-6 overflow-y-auto bg-gray-50">
@@ -2302,6 +2307,46 @@ const handleLoadDefaultLibrary = async () => {
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contactpersoon op locatie</label><input className="w-full border rounded p-2" value={newOrder.projectContactPerson} onChange={e => setNewOrder({...newOrder, projectContactPerson: e.target.value})} /></div>
                                 <div className="flex gap-2"><div className="w-1/2 relative"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefoon</label><div className="relative"><Phone size={16} className="absolute left-3 top-3 text-gray-400"/><input className="w-full border rounded p-2 pl-10" value={newOrder.projectPhone} onChange={e => setNewOrder({...newOrder, projectPhone: e.target.value})} /></div></div><div className="w-1/2 relative"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-mail</label><div className="relative"><Mail size={16} className="absolute left-3 top-3 text-gray-400"/><input className="w-full border rounded p-2 pl-10" value={newOrder.projectEmail} onChange={e => setNewOrder({...newOrder, projectEmail: e.target.value})} /></div></div></div>
                                 <div className="bg-blue-50 p-3 rounded border border-blue-100 mt-2"><label className="block text-xs font-bold text-blue-800 uppercase mb-1">Installatieverantwoordelijke (IV)</label><input className="w-full border rounded p-2" value={newOrder.installationResponsible} onChange={e => setNewOrder({...newOrder, installationResponsible: e.target.value})} placeholder="Naam IV'er" /></div>
+                            </div>
+                        )}
+                        {modalTab === 'bevindingen' && (
+                            <div className="space-y-2">
+                                {modalDefects.length === 0 ? (
+                                    <p className="text-sm text-gray-400 italic text-center py-8">Geen bevindingen voor deze inspectie.</p>
+                                ) : (
+                                    <>
+                                        <p className="text-xs text-gray-500 mb-3">Sleep bevindingen om de volgorde aan te passen. Deze volgorde wordt ook in het PDF-rapport gebruikt.</p>
+                                        {modalDefects.map((d, i) => {
+                                            const borderColor = d.classification === 'Red' ? '#ef4444' : d.classification === 'Orange' || d.classification === 'Amber' ? '#f97316' : d.classification === 'Blue' ? '#3b82f6' : '#eab308';
+                                            return (
+                                                <div
+                                                    key={d.id}
+                                                    draggable
+                                                    onDragStart={() => setAdminDragIdx(i)}
+                                                    onDragOver={e => { e.preventDefault(); setAdminDragOverIdx(i); }}
+                                                    onDragEnd={() => { setAdminDragIdx(null); setAdminDragOverIdx(null); }}
+                                                    onDrop={() => {
+                                                        if (adminDragIdx === null || adminDragIdx === i) return;
+                                                        const next = [...modalDefects];
+                                                        const [moved] = next.splice(adminDragIdx, 1);
+                                                        next.splice(i, 0, moved);
+                                                        setModalDefects(next);
+                                                        setAdminDragIdx(null); setAdminDragOverIdx(null);
+                                                    }}
+                                                    className={`bg-white border-l-4 rounded p-3 flex items-start gap-2 select-none transition-all cursor-grab ${adminDragOverIdx === i && adminDragIdx !== i ? 'ring-2 ring-emerald-400 ring-offset-1' : ''}`}
+                                                    style={{ borderColor, opacity: adminDragIdx === i ? 0.45 : 1 }}
+                                                >
+                                                    <GripVertical size={15} className="text-gray-300 mt-0.5 shrink-0" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="font-semibold text-sm text-gray-800">{i + 1}. {d.location}</div>
+                                                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{d.description}</p>
+                                                    </div>
+                                                    <span className="shrink-0 text-xs font-bold px-2 py-0.5 rounded" style={{ color: borderColor, background: borderColor + '18' }}>{d.classification}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>

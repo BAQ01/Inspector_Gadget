@@ -7,7 +7,7 @@ import { compressImage, uploadPhotoToCloud } from './utils';
 import { parsePlaceResult, fetchPlaces, lookupAddressBAG, geocodeAddress } from './utils/placesSearch';
 import { logAction } from './utils/auditLog';
 import SignatureCanvas from 'react-signature-canvas';
-import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown, UserCircle, Save, LogOut, Settings} from 'lucide-react';
+import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown, UserCircle, Save, LogOut, Settings, GripVertical} from 'lucide-react';
 import { UsageFunctions, Defect, Classification, Instrument, InspectionMeta, BoardMeasurement, ClientContact } from './types';
 import { supabase } from './supabase';
 
@@ -91,7 +91,7 @@ const [userProfile, setUserProfile] = useState<any>({
   const {
     meta, defects, measurements, customLibrary,
     setMeta, setUsageFunction, setMeasurements, addDefect, updateDefect,
-    removeDefect, addInstrument, removeInstrument,
+    removeDefect, reorderDefects, addInstrument, removeInstrument,
     importState, mergeState, resetState, setCustomLibrary,
     addBoard, updateBoard, removeBoard
   } = useInspectionStore();
@@ -196,6 +196,10 @@ const [userProfile, setUserProfile] = useState<any>({
   const [staticDescription, setStaticDescription] = useState('');
   const [customComment, setCustomComment] = useState('');
   const [customClassification, setCustomClassification] = useState<Classification>('Yellow');
+
+  // Drag-and-drop state voor bevindingen volgorde
+  const [defectDragIdx, setDefectDragIdx] = useState<number | null>(null);
+  const [defectDragOverIdx, setDefectDragOverIdx] = useState<number | null>(null);
 
   const [showNewInstrumentForm, setShowNewInstrumentForm] = useState(false);
   const [newInstSearchQuery, setNewInstSearchQuery] = useState('');
@@ -1628,19 +1632,39 @@ const handleCloudMerge = async () => {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {defects.map(d => (
-                  <div key={d.id} className="bg-white border-l-4 shadow-sm p-4 rounded flex justify-between items-start group" style={{ borderColor: d.classification === 'Red' ? '#ef4444' : '#facc15' }}>
-                    <div>
-                        <div className="font-bold text-gray-800">{d.location}</div>
-                        <p className="text-sm text-gray-600 whitespace-pre-wrap">{d.description}</p>
+              <div className="space-y-2">
+                {defects.map((d, i) => {
+                  const borderColor = d.classification === 'Red' ? '#ef4444' : d.classification === 'Orange' || d.classification === 'Amber' ? '#f97316' : d.classification === 'Blue' ? '#3b82f6' : '#eab308';
+                  return (
+                    <div
+                      key={d.id}
+                      draggable
+                      onDragStart={() => setDefectDragIdx(i)}
+                      onDragOver={e => { e.preventDefault(); setDefectDragOverIdx(i); }}
+                      onDragEnd={() => { setDefectDragIdx(null); setDefectDragOverIdx(null); }}
+                      onDrop={() => {
+                        if (defectDragIdx === null || defectDragIdx === i) return;
+                        const next = [...defects];
+                        const [moved] = next.splice(defectDragIdx, 1);
+                        next.splice(i, 0, moved);
+                        reorderDefects(next);
+                        setDefectDragIdx(null); setDefectDragOverIdx(null);
+                      }}
+                      className={`bg-white border-l-4 shadow-sm p-3 rounded flex items-start gap-2 group select-none transition-all ${defectDragOverIdx === i && defectDragIdx !== i ? 'ring-2 ring-emerald-400 ring-offset-1' : ''}`}
+                      style={{ borderColor, cursor: 'grab', opacity: defectDragIdx === i ? 0.5 : 1 }}
+                    >
+                      <GripVertical size={16} className="text-gray-300 mt-1 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-gray-800 text-sm">{i + 1}. {d.location}</div>
+                        <p className="text-xs text-gray-500 whitespace-pre-wrap mt-0.5 line-clamp-2">{d.description}</p>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0">
+                        <button onClick={() => handleStartEdit(d)} className="p-1.5 text-gray-400 hover:text-blue-600"><Pencil size={15} /></button>
+                        <button onClick={() => removeDefect(d.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 size={15} /></button>
+                      </div>
                     </div>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100">
-                      <button onClick={() => handleStartEdit(d)} className="p-2 text-gray-400 hover:text-blue-600"><Pencil size={18} /></button>
-                      <button onClick={() => removeDefect(d.id)} className="p-2 text-gray-400 hover:text-red-600"><Trash2 size={18} /></button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

@@ -233,6 +233,7 @@ export interface InspectionState {
   addDefect: (defect: Defect) => void;
   updateDefect: (id: string, defect: Defect) => void;
   removeDefect: (id: string) => void;
+  reorderDefects: (defects: Defect[]) => void;
 
   addInstrument: (instrument: Instrument) => void;
   removeInstrument: (id: string) => void;

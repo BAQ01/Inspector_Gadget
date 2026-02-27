@@ -135,6 +135,8 @@ export const useInspectionStore = create<InspectionState>()(
         defects: state.defects.filter(d => d.id !== id)
       })),
 
+      reorderDefects: (defects) => set(() => ({ defects })),
+
       addInstrument: (instrument) => set((state) => {
         if (state.measurements.selectedInstruments.some(i => i.id === instrument.id)) return state;
         return {
