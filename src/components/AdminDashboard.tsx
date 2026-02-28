@@ -163,8 +163,11 @@ export default function AdminDashboard() {
     setLoading(true);
     const from = (page - 1) * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
-    
+
     let query = supabase.from('inspections').select('*', { count: 'exact' });
+
+    // 0. SLUIT BIJDRAGEN UIT van de hoofd-paginering (bijdragen worden apart gegroepeerd)
+    query = query.or('report_data->meta->>isContributionMode.is.null,report_data->meta->>isContributionMode.eq.false');
 
     // 1. ZOEKFUNCTIE
     if (searchTerm) {
@@ -244,8 +247,43 @@ export default function AdminDashboard() {
             });
         }
 
-        setInspections(finalData); 
-        setTotalCount(count || 0); 
+        // 4. BIJDRAGEN OPHALEN en groeperen na hun hoofd-inspectie
+        const mainIds = finalData.map(i => i.id);
+        const mainNumbers = finalData.map(i => i.inspection_number).filter(Boolean);
+
+        let grouped = [...finalData];
+        if (mainIds.length > 0) {
+            const { data: contribData } = await supabase
+                .from('inspections')
+                .select('*')
+                .filter('report_data->meta->>isContributionMode', 'eq', 'true');
+
+            if (contribData && contribData.length > 0) {
+                // Filter: alleen bijdragen waarvan de ouder op deze pagina staat
+                const pageContribs = contribData.filter(c => {
+                    const parentId = c.report_data?.meta?.parentInspectionId;
+                    const parentNum = c.report_data?.meta?.parentInspectionNumber;
+                    return mainIds.includes(Number(parentId)) || mainIds.includes(parentId) ||
+                        (parentNum && mainNumbers.includes(parentNum));
+                });
+
+                // Groepeer: voeg elke bijdrage in na zijn ouder
+                grouped = [];
+                for (const main of finalData) {
+                    grouped.push(main);
+                    const children = pageContribs.filter(c => {
+                        const parentId = c.report_data?.meta?.parentInspectionId;
+                        const parentNum = c.report_data?.meta?.parentInspectionNumber;
+                        return Number(parentId) === main.id || parentId === main.id ||
+                            (parentNum && parentNum === main.inspection_number);
+                    });
+                    grouped.push(...children);
+                }
+            }
+        }
+
+        setInspections(grouped);
+        setTotalCount(count || 0);
     }
     setLoading(false);
   };
@@ -1545,11 +1583,13 @@ const handleLoadDefaultLibrary = async () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {inspections.map((insp) => (
-                        <tr key={insp.id} className={`hover:bg-gray-50 ${selectedIds.includes(insp.id) ? 'bg-emerald-50/50' : ''}`}>
-                            <td className="px-4 py-3">
-                                <input 
-                                    type="checkbox" 
+                        {inspections.map((insp) => {
+                        const isContrib = !!insp.report_data?.meta?.isContributionMode;
+                        return (
+                        <tr key={insp.id} className={`hover:bg-gray-50 ${selectedIds.includes(insp.id) ? 'bg-emerald-50/50' : isContrib ? 'bg-violet-50/60' : ''}`}>
+                            <td className={`py-3 ${isContrib ? 'pl-8 pr-4' : 'px-4'}`}>
+                                <input
+                                    type="checkbox"
                                     className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                                     checked={selectedIds.includes(insp.id)}
                                     onChange={() => toggleSelectRow(insp.id)}
@@ -1557,13 +1597,22 @@ const handleLoadDefaultLibrary = async () => {
                             </td>
                             <td className="px-4 py-3 text-xs text-gray-500"><div className="flex items-center gap-1"><Clock size={14} className="text-gray-400"/> {normalizeDate(insp.created_at)}</div></td>
                             {/* 2. Updated */}
-                            <td className="px-4 py-3 text-xs text-blue-600 font-medium whitespace-nowrap">{formatDateTime(insp.updated_at)}</td>                            
+                            <td className="px-4 py-3 text-xs text-blue-600 font-medium whitespace-nowrap">{formatDateTime(insp.updated_at)}</td>
                             {/* 2. Start */}
                             <td className="px-4 py-3 text-sm font-bold text-gray-700"><div className="flex items-center gap-1"><Calendar size={14} className="text-emerald-600"/>{normalizeDate(insp.report_data?.meta?.date) || '-'}</div></td>
                             {/* 3. Afgerond */}
                             <td className="px-4 py-3 text-sm text-gray-600">{insp.report_data?.meta?.finalizedDate ? (<div className="flex items-center gap-1 text-green-700 font-bold"><CheckCircle size={14}/>{normalizeDate(insp.report_data.meta.finalizedDate)}</div>) : (<span className="text-gray-300 italic">-</span>)}</td>
                             {/* 4. ID (Whitespace nowrap) */}
-                            <td className="px-4 py-3 whitespace-nowrap"><span className="font-mono text-xs font-bold bg-gray-100 text-gray-700 px-2 py-1 rounded border border-gray-300 flex items-center gap-1 w-fit"><Hash size={12} className="text-gray-400"/>{insp.inspection_number || 'CONCEPT'}</span></td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                {isContrib && <span className="text-violet-400 text-lg leading-none select-none">↳</span>}
+                                <span className={`font-mono text-xs font-bold px-2 py-1 rounded border flex items-center gap-1 w-fit ${isContrib ? 'bg-violet-100 text-violet-700 border-violet-300' : 'bg-gray-100 text-gray-700 border-gray-300'}`}>
+                                  <Hash size={12} className={isContrib ? 'text-violet-400' : 'text-gray-400'}/>
+                                  {insp.inspection_number || 'CONCEPT'}
+                                </span>
+                                {isContrib && <span className="text-xs bg-violet-600 text-white px-1.5 py-0.5 rounded font-bold">Bijdrage</span>}
+                              </div>
+                            </td>
                             {/* 5. Klant */}
                             <td className="px-4 py-3"><div className="text-sm font-bold text-gray-900">{insp.client_name}</div></td>
                             {/* 6. Project */}
@@ -1639,7 +1688,8 @@ const handleLoadDefaultLibrary = async () => {
                                 </div>
                             </td>
                         </tr>
-                        ))}
+                        );
+                        })}
                     </tbody>
                     </table>
                 </div>

@@ -1671,13 +1671,15 @@ const handleCloudMerge = async () => {
 
           {activeTab === 'report' && (
             <div className="text-center py-6 space-y-6">
-              <div className="bg-indigo-50 p-4 rounded border border-indigo-100 text-left">
-                <h3 className="font-bold text-indigo-800 border-b border-indigo-200 pb-2 mb-3 flex items-center gap-2"><Calendar size={18}/> Advies Inspectiefrequentie</h3>
-                <div className="space-y-4">
-                  <div><label className="block text-sm font-bold text-gray-700 mb-1">Interval:</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="interval" checked={meta.inspectionInterval === 3} onChange={() => setMeta({ inspectionInterval: 3 })} /> 3 Jaar</label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="interval" checked={meta.inspectionInterval === 5} onChange={() => setMeta({ inspectionInterval: 5 })} /> 5 Jaar</label></div></div>
-                  <div className="bg-white p-2 rounded border"><span className="text-xs text-gray-500 block">Volgende inspectie uiterlijk:</span><span className="font-bold text-indigo-600">{meta.nextInspectionDate}</span></div>
+              {!meta.isContributionMode && (
+                <div className="bg-indigo-50 p-4 rounded border border-indigo-100 text-left">
+                  <h3 className="font-bold text-indigo-800 border-b border-indigo-200 pb-2 mb-3 flex items-center gap-2"><Calendar size={18}/> Advies Inspectiefrequentie</h3>
+                  <div className="space-y-4">
+                    <div><label className="block text-sm font-bold text-gray-700 mb-1">Interval:</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="interval" checked={meta.inspectionInterval === 3} onChange={() => setMeta({ inspectionInterval: 3 })} /> 3 Jaar</label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="interval" checked={meta.inspectionInterval === 5} onChange={() => setMeta({ inspectionInterval: 5 })} /> 5 Jaar</label></div></div>
+                    <div className="bg-white p-2 rounded border"><span className="text-xs text-gray-500 block">Volgende inspectie uiterlijk:</span><span className="font-bold text-indigo-600">{meta.nextInspectionDate}</span></div>
+                  </div>
                 </div>
-              </div>
+              )}
               
               <div className="bg-white p-4 rounded shadow-sm border">
                 <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Handtekening Inspecteur</h3>
@@ -1702,7 +1704,7 @@ const handleCloudMerge = async () => {
                   <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-6 w-full text-left">
                       <h3 className="font-bold text-blue-800 mb-2 flex items-center gap-2"><Upload size={20}/> Cloud Koppeling</h3>
                       <p className="text-sm text-blue-600 mb-3">Nog niet in het online dashboard.</p>
-                      <button onClick={handleUploadAsNew} disabled={isGenerating} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-lg font-bold shadow flex items-center justify-center gap-3 text-lg">{isGenerating ? 'Bezig...' : 'Uploaden als Nieuwe Opdracht'}</button>
+                      <button onClick={handleUploadAsNew} disabled={isGenerating} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-lg font-bold shadow flex items-center justify-center gap-3 text-lg">{isGenerating ? 'Bezig...' : (meta.isContributionMode ? 'Bijdrage Uploaden' : 'Uploaden als Nieuwe Opdracht')}</button>
                   </div>
               )}
 
