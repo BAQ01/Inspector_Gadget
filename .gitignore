@@ -1,3 +1,8 @@
+# Environment variables — NOOIT committen
+.env
+.env.*
+!.env.example
+
 # Logs
 logs
 *.log
