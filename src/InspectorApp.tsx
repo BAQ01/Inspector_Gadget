@@ -7,7 +7,7 @@ import { compressImage, uploadPhotoToCloud } from './utils';
 import { parsePlaceResult, fetchPlaces, lookupAddressBAG, geocodeAddress } from './utils/placesSearch';
 import { logAction } from './utils/auditLog';
 import SignatureCanvas from 'react-signature-canvas';
-import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown, UserCircle, Save, LogOut, Settings, GripVertical} from 'lucide-react';
+import { Camera, Trash2, ChevronLeft, ChevronRight, PlusCircle, X, CheckSquare, Pencil, Upload, RotateCcw, Calendar, Download, Search, MapPin, RefreshCw, Share2, CloudDownload, Cloud, CloudCheck, ArrowUp, ArrowDown, UserCircle, Save, LogOut, Settings, GripVertical, Users} from 'lucide-react';
 import { UsageFunctions, Defect, Classification, Instrument, InspectionMeta, BoardMeasurement, ClientContact } from './types';
 import { supabase } from './supabase';
 
@@ -176,6 +176,7 @@ const [userProfile, setUserProfile] = useState<any>({
   const [showWorkModal, setShowWorkModal] = useState(false);
   const [availableWork, setAvailableWork] = useState<any[]>([]);
   const [isLoadingWork, setIsLoadingWork] = useState(false);
+  const [pendingWorkOrder, setPendingWorkOrder] = useState<any>(null);
 
 // --- NIEUW: Zoeken & Sorteren in Werkvoorraad ---
   const [workSearch, setWorkSearch] = useState('');
@@ -432,25 +433,13 @@ const [userProfile, setUserProfile] = useState<any>({
     setIsLoadingWork(false);
   };
 
-  const loadWorkOrder = async (inspection: any) => {
+  const loadWorkOrder = async (inspection: any, isContribution: boolean) => {
     if (!inspection) return;
 
     // Data parsen (soms is het al JSON, soms een string)
-    let dataToLoad = typeof inspection.report_data === 'string' 
-      ? JSON.parse(inspection.report_data) 
+    let dataToLoad = typeof inspection.report_data === 'string'
+      ? JSON.parse(inspection.report_data)
       : inspection.report_data;
-
-    // Keuze aan de gebruiker
-    const userChoice = window.prompt(
-      `Opdracht: "${inspection.client_name}"\n\n` +
-      `Kies je rol:\n` +
-      `1 = HOOFDINSPECTEUR (Volledig rapport beheren)\n` +
-      `2 = COLLEGA (Alleen eigen gebreken toevoegen)`,
-      "1"
-    );
-
-    if (!userChoice) return;
-    const isContribution = userChoice === '2';
 
     const baseMeta = dataToLoad.meta || {};
     
@@ -500,12 +489,6 @@ const [userProfile, setUserProfile] = useState<any>({
       setShowWorkModal(false);
       setActiveTab('setup');
       
-      // Feedback aan gebruiker
-      if (isContribution) {
-          alert(`Modus: COLLEGA.\nJe werkt aan een bijdrage voor project ${inspection.inspection_number || '...'}.\nJe ID wordt straks automatisch gegenereerd (bijv. ...-1A).`);
-      } else {
-          alert("Modus: HOOFDINSPECTEUR.\nJe beheert het volledige rapport.");
-      }
 
     } catch (err) {
       console.error("Fout bij laden:", err);
@@ -1145,9 +1128,9 @@ const handleCloudMerge = async () => {
                         ) : (
                             <div className="divide-y divide-gray-200 bg-white">
                                 {processedWork.map(job => (
-                                    <button 
-                                        key={job.id} 
-                                        onClick={() => loadWorkOrder(job)} 
+                                    <button
+                                        key={job.id}
+                                        onClick={() => setPendingWorkOrder(job)}
                                         className="w-full text-left p-4 hover:bg-blue-50 transition flex justify-between items-center group"
                                     >
                                         <div className="flex-grow min-w-0 pr-4">
@@ -1179,6 +1162,40 @@ const handleCloudMerge = async () => {
                     </div>
                 </div>
             </div>
+        )}
+
+        {/* ROL KEUZE MODAL */}
+        {pendingWorkOrder && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+              <div className="p-5 bg-blue-50 border-b">
+                <h3 className="font-bold text-blue-900 text-lg">Kies je rol</h3>
+                <p className="font-bold text-blue-800 mt-1 truncate">{pendingWorkOrder.client_name}</p>
+                {pendingWorkOrder.report_data?.meta?.projectLocation && (
+                  <p className="text-xs text-blue-500 truncate">{pendingWorkOrder.report_data.meta.projectLocation}</p>
+                )}
+              </div>
+              <div className="p-4 space-y-3">
+                <button
+                  onClick={() => { loadWorkOrder(pendingWorkOrder, false); setPendingWorkOrder(null); }}
+                  className="w-full text-left p-4 rounded-lg border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-400 transition"
+                >
+                  <div className="font-bold text-emerald-800 flex items-center gap-2"><UserCircle size={18}/> Hoofdinspecteur</div>
+                  <p className="text-xs text-emerald-600 mt-1">Volledig rapport beheren — defecten, metingen en afronding.</p>
+                </button>
+                <button
+                  onClick={() => { loadWorkOrder(pendingWorkOrder, true); setPendingWorkOrder(null); }}
+                  className="w-full text-left p-4 rounded-lg border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition"
+                >
+                  <div className="font-bold text-blue-800 flex items-center gap-2"><Users size={18}/> Collega (Bijdrage)</div>
+                  <p className="text-xs text-blue-600 mt-1">Alleen eigen bevindingen toevoegen en uploaden.</p>
+                </button>
+              </div>
+              <div className="px-4 pb-4">
+                <button onClick={() => setPendingWorkOrder(null)} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 py-2">Annuleren</button>
+              </div>
+            </div>
+          </div>
         )}
 
                <div className={`bg-gray-50 p-4 rounded border ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
