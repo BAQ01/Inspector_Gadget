@@ -1,5 +1,14 @@
 import { LibraryDefect, Instrument, Company, Inspector } from './types';
 
+// ---------------------------------------------------------------------------
+// SCOPE-HELPERS
+// Gebruik deze constanten bij het 'scope'-veld van elk gebrek.
+// Later alleen de constante-naam wijzigen; de filter in InspectorApp werkt vanzelf.
+// ---------------------------------------------------------------------------
+export const SCOPE_BOTH: string[] = ['8', '10']; // Van toepassing op Scope 8 én Scope 10
+export const SCOPE_10:   string[] = ['10'];        // Alleen Scope 10 — NTA 8220 (Brandrisico)
+export const SCOPE_8:    string[] = ['8'];          // Alleen Scope 8  — NEN 3140 (Arbowet)
+
 export const calculateSample = (n: number): number => {
   if (n <= 0) return 0;
   if (n <= 5) return n;
@@ -31,6 +40,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'hangende tafecontactdoos',
     description: 'De toegepaste tafelcontactdoos is opgehangen aan de snoerleiding, waardoor de verbinding niet langer vrij is van mechanische belastingen; de aansluitingen worden hierdoor onjuist belast.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_2',
@@ -39,6 +49,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'hangende contrasteker',
     description: 'De hangende contra stekker en de bijhorende leiding zijn niet voorzien van een geschikte trekontlasting.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_3',
@@ -47,6 +58,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'in serie',
     description: 'Er zijn verlengsnoeren, tafelcontactdozen en/of kabelboxen in serie aangesloten, wat duidt op een ondeugdelijke en niet doelmatige aanleg van de elektrische installatie. Voor veilig gebruik van verplaatsbaar en/of vast opgesteld elektrisch materieel dienen voldoende contactdozen op strategisch gekozen locaties aanwezig te zijn, zodat het doorlussen van tafelcontactdozen kan worden voorkomen.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_4',
@@ -55,6 +67,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'niet geschikt omgeving',
     description: 'Er is een tafelcontactdoos toegepast die niet geschikt is voor de omgevingsinvloeden zoals stof.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_5',
@@ -63,6 +76,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'algemeen in gebruik',
     description: 'Er zijn verlengsnoeren, tafelcontactdozen en/of kabelboxen in gebruik. Voor een veilige toepassing van verplaatsbaar en/of vast opgesteld elektrisch materieel moeten voldoende contactdozen op doeltreffend gekozen plekken aanwezig zijn, zodat het gebruik van losse verlengsnoeren e.d. tot een minimum wordt beperkt.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_6',
@@ -71,6 +85,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'op radiator',
     description: 'Het VMvL-snoer en/of de tafelcontactdoos ligt op een radiator of wordt langs een verwarmingsbuis geleid. Door de verhoogde temperatuur kunnen de weekmakers in het PVC-isolatiemateriaal versneld uittreden, waardoor de isolatie van het snoer hard wordt en kan breken (defect raken). Oververhitting kan leiden tot spontane ontbranding van materialen in of in de buurt van elektrisch materieel.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_7',
@@ -79,6 +94,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'haspel',
     description: 'Er is een kabelhaspel in gebruik waarvan de kabel niet geheel is afgerold. Bij langdurige belasting zal hierdoor een ontoelaatbare temperatuurstijging in de kabel ontstaan, waardoor de isolatie defect kan raken en brand kan ontstaan.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_8',
@@ -87,6 +103,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'klasse 1 in klasse 2',
     description: 'Wanneer een tafelcontactdoos wordt toegepast moet rekening worden gehouden met de hierop aan te sluiten apparatuur. Klasse I apparatuur (geaard) dient op een contactdoos met beschermingsleiding te worden aangesloten. Zonder beschermingsleiding zal de beveiliging, bij aardsluiting, niet of te laat uitschakelen. In een bedrijfsomgeving mogen alleen (tafel)contactdozen met beschermingsleiding worden gebruikt.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_9',
@@ -95,6 +112,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'tafelcontactdoos zonder RA',
     description: 'Het door elkaar gebruiken van contactdozen met en zonder beschermingsleiding in één en dezelfde gebruikersruimte is niet toegestaan.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_16',
@@ -103,6 +121,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Accu opslag',
     description: 'Om risico\'s te minimaliseren, moeten accu\'s op de juiste manier worden opgeslagen en verwerkt.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_17',
@@ -111,6 +130,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'opstelling lader',
     description: 'De acculader staat opgesteld op een brandbare ondergrond (hout). Tijdens het laden vindt warmteontwikkeling plaats in de acculader.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_18',
@@ -119,6 +139,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'lader vervuild',
     description: 'De acculader is vervuild door stof. Hierdoor kan de warmte onvoldoende worden afgevoerd.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_19',
@@ -127,6 +148,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'lader beschadigd',
     description: 'De acculader is beschadigd. Hierdoor is het materieel onvoldoende beschermd tegen de uitwendige invloeden.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_20',
@@ -135,6 +157,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'ventilatie',
     description: 'De ruimte is onvoldoende geventileerd. Bij het laden van natte accu\'s kan knalgas vrijkomen. Knalgas is lichter dan lucht en zal zich ophopen onder het hoogste punt. Er dient zowel onder als boven in de ruimte, diagonaal ten opzichte van elkaar, niet afsluitbare ventilatieopeningen aangebracht te worden die rechtstreeks in verbinding staan met de buitenlucht.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_10',
@@ -143,6 +166,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Condensor vervuild',
     description: 'Bij één of meerdere koelingen/vriezers is de condensor vervuilt door stof. Hierdoor ontstaat er een verhoogd risico op brand. De condensor dient conform fabrikantopgave periodiek gereinigd te worden.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_11',
@@ -151,6 +175,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Radio niet geschikt',
     description: 'Er is een radio voor huishoudelijk gebruik aangetroffen. Deze radio is niet geschikt voor het toegepaste gebruik en/of omgeving.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_12',
@@ -159,6 +184,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'apparatuur niet geschikt',
     description: 'Er is apparatuur voor huishoudelijk gebruik toegepast in een industriële omgeving. Dit materieel is niet geschikt voor het toegepaste gebruik en/of omgeving.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_13',
@@ -167,6 +193,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'apparatuur vervuild met stof',
     description: 'Op de apparatuur is een aanzienlijke hoeveelheid vuil en/of stof aangetroffen. Deze ophoping kan leiden tot overmatige warmteontwikkeling in de installatie. Bovendien vormt het brandbare vuil een extra risico, omdat het een beginnende brand kan versnellen en uitbreiden.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_14',
@@ -175,6 +202,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Ventilator vervuild met stof',
     description: 'Op/in de ventilator is een aanzienlijke hoeveelheid vuil en/of stof aangetroffen. Deze ophoping kan leiden tot overmatige warmteontwikkeling in de installatie. Bovendien vormt het brandbare vuil een extra risico, omdat het een beginnende brand kan versnellen en uitbreiden.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'use_15',
@@ -183,6 +211,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Roosters afzuigkap',
     description: 'De roosters van de afzuigkap zijn vervuild met vet. Omdat vet brandbaar is, leidt dit tot een verhoogd risico op brand. Regelmatige reiniging van de roosters is daarom essentieel voor de veiligheid.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
 
   // --- INSTALLATIEMATERIAAL ---
@@ -193,6 +222,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'beschadiging',
     description: 'De behuizing van het installatiemateriaal is beschadigd. Hierdoor heeft het materieel niet meer de bedoelde beschermingsgraad.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'inst_2',
@@ -201,6 +231,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'materiaal op hout',
     description: 'Het installatiemateriaal is niet voorzien van een grondplaat. Als er verspreiding van brand tussen het elektrisch materieel en een brandbaar oppervlak van het gebouw kan optreden, moeten de contactdozen en schakelaars zijn voorzien van een grondplaat.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'inst_3',
@@ -209,6 +240,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'materiaal op geleidende ondergrond',
     description: 'Het installatiemateriaal is niet voorzien van een grondplaat en/of de ondergrond is niet met de beschermingsleiding van de installatie verbonden. Contactdozen en schakelaars die zijn gemonteerd op een elektrisch geleidende ondergrond, moeten zijn voorzien van een grondplaat om spanningsoverslag te voorkomen of de ondergrond moet met de vereffeningsleiding van de installatie zijn verbonden.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'inst_4',
@@ -217,6 +249,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'materiaal zit los',
     description: 'Het materieel is niet meer goed bevestigd aan de ondergrond. Hiermee is ten eerste niet voldaan aan de voorschriften van de fabrikant. Daarnaast kunnen er op deze manier ongewenste mechanische krachten worden uitgeoefend op het materieel.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'inst_5',
@@ -225,6 +258,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Werkschakelaar',
     description: 'De verbruiker is niet voorzien van een werkschakelaar. Indien bij niet-elektrotechnische werkzaamheden gevaar voor ongevallen kan ontstaan door onverwachte inschakeling, moet een werkschakelaar of een daarmee gelijk te stellen toestel zijn aangebracht.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'inst_6',
@@ -233,6 +267,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'bedrading klem',
     description: 'Er is geconstateerd dat er bedrading bekneld zit tussen de behuizing. Hierdoor kan een isolatiedefect ontstaan waardoor de installatie onder spanning kan komen te staan en er brandgevaar kan ontstaan.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'inst_7',
@@ -241,6 +276,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'verbrandingsverschijnselen',
     description: 'De contactdoos vertoont verschijnselen van verbranding. Door een slecht contact ontstaat een overgangsweerstand. Door de stroom die hierdoor vloeit vindt er warmteontwikkeling plaats. Oververhitting kan leiden tot spontane ontbranding van materialen in of in de buurt van elektrisch materieel.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'inst_8',
@@ -249,6 +285,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'defecte behuizing',
     description: 'Van contactdooskast 1 is de behuizing gescheurd en is de klepdeksel defect. Het gebrek levert geen potentieel onaanvaardbaar risico op. Het verhelpen van het gebrek leidt wel tot een verhoging van de veiligheid en de professionele standaard van de installatie.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'inst_9',
@@ -257,6 +294,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'beveiliging contactdozen',
     description: 'Opmerking: Contactdozen met een toegekende stroom van ten hoogste 20 A voor algemeen gebruik door leken zijn niet aanvullend beveiligd door toestellen voor aardlekbeveiliging met een toegekende aanspreekstroom van ten hoogste 30mA. Ten tijde van aanleg was dit geen vereiste echter is dit voor installaties aangelegd na 05-2009 opgenomen in NEN 1010. Wij adviseren u, ter verhoging van de persoonlijke veiligheid, deze aardlekbeveiliging alsnog aan te brengen.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'inst_10',
@@ -265,6 +303,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'kroonstenen',
     description: 'Tevens zijn de soepele snoeren aangesloten door middel van kroonstenen, om te beveiligen tegen het opsplitsen of uiteengaan van de individuele draden van meerdraads-,soepele of zeer soepele geleiders moeten daarvoor geschikte aansluitklemmen worden gebruikt of moetende uiteinden van de geleider op geschikte wijze worden behandeld bijvoorbeeld dmv een adereindhuls.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
 
   // --- VERDEELINRICHTING ---
@@ -275,6 +314,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'open invoeren bovenzijde',
     description: 'Aan de bovenzijde van de verdeelinrichting zijn open invoeren aangetroffen. Gemakkelijk bereikbare horizontale bovenzijden van afschermingen en omhulsels moeten een beschermingsgraad bieden van ten minste IPXXD of IP4X.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_2',
@@ -283,6 +323,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'openingen kast',
     description: 'Op de verdeelinrichting zijn één of meerdere openingen aangetroffen. Openingen in de omhulling zijn onvoldoende afgestemd op de omgevingsinvloeden zoals stof. Actieve delen moeten zijn aangebracht in omhulsels of achter afschermingen die een beschermingsgraad van ten minste IPXXB of IP2X.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_3',
@@ -291,6 +332,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'stof / vuil',
     description: 'In de verdeler ligt stof, vuil en/of brandbaar materiaal. Dit kan op termijn voor problemen zorgen.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_4',
@@ -299,6 +341,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'stof / vuil (ernstig)',
     description: 'De verdeler is door stof, vuil en/of brandbaar materiaal ernstig vervuild. Deze vervuiling levert een verhoogd risico op voor brand door mogelijke overslag of pyrolyse.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_5',
@@ -307,6 +350,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'afscherming ontbreekt',
     description: 'Door het gedeeltelijk ontbreken van de afscherming is er niet voldaan aan de eis van basisbescherming. De actieve delen zijn niet volledig omhuld of afgeschermd en zijn aanraakbaar.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_6',
@@ -315,6 +359,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'afscherming niet veilig',
     description: 'Eén of meerdere componenten in de verdeelinrichting zijn niet aanrakingsveilig (IP2X), waardoor aanrakingsgevaar ontstaat.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_7',
@@ -323,6 +368,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'sluiting',
     description: 'De sluiting van de verdeelinrichting is defect. De verdeelinrichting kan hierdoor niet op de juiste wijze worden afgesloten.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_8',
@@ -331,6 +377,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'smeltpatroon',
     description: 'Er is een verkeerd type smeltpatroon toegepast. De smeltpatroon in de houder past niet bij de (kleur van de) passchroef.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_9',
@@ -339,6 +386,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'automaat defect',
     description: 'Eén of meerdere installatieautomaten zijn defect. Het mechanisme werkt niet meer naar behoren of de behuizing is dusdanig beschadigd dat de werking kan worden beïnvloed.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_10',
@@ -347,6 +395,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Aardlekbeveiliging (ontbreekt)',
     description: 'Niet alle eindgroepen met contactdozen voor algemeen gebruik en een nominale stroom van ten hoogste 20 A zijn beveiligd door een aardlekschakelaar met een nominale aanspreekstroom van ten hoogste 30 mA.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_11',
@@ -355,6 +404,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Aardlekbeveiliging (>4 groepen)',
     description: 'Er zijn meer dan 4 eindgroepen aangesloten op één aardlekschakelaar.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_12',
@@ -363,6 +413,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Aardlekbeveiliging (hoofdschakelaar)',
     description: 'In een installatie met twee of meer eindgroepen mogen de aardlekschakelaars niet worden uitgeschakeld door één hoofdschakelaar of één toestel voor beveiliging tegen overstroom.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_13',
@@ -371,6 +422,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Aardlekbeveiliging (defect)',
     description: 'Eén of meerdere aardlekschakelaars functioneren niet (binnen de gestelde tijd) bij een druk op de testknop en/of door beproeving met een meetinstrument.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_14',
@@ -379,6 +431,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'hoofdschakelaar',
     description: 'De hoofdschakelaar ontbreekt of is defect. Hierdoor kan de installatie niet in één handeling spanningsloos worden gemaakt.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_15',
@@ -387,6 +440,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'codering',
     description: 'De groepen zijn niet of onvoldoende gecodeerd. Hierdoor is het niet duidelijk welke beveiliging bij welk deel van de installatie hoort.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_16',
@@ -395,6 +449,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Draaddikte',
     description: 'De interne bedrading is te dun voor de (voor)beveiliging. Bij overbelasting kan de isolatie van de bedrading te warm worden waardoor er brand kan ontstaan.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_17',
@@ -403,6 +458,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Railsysteem',
     description: 'Het railsysteem is ondergedimensioneerd. Bij de maximaal te voeren stroom moet het railsysteem geschikt zijn voor minimaal de voorbeveiliging.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_18',
@@ -411,6 +467,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'bliksembeveiliging',
     description: 'Geconstateerd is dat het dak is voorzien van een bliksembeveiligingsinstallatie. Hierdoor moet de elektrische installatie worden beveiligd tegen de gevolgen van een directe inslag. Dit moet worden gerealiseerd met een type 1+2 overspanningsbeveiliging. Deze overspanningsbeveiliging is niet aanwezig.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_19',
@@ -419,6 +476,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'arbeidsmiddelen',
     description: 'Er zijn arbeidsmiddelen aangetroffen met gevaarlijke gebreken. De aanwezige arbeidsmiddelen zijn niet geïnspecteerd. Volgens artikel 7.4a van het Arbeidsomstandighedenbesluit moeten arbeidsmiddelen periodiek worden geïnspecteerd.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'verd_20',
@@ -427,6 +485,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'CE-markering',
     description: 'Volgens artikel 7.2 van het Arbeidsomstandighedenbesluit bestaat bij machines voorzien van een CE-markering het vermoeden dat deze aan de huidige veiligheidseisen voldoen. Bij machines zonder CE-markering (voor 1995) is dit niet het geval en zal eenmalig een RI&E uitgevoerd moeten worden om de veiligheid aan te tonen.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
 
   // --- LEIDINGEN ---
@@ -437,6 +496,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'GST 18 vergrendeling',
     description: 'Op één of meerdere plaatsen zijn GST-18 connectoren niet of niet correct vergrendeld. De vergrendeling voorkomt onbedoeld loskoppelen van de verbinding, echter bij een bepaalde kracht (>80N) dient om schade aan de kabel te voorkomen de vergrendeling los te komen. Om deze reden zijn provisorische vergrendelingsmiddelen zoals bundelbanden niet toegestaan.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_2',
@@ -445,6 +505,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'GST18 serie',
     description: 'Er zijn T-splitters zijn in serie aangesloten. Hierdoor is er geen betrouwbare verbinding in zowel de actieve geleiders als in de beschermingsleiding.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_3',
@@ -453,6 +514,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'bescherming draad',
     description: 'De bedrading is niet volledig beschermd aangelegd. In tabel 52.A.1 staat dat de installatiemethode als op de foto niet is toegestaan.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_4',
@@ -461,6 +523,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'kabel als buigzaam',
     description: 'De kabel is gebruikt als buigzame leiding. Het leidingtype dat is toegepast, is niet toegelaten voor deze specifieke toepassing.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_5',
@@ -469,6 +532,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'hangende contra',
     description: 'De hangende koppelcontactstop (contra-stekker) en de bijbehorende leiding zijn niet voorzien van een geschikte trekontlasting.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_6',
@@ -477,6 +541,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'hangende tafelcontactdoos',
     description: 'De hangende tafelcontactdoos en de bijbehorende leiding zijn niet voorzien van een geschikte trekontlasting.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_7',
@@ -485,6 +550,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'isolatie beschadigd',
     description: 'De kabel is dusdanig beschadigd dat de basisisolatie zichtbaar of beschadigd is.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_8',
@@ -493,6 +559,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'vmvl in buis',
     description: 'Er is snoer in buis getrokken. Snoer (VMvL) is, in tegenstelling tot draad (VD), niet geschikt om in buis te worden getrokken. In de bochten kunnen de aders door de mantel drukken met sluiting tot gevolg.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_9',
@@ -501,6 +568,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'snoer door wand',
     description: 'Er is snoer door een wand gevoerd. Dit is niet toegestaan. Snoer is kwetsbaarder dan kabel. Voor vaste aanleg dient kabel te worden gebruikt (b.v. XMvK).',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_10',
@@ -509,6 +577,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'niet gebeugeld',
     description: 'De leidingen zijn niet of onvoldoende gebeugeld. Kabels en buizen moeten deugdelijk zijn bevestigd om te voorkomen dat de verbindingen mechanisch worden belast.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_11',
@@ -517,6 +586,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'kabel in grond',
     description: 'De kabel die in de grond ligt is niet geschikt voor deze toepassing. Kabels die in de grond worden gelegd, moeten zijn voorzien van een aardscherm.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_12',
@@ -525,6 +595,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'ongebruikte leiding',
     description: 'De leidingen die niet (meer) in gebruik zijn moeten worden verwijderd.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_13',
@@ -533,6 +604,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'E4 achter',
     description: 'Tevens zijn de verplaatsbare leidingen niet van het juiste type. Conform NEN 1010 bepaling 700.A dienen er in omgevingen die aan rubriek 705 moeten voldoen minimaal buigzame leidingen voor zwaar gebruik (E4) toegepast te worden.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_14',
@@ -541,6 +613,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'doorsnede',
     description: 'De contactdozen zijn aangesloten door middel van een snoer met een te dunne aderdoorsnede. Conform tabel 52.2 van NEN 1010 dient voor vermogens- en verlichtingsketens een minimale doorsnede van 1,5mm² toegepast te worden.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_15',
@@ -549,6 +622,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'leiding door muur',
     description: 'De leiding wordt onbeschermd door de muur gevoerd. Op plaatsen waar leidingen door vaste afscheidingen voeren, moeten ze worden beschermd tegen mechanische beschadiging, bijvoorbeeld door gebruik te maken van met metaal afgeschermde of gearmeerde kabels, of door gebruik te maken van een buis of doorvoertulen.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_16',
@@ -557,6 +631,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'snoer / kroonsteen',
     description: 'Tevens zijn de soepele snoeren aangesloten door middel van kroonstenen, om te beveiligen tegen het opsplitsen of uiteengaan van de individuele draden van meerdraads-,soepele of zeer soepele geleiders moeten daarvoor geschikte aansluitklemmen worden gebruikt of moetende uiteinden van de geleider op geschikte wijze worden behandeld bijvoorbeeld dmv een adereindhuls.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_17',
@@ -565,6 +640,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'kans op beschadiging',
     description: 'De kabels zijn zonder bescherming aangelegd door een vloer terwijl er kans op mechanische beschadiging is.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'leid_18',
@@ -573,6 +649,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Snoer opgelast',
     description: 'Er is een snoer aangetroffen dat vermoedelijk is opgelast of hersteld en vervolgens met tape omwikkeld. Een dergelijke verbinding voldoet niet aan de eisen van deugdelijkheid en veiligheid en kan leiden tot gevaarlijke situaties, zoals kortsluiting of brand.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
 
   // --- VEREFFENING ---
@@ -583,6 +660,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Doucheruimte',
     description: 'In de doucheruimte ontbreekt een (zichtbaar) centraal aardpunt, hierdoor is niet vast kunnen stellen of de aanvullende beschermende vereffening conform voorschriften uitgevoerd is.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'ver_2',
@@ -591,6 +669,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'gasleiding',
     description: 'Het vreemd geleidende deel, de gasleiding, is niet verbonden met de beschermende vereffening. Hierdoor is er niet voldaan aan de foutbeschermingseis.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'ver_3',
@@ -599,6 +678,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'waterleiding',
     description: 'Het vreemd geleidende deel, de waterleiding, is niet verbonden met de beschermende vereffening. Hierdoor is er niet voldaan aan de foutbeschermingseis.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'ver_4',
@@ -607,6 +687,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'water- en gasleiding',
     description: 'Vreemd geleidende delen, water- en gasleiding, zijn niet verbonden met de beschermende vereffening. Hierdoor is er niet voldaan aan de foutbeschermingseis.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'ver_5',
@@ -615,6 +696,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'algemeen',
     description: 'Het vreemd geleidende deel is niet verbonden met de beschermende vereffening. Hierdoor is er niet voldaan aan de foutbeschermingseis.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'ver_6',
@@ -623,6 +705,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'stekeind',
     description: 'Het stekeind van de gewapende vloer is niet verbonden met de hoofdaardrail. Hierdoor is er niet voldaan aan de foutbeschermingseis.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'ver_7',
@@ -631,6 +714,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'klem oxidatie',
     description: 'Op de vereffeningsklem is geen sprake van een duurzame elektrische verbinding met voldoende mechanische sterkte en bescherming.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'ver_8',
@@ -639,6 +723,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'HAR',
     description: 'Meerdere geleiders zijn niet afzonderlijk losneembaar van de hoofdaardrail of –klem.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'ver_9',
@@ -647,6 +732,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'werkblad',
     description: 'De vreemd geleidende delen die door een defect onder spanning kunnen komen te staan (stalen werkbladen), zijn niet door een (aanvullende) vereffeningsleiding verbonden met de in het object aanwezige potentiaal vereffening. Dit is door metingen vastgesteld.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'ver_10',
@@ -655,6 +741,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'spiralen flexibele slang',
     description: 'De metalen spiralen van de flexibele slangen van de afzuiginstallatie zijn niet vereffend met de stalen leidingen. Door statische ontlading kan een ontstekingsbron ontstaan.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'ver_11',
@@ -663,6 +750,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'wandgoot',
     description: 'De veiligheidsaarding is onderbroken doordat er geen tandringen zijn toegepast bij de koppelingen.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
 
   // --- VERLICHTING ---
@@ -673,6 +761,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'beschadigd / defect',
     description: 'Eén of meerdere verlichtingsarmaturen zijn incompleet of beschadigd. Door het defect of ontbreken van delen van verlichtingsarmaturen kan de veiligheid in gevaar komen of kunnen er brandgevaarlijke situaties ontstaan.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_2',
@@ -681,6 +770,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'niet geschikt',
     description: 'Eén of meerdere verlichtingsarmaturen zijn niet geschikt voor het toegepaste gebruik of omgeving.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_3',
@@ -689,6 +779,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Tl- buis gloeit',
     description: 'In de ruimte hangen één of meerdere tl-armaturen met een buislamp die bij de lampvoeten gloeit. Deze buislamp vraagt veel meer vermogen dan goed werkende buislampen. De warmteontwikkeling bij de lampvoeten en het voorschakelapparaat is groot.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_4',
@@ -697,6 +788,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'nabij brandbaar mat',
     description: 'Er zijn één of meerdere (open) verlichtingsarmaturen op of nabij een brandbare ondergrond gemonteerd. Bij overmatige warmteontwikkeling zal eenvoudig brand kunnen ontstaan.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_5',
@@ -705,6 +797,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'kap ontbreekt',
     description: 'De kap van het armatuur ontbreekt. Het materieel is niet optimaal afgestemd op de omgevingsinvloeden.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_6',
@@ -713,6 +806,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'bevestiging kap',
     description: 'De bevestiging van de kap is niet meer intact. Hierdoor is het verlichtingsarmatuur onvoldoende beschermd tegen de uitwendige invloeden.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_7',
@@ -721,6 +815,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'omhulling armatuur',
     description: 'De omhulling van het verlichtingsarmatuur is niet meer geheel intact. Het verlichtingsarmatuur is onvoldoende afgestemd op de uitwendige invloeden.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_8',
@@ -729,6 +824,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'warmte',
     description: 'Het verlichtingsarmatuur bereikt een temperatuur die brand zou kunnen veroorzaken bij materiaal in de nabijheid.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_9',
@@ -737,6 +833,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'vluchtroute',
     description: 'Het verlichtingsarmatuur voor de vluchtrouteaanduiding is defect.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_10',
@@ -745,6 +842,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'spots in goot',
     description: 'Er zijn halogeen spots gemonteerd in de kabelbaan. Deze halogeen spots geven een warmte af die schadelijk kan zijn voor de kabel(s).',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_11',
@@ -753,6 +851,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'invoer armatuur',
     description: 'Door deze wijze van leidinginvoer is het materieel niet bestand tegen de te verwachte uitwendige invloeden.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_12',
@@ -761,6 +860,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'tweelingsnoer',
     description: 'Diverse Tl armaturen zijn aangesloten door middel van twee-adrige snoerleidingen. Er kan nu géén foutbescherming door automatische uitschakeling van de voeding plaatsvinden.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_13',
@@ -769,6 +869,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'fitting',
     description: 'In de ruimte ontbreekt een geschikt verlichtingsarmatuur. Aan de bedrading hangt een losse fitting.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_14',
@@ -777,6 +878,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'handbereik',
     description: 'Daar waar tl-armaturen binnen handbereik hangen of eenvoudig beschadigd kunnen raken, moeten slagvaste armaturen worden toegepast. Er zijn één of meerdere verlichtingsarmaturen niet in overeenstemming met de montagevoorschriften van de fabrikant geïnstalleerd.',
     classification: 'Orange',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'licht_15',
@@ -785,6 +887,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'halogeen beschadigd',
     description: 'Meerdere halogeen spotjes zijn beschadigd, of niet meer compleet. De beschermglaasjes onder de halogeenlamp ontbreken. Indien de lichtbron defect raakt en uit elkaar spat, kunnen de gloeiend hete glasdeeltjes op de ondergelegen, veelal brandbare materialen vallen en brand veroorzaken.',
     classification: 'Red',
+    scope: SCOPE_BOTH,
   },
 
   // --- LAADPALEN ---
@@ -795,6 +898,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Verkeerde automaat (B32)',
     description: 'De laadinrichtingen met een maximaal vermogen van 2X 22 Kw zijn beveiligd tegen over- en kortsluitstroom met een beveiligingstoestel van B32 Amp. Dit is niet conform de productspecificaties van de fabrikant. Tevens voldoet dit niet aan de verificatiemethode voor de temperatuursverhoging conform de norm NEN-EN-IEC-61439-1.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'laad_2',
@@ -803,6 +907,7 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Max stroom overschreden',
     description: 'De toegekende stroom van de stroomketens van de te verifiëren SCHAKELINRICHTING (zie 10.10.1) mag niet meer bedragen dan 80 % van de toegekende afgesproken thermische stroom vrij in lucht (Ith), indien van toepassing, of de toegekende stroom (In) van de schakeltoestellen.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   },
   {
     id: 'laad_3',
@@ -811,5 +916,6 @@ export const DEFECT_LIBRARY: LibraryDefect[] = [
     shortName: 'Gelijktijdigheid 100%',
     description: 'Er is niet vast gesteld of er een regeling in de belasting aanwezig is tussen de laadinrichtingen, nader onderzoek is nodig. Op tekening staat een gelijktijdigheid van 50% terwijl er met 100% gerekend moet worden, tenzij er een vermogensregeling aanwezig is.',
     classification: 'Yellow',
+    scope: SCOPE_BOTH,
   }
 ];

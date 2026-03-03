@@ -226,16 +226,26 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
              <View>
                 <View style={styles.coverBranding}>
                     <Text style={styles.coverBrandMain}>SCIOS</Text>
-                    <Text style={styles.coverBrandSub}>Scope 10</Text>
+                    <Text style={styles.coverBrandSub}>Scope {meta.sciosScope || '10'}</Text>
                 </View>
-                
+
                 <View style={styles.coverTitleBlock}>
                     <Text style={styles.coverTitleMain}>INSPECTIE</Text>
                     <Text style={styles.coverTitleMain}>RAPPORT</Text>
-                    <View style={{ height: 10 }} /> 
-                    <Text style={styles.coverTitleSub}>Beoordeling elektrisch</Text>
-                    <Text style={styles.coverTitleSub}>materieel op brandrisico</Text>
-                    <Text style={styles.coverStandard}>Conform NTA 8220</Text>
+                    <View style={{ height: 10 }} />
+                    {meta.sciosScope === '8' ? (
+                      <>
+                        <Text style={styles.coverTitleSub}>Periodieke keuring</Text>
+                        <Text style={styles.coverTitleSub}>elektrische installaties</Text>
+                        <Text style={styles.coverStandard}>Conform NEN 3140</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.coverTitleSub}>Beoordeling elektrisch</Text>
+                        <Text style={styles.coverTitleSub}>materieel op brandrisico</Text>
+                        <Text style={styles.coverStandard}>Conform NTA 8220</Text>
+                      </>
+                    )}
 
                     {/* HIER STAAT HET LOGO NU VEILIG IN DE BLAUWE BALK */}
                     <Image 
@@ -260,7 +270,7 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
           {/* HET WITTE PROJECT BLOK RECHTS */}
           <View style={styles.coverProjectBox}>
             <Text style={styles.projectBoxLabel}>Betreft:</Text>
-            <Text style={styles.projectBoxValue}>Inspectie SCIOS Scope 10</Text>
+            <Text style={styles.projectBoxValue}>Inspectie SCIOS Scope {meta.sciosScope || '10'}</Text>
             <Text style={styles.projectBoxLabel}>Project:</Text>
             <Text style={styles.projectBoxValue}>{meta.projectLocation}</Text>
             <Text style={styles.projectBoxLabel}>Adres:</Text>
@@ -277,24 +287,47 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
       <Page size="A4" style={styles.page}>
         <Text style={styles.pageNumber} fixed render={({ pageNumber }) => { return pageNumber > 1 ? `Pagina ${pageNumber - 1}` : ''; }} />
         <Text style={styles.h1}>Voorwoord:</Text>
-        <Text style={styles.textBlock}>Het doel van de SCIOS Scope 10 inspectie is om inzicht te krijgen in de belangrijkste elektrische risico's. Het zijn vaak relatief kleine afwijkingen die risico's veroorzaken. U kunt deze echter niet altijd zien of herkennen of u bent zich niet bewust van het feit dat ze een risico vormen. Tijdens de inspectie is niet alleen gefocust op de elektrische installatie, risicovolle apparaten en machines zijn ook bekeken. Deze zijn vaak verantwoordelijk voor het ontstaan van een brand.</Text>
-        <Text style={styles.textBlock}>De inhoud van de SCIOS Scope 10 inspectie bestaat uit:</Text>
-        <View style={{ marginBottom: 8 }}>
-          <Text style={styles.listItem}>• een uitgebreide visuele inspectie van de schakel- en verdeelinrichtingen, elektrische installatie en risicovolle eindgebruikers;</Text>
-          <Text style={styles.listItem}>• metingen en beproevingen;</Text>
-          <Text style={styles.listItem}>• thermografische inspectie (warmtebeeldopname).</Text>
-        </View>
-        <Text style={styles.textBlock}><Text style={styles.bold}>Let op:</Text> met deze inspectie voldoet u nog niet aan de Arbowet. Er is geen sprake van een volledige inspectie conform de NEN-EN 50110 / NEN 3140. Deze normen bevatten aanvullende bepalingen om het geheel te voldoen aan artikel 3.4 en 3.5 van het Arbobesluit. Sommige aspecten van deze inspectie van zowel de laagspanningsinstallaties als de elektrische apparaten voldoen niet aan de NEN 3140.</Text>
-        <Text style={styles.h3}>Leeswijzer:</Text>
-        <Text style={styles.textBlock}>Dit rapport is opgesteld aan de hand van technisch document 14 dat behoort bij een SCIOS Scope 10 inspectie. Het technisch document 14 beschrijft de eisen voor de inspectie van elektrisch materieel op brandrisico’s en behoort bij het hoofddocument "Certificatieregeling voor het kwaliteitsmanagementsysteem ten behoeve van het uitvoeren van onderhoud en inspecties aan technische installaties".</Text>
-        <Text style={styles.textBlock}>In Scope 10 is het onderhoud aan elektrisch materieel niet opgenomen.</Text>
-        <Text style={styles.textBlock}>Dit document is gebaseerd op de NTA 8220 Beoordelingsmethode op brandrisico van elektrisch materieel en is daarmee in overeenstemming.</Text>
-        <View style={{ marginBottom: 8 }}>
-          <Text style={styles.listItem}>• Voldoet de installatie wel of niet? In hoofdstuk 3 is een verklaring opgenomen of het elektrisch materieel brand verhogende risico's heeft.</Text>
-          <Text style={styles.listItem}>• Inspectietermijn: in hoofdstuk 3 vindt u de geadviseerde inspectiefrequentie, die de inspecteur adviseert op basis van de uitgevoerde inspectie.</Text>
-          <Text style={styles.listItem}>• Lijst van afwijkingen: In hoofdstuk 4 zijn de eventueel geconstateerde afwijkingen opgenomen.</Text>
-        </View>
-        <Text style={styles.textBlock}>{meta.inspectionCompany ? meta.inspectionCompany : 'Het inspectiebedrijf'} heeft deze inspectie uitgevoerd conform een door SCIOS opgesteld en geaccrediteerd kwaliteitsborgingsysteem met de naam "SCIOS Scope 10". Deze werkwijze garandeert een zorgvuldige en uniforme uitvoering van de inspectie en rapportage.</Text>
+        {meta.sciosScope === '8' ? (
+          <>
+            <Text style={styles.textBlock}>Het doel van de SCIOS Scope 8 inspectie is het beoordelen van de elektrische installatie in het kader van de Arbeidsomstandighedenwetgeving. Conform het Arbeidsomstandighedenbesluit (artikel 3.4 en 3.5) dienen elektrische installaties periodiek gekeurd te worden door een daartoe bevoegd en gecertificeerd bedrijf.</Text>
+            <Text style={styles.textBlock}>De inhoud van de SCIOS Scope 8 inspectie bestaat uit:</Text>
+            <View style={{ marginBottom: 8 }}>
+              <Text style={styles.listItem}>• een visuele inspectie van de schakel- en verdeelinrichtingen en de elektrische installatie;</Text>
+              <Text style={styles.listItem}>• metingen en beproevingen conform NEN 3140;</Text>
+              <Text style={styles.listItem}>• beoordeling van de veiligheid voor personen (Arbowet).</Text>
+            </View>
+            <Text style={styles.h3}>Leeswijzer:</Text>
+            <Text style={styles.textBlock}>Dit rapport is opgesteld conform de SCIOS Scope 8 certificatieregeling. De inspectie is uitgevoerd conform NEN 3140 en NEN-EN 50110 en voldoet aan de eisen van artikel 3.4 en 3.5 van het Arbeidsomstandighedenbesluit.</Text>
+            <Text style={styles.textBlock}>Dit document is gebaseerd op NEN 3140: Bedrijfsvoering van elektrische installaties — Laagspanning en is daarmee in overeenstemming.</Text>
+            <View style={{ marginBottom: 8 }}>
+              <Text style={styles.listItem}>• Voldoet de installatie wel of niet? In hoofdstuk 3 is een verklaring opgenomen over de veiligheidstoestand van de installatie.</Text>
+              <Text style={styles.listItem}>• Inspectietermijn: in hoofdstuk 3 vindt u de geadviseerde inspectiefrequentie op basis van de risicoklasse van de installatie.</Text>
+              <Text style={styles.listItem}>• Lijst van afwijkingen: In hoofdstuk 4 zijn de eventueel geconstateerde afwijkingen opgenomen.</Text>
+            </View>
+            <Text style={styles.textBlock}>{meta.inspectionCompany ? meta.inspectionCompany : 'Het inspectiebedrijf'} heeft deze inspectie uitgevoerd conform een door SCIOS opgesteld en geaccrediteerd kwaliteitsborgingsysteem met de naam "SCIOS Scope 8". Deze werkwijze garandeert een zorgvuldige en uniforme uitvoering van de inspectie en rapportage.</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.textBlock}>Het doel van de SCIOS Scope 10 inspectie is om inzicht te krijgen in de belangrijkste elektrische risico's. Het zijn vaak relatief kleine afwijkingen die risico's veroorzaken. U kunt deze echter niet altijd zien of herkennen of u bent zich niet bewust van het feit dat ze een risico vormen. Tijdens de inspectie is niet alleen gefocust op de elektrische installatie, risicovolle apparaten en machines zijn ook bekeken. Deze zijn vaak verantwoordelijk voor het ontstaan van een brand.</Text>
+            <Text style={styles.textBlock}>De inhoud van de SCIOS Scope 10 inspectie bestaat uit:</Text>
+            <View style={{ marginBottom: 8 }}>
+              <Text style={styles.listItem}>• een uitgebreide visuele inspectie van de schakel- en verdeelinrichtingen, elektrische installatie en risicovolle eindgebruikers;</Text>
+              <Text style={styles.listItem}>• metingen en beproevingen;</Text>
+              <Text style={styles.listItem}>• thermografische inspectie (warmtebeeldopname).</Text>
+            </View>
+            <Text style={styles.textBlock}><Text style={styles.bold}>Let op:</Text> met deze inspectie voldoet u nog niet aan de Arbowet. Er is geen sprake van een volledige inspectie conform de NEN-EN 50110 / NEN 3140. Deze normen bevatten aanvullende bepalingen om het geheel te voldoen aan artikel 3.4 en 3.5 van het Arbobesluit. Sommige aspecten van deze inspectie van zowel de laagspanningsinstallaties als de elektrische apparaten voldoen niet aan de NEN 3140.</Text>
+            <Text style={styles.h3}>Leeswijzer:</Text>
+            <Text style={styles.textBlock}>Dit rapport is opgesteld aan de hand van technisch document 14 dat behoort bij een SCIOS Scope 10 inspectie. Het technisch document 14 beschrijft de eisen voor de inspectie van elektrisch materieel op brandrisico's en behoort bij het hoofddocument "Certificatieregeling voor het kwaliteitsmanagementsysteem ten behoeve van het uitvoeren van onderhoud en inspecties aan technische installaties".</Text>
+            <Text style={styles.textBlock}>In Scope 10 is het onderhoud aan elektrisch materieel niet opgenomen.</Text>
+            <Text style={styles.textBlock}>Dit document is gebaseerd op de NTA 8220 Beoordelingsmethode op brandrisico van elektrisch materieel en is daarmee in overeenstemming.</Text>
+            <View style={{ marginBottom: 8 }}>
+              <Text style={styles.listItem}>• Voldoet de installatie wel of niet? In hoofdstuk 3 is een verklaring opgenomen of het elektrisch materieel brand verhogende risico's heeft.</Text>
+              <Text style={styles.listItem}>• Inspectietermijn: in hoofdstuk 3 vindt u de geadviseerde inspectiefrequentie, die de inspecteur adviseert op basis van de uitgevoerde inspectie.</Text>
+              <Text style={styles.listItem}>• Lijst van afwijkingen: In hoofdstuk 4 zijn de eventueel geconstateerde afwijkingen opgenomen.</Text>
+            </View>
+            <Text style={styles.textBlock}>{meta.inspectionCompany ? meta.inspectionCompany : 'Het inspectiebedrijf'} heeft deze inspectie uitgevoerd conform een door SCIOS opgesteld en geaccrediteerd kwaliteitsborgingsysteem met de naam "SCIOS Scope 10". Deze werkwijze garandeert een zorgvuldige en uniforme uitvoering van de inspectie en rapportage.</Text>
+          </>
+        )}
       </Page>
 
       {/* PAGINA 3: BASISGEGEVENS */}
@@ -429,9 +462,19 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
         <Text style={styles.headerLevel1}>3: INSPECTIE:</Text>
         <Text style={styles.headerLevel2}>TOEGEPASTE NORMEN:</Text>
         <Text style={{ marginBottom: 5 }}>De inspectie is uitgevoerd op basis van:</Text>
-        <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>NTA 8220: 2017</Text><Text style={styles.normColDesc}>Methode voor het beoordelen van elektrisch materieel op brandrisico</Text></View>
-        <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>SCIOS TD14 Versie 2.10: 2025-04</Text><Text style={styles.normColDesc}>Inspectie van elektrisch materieel op brandrisico’s</Text></View>
-        <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>NPR 8040-1: 2013</Text><Text style={styles.normColDesc}>Thermografie</Text></View>
+        {meta.sciosScope === '8' ? (
+          <>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>NEN 3140: 2023</Text><Text style={styles.normColDesc}>Bedrijfsvoering van elektrische installaties — Laagspanning</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>NEN-EN 50110-1: 2013</Text><Text style={styles.normColDesc}>Bedrijfsvoering van elektrische installaties</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>SCIOS TD8</Text><Text style={styles.normColDesc}>Periodieke inspectie elektrische installaties — Scope 8</Text></View>
+          </>
+        ) : (
+          <>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>NTA 8220: 2017</Text><Text style={styles.normColDesc}>Methode voor het beoordelen van elektrisch materieel op brandrisico</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>SCIOS TD14 Versie 2.10: 2025-04</Text><Text style={styles.normColDesc}>Inspectie van elektrisch materieel op brandrisico's</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>NPR 8040-1: 2013</Text><Text style={styles.normColDesc}>Thermografie</Text></View>
+          </>
+        )}
         
         <Text style={styles.headerLevel2}>INSPECTIEMETHODE:</Text>
         <Text style={styles.headerLevel3}>VISUELE INSPECTIE:</Text>
@@ -455,12 +498,12 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
           <View style={styles.declRow}><Text style={styles.declCheck}>[{hasDefects ? ' X ' : '   '}]</Text><Text style={styles.declText}>Tijdens de inspectie zijn er geconstateerde gebreken, afwijkingen en/of defecten vastgesteld die een mogelijk risico zijn met betrekking tot brand door elektrisch materieel.</Text></View>
           <View style={styles.declRow}><Text style={styles.declCheck}>[{!hasDefects ? ' X ' : '   '}]</Text><Text style={styles.declText}>Er zijn tijdens de inspectie geen geconstateerde gebreken, afwijkingen en/of defecten vastgesteld.</Text></View>
         </View>
-        <Text style={styles.textBlock}>Een scope 10 inspectie wordt na uitvoering afgemeld in het landelijk SCIOS portaal, onafhankelijk van het inspectieresultaat. Afmeldingen met of zonder constateringen dienen binnen 28 dagen na afronding werkzaamheden te worden gedaan. Dit dient te gebeuren op naam van de persoon die de inspectie heeft uitgevoerd. Vermelding in het SCIOS-portaal dient te geschieden door {companyName}.</Text>
+        <Text style={styles.textBlock}>Een SCIOS Scope {meta.sciosScope || '10'} inspectie wordt na uitvoering afgemeld in het landelijk SCIOS portaal, onafhankelijk van het inspectieresultaat. Afmeldingen met of zonder constateringen dienen binnen 28 dagen na afronding werkzaamheden te worden gedaan. Dit dient te gebeuren op naam van de persoon die de inspectie heeft uitgevoerd. Vermelding in het SCIOS-portaal dient te geschieden door {companyName}.</Text>
         <Text style={styles.textBlock}>Een SCIOS gecertificeerd bedrijf mag enkel een afmelding met constateringen aanpassen naar een afmelding zonder constateringen binnen een periode van <Text style={styles.bold}>één jaar</Text>. Hierna dient er een geheel nieuwe inspectie plaats te vinden.</Text>
         <Text style={styles.textBlock}>Wanneer na een inspectie met constateringen vastgesteld wordt dat de constateringen zijn weggenomen, dan wordt de bestaande afmelding met constateringen gewijzigd in een afmelding zonder constateringen. Daarbij wordt aangegeven hoe is vastgesteld dat de constateringen zijn weggenomen:</Text>
         <View style={{ marginLeft: 5, marginBottom: 20 }}>
           <View style={styles.declRow}><Text style={styles.declBullet}>{'>'}</Text><Text style={{ width: '95%', fontSize: 9 }}>Door middel van een her-inspectie door {companyName}. Hieraan zijn kosten verbonden.</Text></View>
-          <View style={styles.declRow}><Text style={styles.declBullet}>{'>'}</Text><Text style={{ width: '95%', fontSize: 9 }}>Verklaring omtrent het wegnemen van de constateringen. Vermelding in het SCIOS-portaal dient te geschieden door {companyName}. Hieraan zijn administratieve kosten verbonden. Een ondertekende herstelverklaring, ondersteund met foto’s en een beschrijving van de herstelwijze, wordt enkel geaccepteerd indien alle bedrijfsgegevens van de installateur en een volledig overzicht van de herstelde punten zijn aangeleverd en beoordeeld kunnen worden.</Text></View>
+          <View style={styles.declRow}><Text style={styles.declBullet}>{'>'}</Text><Text style={{ width: '95%', fontSize: 9 }}>Verklaring omtrent het wegnemen van de constateringen. Vermelding in het SCIOS-portaal dient te geschieden door {companyName}. Hieraan zijn administratieve kosten verbonden. Een ondertekende herstelverklaring, ondersteund met foto's en een beschrijving van de herstelwijze, wordt enkel geaccepteerd indien alle bedrijfsgegevens van de installateur en een volledig overzicht van de herstelde punten zijn aangeleverd en beoordeeld kunnen worden.</Text></View>
         </View>
         <Text style={styles.textBlock}>Namens toezichtverantwoordelijke:</Text>
         <Text style={{ fontSize: 10, marginBottom: 5 }}>{meta.inspectorName}</Text>
@@ -482,12 +525,16 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
           <View style={styles.matrixRow}><View style={styles.matrixCol1}><Text></Text></View><View style={styles.matrixCol2}><Text>Hoog (e)</Text></View><View style={styles.matrixColSmall}><Text>5</Text></View><View style={styles.matrixColSmall}><Text>3</Text></View><View style={styles.matrixColSmall}><Text>3</Text></View><View style={[styles.matrixColSmall, { borderRightWidth: 1 }]}><Text>3</Text></View></View>
           <View style={{ ...styles.matrixRow, borderBottomWidth: 0 }}><View style={styles.matrixCol1}><Text>Intensieve veehouderij</Text></View><View style={styles.matrixCol2}><Text>Niet van belang</Text></View><View style={styles.matrixColSmall}><Text>3</Text></View><View style={styles.matrixColSmall}><Text>3</Text></View><View style={styles.matrixColSmall}><Text>3</Text></View><View style={[styles.matrixColSmall, { borderRightWidth: 1 }]}><Text>3</Text></View></View>
         </View>
-        <View style={{ borderWidth: 1, borderColor: '#000', padding: 5, fontSize: 8, borderTopWidth: 1 }}><Text>(a) Op allerlei gebieden kunnen afbreukrisico’s bestaan, niet alleen in verband met arbeid. Een bedrijf kan ook een afbreukrisico lopen op het gebied van imago.</Text><Text>(b) Het aantal gelijktijdig bedreigde mensen is hoog bij meer dan 75 personen.</Text><Text>(c) Of het aantal laag of hoog is, is afhankelijk van de omvang van de beoordeling van het elektrisch materieel.</Text><Text>(d) Utiliteit zijn gebouwen met een bijeenkomstfunctie, sportfunctie, kantoorfunctie, winkelfunctie.</Text><Text>(e) Brandrisico is hoog bij industrie waar hout, metaal of kunststof wordt verwerkt.</Text></View>
+        <View style={{ borderWidth: 1, borderColor: '#000', padding: 5, fontSize: 8, borderTopWidth: 1 }}><Text>(a) Op allerlei gebieden kunnen afbreukrisico's bestaan, niet alleen in verband met arbeid. Een bedrijf kan ook een afbreukrisico lopen op het gebied van imago.</Text><Text>(b) Het aantal gelijktijdig bedreigde mensen is hoog bij meer dan 75 personen.</Text><Text>(c) Of het aantal laag of hoog is, is afhankelijk van de omvang van de beoordeling van het elektrisch materieel.</Text><Text>(d) Utiliteit zijn gebouwen met een bijeenkomstfunctie, sportfunctie, kantoorfunctie, winkelfunctie.</Text><Text>(e) Brandrisico is hoog bij industrie waar hout, metaal of kunststof wordt verwerkt.</Text></View>
         <Text style={{ marginTop: 10, fontSize: 9 }}>Als er in de overeenkomst een termijn voor de beoordeling is vastgelegd, dan is deze leidend. Voorbeelden van overeenkomsten zijn: een verzekeringspolis, een huurcontract. Als er geen termijn voor de beoordeling is vastgelegd in een overeenkomst, dan kan tabel 3 van de NTA 8220:2017 worden toegepast.</Text>
         <View style={{ marginTop: 15 }}>
           <Text style={{ fontSize: 10, marginBottom: 4 }}>Er wordt een inspectie- interval van 1x per   [{meta.inspectionInterval === 3 ? 'X' : ' '}] 3   [{meta.inspectionInterval === 5 ? 'X' : ' '}] 5 jaar geadviseerd.</Text>
-          <Text style={{ fontSize: 10, marginBottom: 2 }}>Conform verzekeringspolis:   [{meta.inspectionBasis.verzekering ? 'X' : ' '}]</Text>
-          <Text style={{ fontSize: 10, marginBottom: 10 }}>Conform NTA8220:2017:        [{meta.inspectionBasis.nta8220 ? 'X' : ' '}]</Text>
+          <Text style={{ fontSize: 10, marginBottom: 2 }}>Conform verzekeringspolis:   [{meta.inspectionBasis?.verzekering ? 'X' : ' '}]</Text>
+          {meta.sciosScope === '8' ? (
+            <Text style={{ fontSize: 10, marginBottom: 10 }}>Conform NEN 3140:2023:       [{meta.inspectionBasis?.nen3140 ? 'X' : ' '}]</Text>
+          ) : (
+            <Text style={{ fontSize: 10, marginBottom: 10 }}>Conform NTA8220:2017:        [{meta.inspectionBasis?.nta8220 ? 'X' : ' '}]</Text>
+          )}
           <Text style={{ fontSize: 10, fontWeight: 'bold' }}>De volgende inspectie dient uitgevoerd te zijn voor: {meta.nextInspectionDate}</Text>
         </View>
       </Page>
@@ -498,7 +545,7 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
         <Text style={styles.headerLevel1}>STEEKPROEF:</Text>
         <Text style={styles.bold}>Het bepalen van de steekproef</Text>
         <Text style={styles.textBlock}>Bij de kwaliteitscontrole van producten is een steekproef gebruikelijk. Men wil zekerheid dat een product aan de opgegeven specificaties voldoet. Bij brandrisico-inspecties wil men ook zekerheid.</Text>
-        <Text style={styles.textBlock}>Een inspectie op basis van een wiskundig juist bepaalde steekproef geeft die zekerheid. De installatieverantwoordelijke geeft aan welke theoretische risico’s men wil nemen voor de verschillende installaties en de verschillende onderdelen van de installatie. Voor een juiste beoordeling van dit theoretische risico is inzicht nodig in de wiskundige achtergrond van de steekproefmethode, in de kwaliteit van de elektrotechnische installatie en in de gevaren die aan het gebruik van de installatie zijn verbonden.</Text>
+        <Text style={styles.textBlock}>Een inspectie op basis van een wiskundig juist bepaalde steekproef geeft die zekerheid. De installatieverantwoordelijke geeft aan welke theoretische risico's men wil nemen voor de verschillende installaties en de verschillende onderdelen van de installatie. Voor een juiste beoordeling van dit theoretische risico is inzicht nodig in de wiskundige achtergrond van de steekproefmethode, in de kwaliteit van de elektrotechnische installatie en in de gevaren die aan het gebruik van de installatie zijn verbonden.</Text>
         <Text style={styles.textBlock}>De omvang van de partij is de verzameling van op dezelfde wijze gemonteerde producten waaruit de steekproef moet worden genomen en goedgekeurd om te bepalen of aan de goedkeuringscriteria wordt voldaan.</Text>
         <Text style={styles.textBlock}>De minimale omvang van de steekproef wordt bepaald door de tabel 1 op pagina 11 van de NTA 8220:2017. De steekproef beperkt zich tot de 1e steekproefcyclus.</Text>
         <Text style={{ textAlign: 'center', fontWeight: 'bold', marginVertical: 5 }}>Tabel 1 Omvang van de steekproef</Text>
@@ -561,7 +608,7 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
         <Text style={styles.headerLevel1}>4. VASTGESTELDE GEBREKEN, AFWIJKINGEN EN/OF DEFECTEN:</Text>
         
         <Text style={styles.textBlock}>
-          Afwijkingen worden gecategoriseerd conform informatieblad 22 (IB22) van SCIOS. IB22 beschrijft de methode hoe geconstateerde gebreken, afwijkingen en defecten van elektrisch materieel geclassificeerd (Class) worden. De methode van classificatie van geconstateerde gebreken, afwijkingen en defecten, is een systematische, norm-gerelateerde manier van indelen van de effecten die als gevolg van gebreken, afwijkingen en defecten kunnen optreden. Het is geen classificatie van risico’s maar de methode kan wel als basis voor risico-evaluaties dienen.
+          Afwijkingen worden gecategoriseerd conform informatieblad 22 (IB22) van SCIOS. IB22 beschrijft de methode hoe geconstateerde gebreken, afwijkingen en defecten van elektrisch materieel geclassificeerd (Class) worden. De methode van classificatie van geconstateerde gebreken, afwijkingen en defecten, is een systematische, norm-gerelateerde manier van indelen van de effecten die als gevolg van gebreken, afwijkingen en defecten kunnen optreden. Het is geen classificatie van risico's maar de methode kan wel als basis voor risico-evaluaties dienen.
         </Text>
 
         {/* TABEL 1: CLASSIFICATIE */}
@@ -749,7 +796,7 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
           </View>
           <View style={styles.declRow}>
              <Text style={styles.declBullet}>{'>'}</Text>
-             <Text style={{ width: '95%', fontSize: 9 }}>Deze verklaring dient binnen één jaar na inspectie te worden ingezonden en voorzien te zijn van alle begeleidende documentatie, foto’s en begeleidend schrijven om tot een goede herbeoordeling te komen. Het ontbreken van of niet juist kunnen beoordelen van deze documenten zal leiden tot afwijzing.</Text>
+             <Text style={{ width: '95%', fontSize: 9 }}>Deze verklaring dient binnen één jaar na inspectie te worden ingezonden en voorzien te zijn van alle begeleidende documentatie, foto's en begeleidend schrijven om tot een goede herbeoordeling te komen. Het ontbreken van of niet juist kunnen beoordelen van deze documenten zal leiden tot afwijzing.</Text>
           </View>
         </View>
 

@@ -135,7 +135,11 @@ const [userProfile, setUserProfile] = useState<any>({
   const [dbInstruments, setDbInstruments] = useState<any[]>([]);
   const [inspectorProfiles, setInspectorProfiles] = useState<any[]>([]);
 
-  const ACTIVE_LIBRARY = customLibrary && customLibrary.length > 0 ? customLibrary : DEFECT_LIBRARY;
+  const ACTIVE_LIBRARY = useMemo(() => {
+    const base = customLibrary && customLibrary.length > 0 ? customLibrary : DEFECT_LIBRARY;
+    const scope = meta.sciosScope || '10';
+    return base.filter(item => !item.scope || item.scope.includes(scope));
+  }, [customLibrary, meta.sciosScope]);
 
   // Centrale instrumentenlijst: alle form_options rijen gemapped naar Instrument
   const allInstruments: Instrument[] = dbInstruments.map(item => ({
@@ -680,7 +684,7 @@ const handleCloudMerge = async () => {
         // CRUCIAAL: Dit vertelt de database of het een Hoofd (NULL) of Kind (ID) is
         parent_id: isContrib ? meta.parentInspectionId : null,
         // CRUCIAAL: Dit zorgt dat de nummer-generator afgaat
-        scope_type: '10'
+        scope_type: meta.sciosScope || '10'
     };
 
     // Insert in database
@@ -1024,28 +1028,35 @@ const handleCloudMerge = async () => {
     <div className="min-h-screen font-sans text-gray-800 pb-20 bg-gray-50">
       <div className="max-w-2xl mx-auto bg-white shadow-xl min-h-screen md:min-h-0 md:rounded-lg md:my-8 overflow-hidden flex flex-col">
         {/* HEADER */}
-        <div className="bg-emerald-700 p-4 text-white flex justify-between items-center shadow-md">
-            <h1 className="font-bold text-xl">SCIOS Scope 10</h1>
+        <div className={`p-4 text-white flex justify-between items-center shadow-md ${meta.sciosScope === '8' ? 'bg-blue-700' : 'bg-emerald-700'}`}>
+            <div>
+              <h1 className="font-bold text-xl">SCIOS Scope {meta.sciosScope || '10'}</h1>
+              <p className="text-xs opacity-70">{meta.sciosScope === '8' ? 'NEN 3140 — Arbowet' : 'NTA 8220 — Brandrisico'}</p>
+            </div>
             <div className="flex items-center gap-2">
-                <div className="items-center gap-1 text-[10px] bg-emerald-800/50 px-2 py-1 rounded text-emerald-100 hidden md:flex animate-pulse"><RefreshCw size={10} /> Autosave</div>
-                <div className="text-xs font-mono bg-emerald-900/50 px-3 py-1 rounded hidden md:block">{meta.date}</div>
-                <button onClick={() => setShowProfile(true)} className="flex items-center gap-2 bg-emerald-800 hover:bg-emerald-900 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm border border-emerald-600">
+                <div className={`items-center gap-1 text-[10px] px-2 py-1 rounded hidden md:flex animate-pulse ${meta.sciosScope === '8' ? 'bg-blue-800/50 text-blue-100' : 'bg-emerald-800/50 text-emerald-100'}`}><RefreshCw size={10} /> Autosave</div>
+                <div className={`text-xs font-mono px-3 py-1 rounded hidden md:block ${meta.sciosScope === '8' ? 'bg-blue-900/50' : 'bg-emerald-900/50'}`}>{meta.date}</div>
+                <button onClick={() => setShowProfile(true)} className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm ${meta.sciosScope === '8' ? 'bg-blue-800 hover:bg-blue-900 border border-blue-600' : 'bg-emerald-800 hover:bg-emerald-900 border border-emerald-600'}`}>
                     <UserCircle size={18} /> <span className="hidden md:inline">Mijn Profiel</span>
                 </button>
                 {userRole === 'admin' && onOpenAdmin && (
-                    <button onClick={onOpenAdmin} title="Beheerder" className="flex items-center gap-1 bg-emerald-800 hover:bg-emerald-900 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm border border-emerald-600">
+                    <button onClick={onOpenAdmin} title="Beheerder" className={`flex items-center gap-1 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm ${meta.sciosScope === '8' ? 'bg-blue-800 hover:bg-blue-900 border border-blue-600' : 'bg-emerald-800 hover:bg-emerald-900 border border-emerald-600'}`}>
                         <Settings size={18} /> <span className="hidden md:inline">Beheer</span>
                     </button>
                 )}
                 {onLogout && (
-                    <button onClick={onLogout} title="Uitloggen" className="flex items-center gap-1 bg-emerald-800 hover:bg-emerald-900 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm border border-emerald-600">
+                    <button onClick={onLogout} title="Uitloggen" className={`flex items-center gap-1 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm ${meta.sciosScope === '8' ? 'bg-blue-800 hover:bg-blue-900 border border-blue-600' : 'bg-emerald-800 hover:bg-emerald-900 border border-emerald-600'}`}>
                         <LogOut size={18} /> <span className="hidden md:inline">Uitloggen</span>
                     </button>
                 )}
             </div>
         </div>
 
-        <div className="flex border-b overflow-x-auto bg-white">{STEPS.map((tab, i) => (<button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 p-3 text-xs md:text-sm font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${activeTab === tab ? 'text-emerald-700 border-b-4 border-emerald-700 bg-emerald-50' : 'text-gray-400 hover:text-gray-600'}`}>{i + 1}. {tab === 'setup' ? 'Basis' : tab === 'measure' ? 'Metingen' : tab === 'inspect' ? 'Gebreken' : 'Export'}</button>))}</div>
+        <div className="flex border-b overflow-x-auto bg-white">{STEPS.map((tab, i) => {
+          const isScope8 = meta.sciosScope === '8';
+          const activeColor = isScope8 ? 'text-blue-700 border-b-4 border-blue-700 bg-blue-50' : 'text-emerald-700 border-b-4 border-emerald-700 bg-emerald-50';
+          return (<button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 p-3 text-xs md:text-sm font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${activeTab === tab ? activeColor : 'text-gray-400 hover:text-gray-600'}`}>{i + 1}. {tab === 'setup' ? 'Basis' : tab === 'measure' ? 'Metingen' : tab === 'inspect' ? 'Gebreken' : 'Export'}</button>);
+        })}</div>
 
         <div className="p-6 flex-grow">
           {activeTab === 'setup' && (
@@ -1056,6 +1067,26 @@ const handleCloudMerge = async () => {
                  <button onClick={handleReset} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><RotateCcw size={16} /><span className="hidden md:inline">Leegmaken</span></button>
                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json,application/json" className="hidden" />
                </div>
+
+               {/* SCOPE TOGGLE — alleen zichtbaar voor hoofdinspecteur */}
+               {!meta.isContributionMode && (
+                 <div className="flex rounded-lg overflow-hidden border border-gray-300 mb-4 shadow-sm">
+                   <button
+                     onClick={() => setMeta({ sciosScope: '10', inspectionBasis: { nta8220: true, nen3140: false, verzekering: false } })}
+                     className={`flex-1 py-3 px-4 text-center transition-colors ${(meta.sciosScope || '10') === '10' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                   >
+                     <div className="font-bold text-sm">Scope 10</div>
+                     <div className="text-xs opacity-80">NTA 8220 — Brandrisico</div>
+                   </button>
+                   <button
+                     onClick={() => setMeta({ sciosScope: '8', inspectionBasis: { nta8220: false, nen3140: true, verzekering: false } })}
+                     className={`flex-1 py-3 px-4 text-center transition-colors ${meta.sciosScope === '8' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                   >
+                     <div className="font-bold text-sm">Scope 8</div>
+                     <div className="text-xs opacity-80">NEN 3140 — Arbowet</div>
+                   </button>
+                 </div>
+               )}
 
                {/* VERNIEUWDE WERKVOORRAAD MODAL */}
         {showWorkModal && (
@@ -1752,7 +1783,9 @@ const handleCloudMerge = async () => {
 
         <div className="bg-white border-t p-4 flex justify-between items-center sticky bottom-0 shadow-inner">
           <button onClick={goPrev} disabled={currentStepIndex === 0} className="flex items-center gap-2 px-4 py-2 rounded font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-30 transition-colors"><ChevronLeft size={18} /> Vorige</button>
-          {currentStepIndex < STEPS.length - 1 ? (<button onClick={goNext} className="flex items-center gap-2 px-6 py-2 rounded font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm">Volgende <ChevronRight size={18} /></button>) : (<span className="text-sm font-bold text-emerald-700 flex items-center gap-2">Klaar om te exporteren</span>)}
+          {currentStepIndex < STEPS.length - 1
+            ? (<button onClick={goNext} className={`flex items-center gap-2 px-6 py-2 rounded font-bold text-white transition-colors shadow-sm ${meta.sciosScope === '8' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>Volgende <ChevronRight size={18} /></button>)
+            : (<span className={`text-sm font-bold flex items-center gap-2 ${meta.sciosScope === '8' ? 'text-blue-700' : 'text-emerald-700'}`}>Klaar om te exporteren</span>)}
         </div>
       </div>
       {/* MODAL: MIJN PROFIEL */}

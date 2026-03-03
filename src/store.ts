@@ -36,7 +36,8 @@ const initialState = {
     additionalInspectors: [] as string[], // Initialisatie van de array
     date: new Date().toISOString().split('T')[0],
     sciosRegistrationNumber: '',
-    
+    sciosScope: '10' as '8' | '10',
+
     totalComponents: 0,
     
     usageFunctions: {
@@ -55,7 +56,7 @@ const initialState = {
     },
 
     inspectionInterval: null,
-    inspectionBasis: { nta8220: true, verzekering: false },
+    inspectionBasis: { nta8220: true, nen3140: false, verzekering: false },
     nextInspectionDate: '',
     locationPhotoUrl: '',
     signatureUrl: ''

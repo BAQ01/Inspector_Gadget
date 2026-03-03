@@ -11,6 +11,7 @@ export interface LibraryDefect {
   shortName: string;
   description: string;
   classification: Classification;
+  scope?: string[]; // Bijv. ['8', '10'] of ['10']
 }
 
 // 3. BEDRIJVEN & INSPECTEURS
@@ -103,6 +104,7 @@ export interface UsageFunctions {
 // 8. INSPECTIE BASIS
 export interface InspectionBasis {
   nta8220: boolean;
+  nen3140: boolean;
   verzekering: boolean;
 }
 
@@ -162,7 +164,7 @@ export interface InspectionMeta {
   lng?: number;
 
   sciosRegistrationNumber: string;
-  sciosScope?: 'Scope 10'; 
+  sciosScope?: '8' | '10';
   
   totalComponents: number;
   signatureUrl?: string | null;
