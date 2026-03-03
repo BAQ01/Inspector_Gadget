@@ -24,20 +24,32 @@ export const parsePlaceResult = (place: any): ParsedPlace => {
 
 export const fetchPlaces = async (query: string): Promise<any[]> => {
   if (!query.trim() || query.trim().length < 2) return [];
+  const apiKey = import.meta.env.VITE_GOOGLE_PLACES_KEY;
+  if (!apiKey) {
+    console.error('[Places] VITE_GOOGLE_PLACES_KEY is niet ingesteld in .env');
+    return [];
+  }
   try {
     const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Goog-Api-Key': import.meta.env.VITE_GOOGLE_PLACES_KEY,
+        'X-Goog-Api-Key': apiKey,
         'X-Goog-FieldMask':
           'places.displayName,places.formattedAddress,places.addressComponents,places.internationalPhoneNumber,places.websiteUri',
       },
       body: JSON.stringify({ textQuery: query, languageCode: 'nl', regionCode: 'NL', maxResultCount: 5 }),
     });
     const data = await res.json();
+    if (data.error) {
+      console.error('[Places] API-fout:', data.error.status, data.error.message);
+      return [];
+    }
     return data.places || [];
-  } catch { return []; }
+  } catch (err) {
+    console.error('[Places] Netwerkfout:', err);
+    return [];
+  }
 };
 
 /**

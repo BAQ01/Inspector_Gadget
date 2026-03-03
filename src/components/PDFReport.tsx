@@ -289,22 +289,22 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
         <Text style={styles.h1}>Voorwoord:</Text>
         {meta.sciosScope === '8' ? (
           <>
-            <Text style={styles.textBlock}>Het doel van de SCIOS Scope 8 inspectie is het beoordelen van de elektrische installatie in het kader van de Arbeidsomstandighedenwetgeving. Conform het Arbeidsomstandighedenbesluit (artikel 3.4 en 3.5) dienen elektrische installaties periodiek gekeurd te worden door een daartoe bevoegd en gecertificeerd bedrijf.</Text>
-            <Text style={styles.textBlock}>De inhoud van de SCIOS Scope 8 inspectie bestaat uit:</Text>
+            <Text style={styles.textBlock}>Het gebruik van elektrische installaties levert mogelijk risico's op, en het is aan de werkgever en werknemer om die risico's te beperken waar mogelijk. De periodieke inspectie op basis van de NEN 3140 (SCIOS Scope 8 - PI) door een gecertificeerd inspectiebedrijf ondersteunt de werkgever bij het minimaliseren van die risico's. Het is een beproefde en algemeen geaccepteerde manier om aannemelijk te maken dat de werkgever met betrekking tot elektrische installaties zijn wettelijke zorgplicht nakomt.</Text>
+            <Text style={styles.textBlock}>SCOPE 8 - PI is de inspectie van bestaande elektrische installaties om vast te stellen of de installatie voldoet aan het van toepassing zijnde juiste veiligheidsniveau. SCOPE 8 - PI heeft NEN 3140 bepaling 5.101 als uitgangspunt. Doelmatigheid maakt geen deel uit van SCOPE 8 - PI. De hierin beschreven visuele controles alsmede metingen en beproevingen zijn van toepassing. De bedrijfsvoering zoals beschreven in NEN 3140 h. 5.2 maakt geen deel uit van SCOPE 8 - PI.</Text>
+            <Text style={styles.textBlock}>De inhoud van de SCIOS Scope 8 - PI inspectie bestaat uit:</Text>
             <View style={{ marginBottom: 8 }}>
-              <Text style={styles.listItem}>• een visuele inspectie van de schakel- en verdeelinrichtingen en de elektrische installatie;</Text>
-              <Text style={styles.listItem}>• metingen en beproevingen conform NEN 3140;</Text>
-              <Text style={styles.listItem}>• beoordeling van de veiligheid voor personen (Arbowet).</Text>
+              <Text style={styles.listItem}>• een uitgebreide visuele inspectie van de schakel- en verdeelinrichtingen en de elektrische installatie;</Text>
+              <Text style={styles.listItem}>• metingen en beproevingen;</Text>
+              <Text style={styles.listItem}>• thermografische inspectie (warmtebeeldopname).</Text>
             </View>
             <Text style={styles.h3}>Leeswijzer:</Text>
-            <Text style={styles.textBlock}>Dit rapport is opgesteld conform de SCIOS Scope 8 certificatieregeling. De inspectie is uitgevoerd conform NEN 3140 en NEN-EN 50110 en voldoet aan de eisen van artikel 3.4 en 3.5 van het Arbeidsomstandighedenbesluit.</Text>
-            <Text style={styles.textBlock}>Dit document is gebaseerd op NEN 3140: Bedrijfsvoering van elektrische installaties — Laagspanning en is daarmee in overeenstemming.</Text>
+            <Text style={styles.textBlock}>Dit rapport is opgesteld aan de hand van Technisch Document 12 dat behoort bij een SCIOS Scope 8 - PI inspectie. Het technisch document 12 beschrijft de eisen voor de inspectie van de elektrische installatie en behoort bij het hoofddocument "Certificatieregeling voor het kwaliteitsmanagementsysteem ten behoeve van het uitvoeren van onderhoud en inspecties aan technische installaties".</Text>
             <View style={{ marginBottom: 8 }}>
-              <Text style={styles.listItem}>• Voldoet de installatie wel of niet? In hoofdstuk 3 is een verklaring opgenomen over de veiligheidstoestand van de installatie.</Text>
-              <Text style={styles.listItem}>• Inspectietermijn: in hoofdstuk 3 vindt u de geadviseerde inspectiefrequentie op basis van de risicoklasse van de installatie.</Text>
+              <Text style={styles.listItem}>• Voldoet de installatie wel of niet aan de technische voorschriften of veiligheidsvoorschriften zoals omschreven in de van toepassing zijnde normen? In hoofdstuk 3 is hiervoor een verklaring opgenomen.</Text>
+              <Text style={styles.listItem}>• Inspectietermijn: in hoofdstuk 3 vindt u de geadviseerde inspectiefrequentie, die de inspecteur adviseert op basis van de uitgevoerde inspectie.</Text>
               <Text style={styles.listItem}>• Lijst van afwijkingen: In hoofdstuk 4 zijn de eventueel geconstateerde afwijkingen opgenomen.</Text>
             </View>
-            <Text style={styles.textBlock}>{meta.inspectionCompany ? meta.inspectionCompany : 'Het inspectiebedrijf'} heeft deze inspectie uitgevoerd conform een door SCIOS opgesteld en geaccrediteerd kwaliteitsborgingsysteem met de naam "SCIOS Scope 8". Deze werkwijze garandeert een zorgvuldige en uniforme uitvoering van de inspectie en rapportage.</Text>
+            <Text style={styles.textBlock}>{meta.inspectionCompany ? meta.inspectionCompany : 'Het inspectiebedrijf'} heeft deze inspectie uitgevoerd conform een door SCIOS opgesteld en geaccrediteerd kwaliteitsborgingsysteem met de naam "SCIOS Scope 8 - PI". Deze werkwijze garandeert een zorgvuldige en uniforme uitvoering van de inspectie en rapportage.</Text>
           </>
         ) : (
           <>
@@ -464,9 +464,15 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
         <Text style={{ marginBottom: 5 }}>De inspectie is uitgevoerd op basis van:</Text>
         {meta.sciosScope === '8' ? (
           <>
-            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>NEN 3140: 2023</Text><Text style={styles.normColDesc}>Bedrijfsvoering van elektrische installaties — Laagspanning</Text></View>
-            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>NEN-EN 50110-1: 2013</Text><Text style={styles.normColDesc}>Bedrijfsvoering van elektrische installaties</Text></View>
-            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>SCIOS TD8</Text><Text style={styles.normColDesc}>Periodieke inspectie elektrische installaties — Scope 8</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text> </Text></View><Text style={styles.normColName}>NEN 1010: 1984 (3e druk)</Text><Text style={styles.normColDesc}>Veiligheidsbepalingen voor laagspanningsinstallaties</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text> </Text></View><Text style={styles.normColName}>NEN 1010: 1988 (4e druk)</Text><Text style={styles.normColDesc}>Veiligheidsbepalingen voor laagspanningsinstallaties</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text> </Text></View><Text style={styles.normColName}>NEN 1010: 1996 (5e druk)</Text><Text style={styles.normColDesc}>Veiligheidsbepalingen voor laagspanningsinstallaties</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text> </Text></View><Text style={styles.normColName}>NEN 1010: 2003</Text><Text style={styles.normColDesc}>Veiligheidsbepalingen voor laagspanningsinstallaties</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text> </Text></View><Text style={styles.normColName}>NEN 1010: 2007+C1:2008</Text><Text style={styles.normColDesc}>Veiligheidsbepalingen voor laagspanningsinstallaties</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text> </Text></View><Text style={styles.normColName}>NEN 1010: 2015</Text><Text style={styles.normColDesc}>Elektrische installaties voor laagspanning</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>NEN 3140+A3:2019</Text><Text style={styles.normColDesc}>Bedrijfsvoering van elektrische installaties – laagspanning</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>SCIOS TD12 Versie 8.4: 2025-01</Text><Text style={styles.normColDesc}>Inspecties van Elektrische Installaties en Elektrische Arbeidsmiddelen</Text></View>
+            <View style={styles.normRow}><View style={styles.normColCheck}><Text style={{ fontWeight: 'bold' }}>X</Text></View><Text style={styles.normColName}>NPR 8040-1: 2013</Text><Text style={styles.normColDesc}>Thermografie</Text></View>
           </>
         ) : (
           <>
@@ -478,15 +484,58 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
         
         <Text style={styles.headerLevel2}>INSPECTIEMETHODE:</Text>
         <Text style={styles.headerLevel3}>VISUELE INSPECTIE:</Text>
-        <Text style={styles.textBlock}>Voor de beoordeling van elektrisch materieel op brandrisico moet gelet worden op het volgende:</Text>
-        <View style={{ marginBottom: 10 }}><Text style={styles.listItem}>• kan er brand ontstaan bij normaal gebruik;</Text><Text style={styles.listItem}>• kan er brand ontstaan door oneigenlijk gebruik;</Text><Text style={styles.listItem}>• kan er brand ontstaan door een defect.</Text></View>
-        <Text style={styles.textBlock}>Voor het uitvoeren van de beoordeling wordt het elektrisch materieel beoordeeld op:</Text>
-        <View style={{ marginBottom: 10 }}><Text style={styles.listItem}>• bedrijfsomstandigheden;</Text><Text style={styles.listItem}>• wederzijde beïnvloeding;</Text><Text style={styles.listItem}>• uitwendige beïnvloeding;</Text><Text style={styles.listItem}>• automatische uitschakeling van de voeding.</Text></View>
-        <Text style={{ marginBottom: 15, fontStyle: 'italic', fontSize: 9 }}>Geconstateerde afwijkingen worden in hoofdstuk 4 weergegeven.</Text>
-        <Text style={styles.headerLevel3}>METINGEN EN BEPROEVINGEN:</Text>
-        <Text style={styles.textBlock}>De inspectie door meting en beproeving aan de genoemde installatie(delen) wordt gedaan door:</Text>
-        <View style={{ marginBottom: 10 }}><Text style={styles.listItem}>• meting van isolatieweerstand;</Text><Text style={styles.listItem}>• het beproeven van de aardlekbeveiligingen;</Text><Text style={styles.listItem}>• meting voor het bepalen de circuitimpedantie;</Text><Text style={styles.listItem}>• meting van temperatuur.</Text></View>
-        <Text style={{ fontStyle: 'italic', fontSize: 9 }}>Geconstateerde afwijkingen worden in hoofdstuk 4 weergegeven.</Text>
+        {meta.sciosScope === '8' ? (
+          <>
+            <Text style={styles.textBlock}>De visuele controle van elektrisch materieel bestaat uit het controleren van:</Text>
+            <View style={{ marginBottom: 8 }}>
+              <Text style={styles.listItem}>• elektrisch materieel is geïnstalleerd en wordt gebruikt volgens de voorschriften van de fabrikant en geldende installatie- en productnormen;</Text>
+              <Text style={styles.listItem}>• elektrisch materieel is geschikt voor de gebruiker;</Text>
+              <Text style={styles.listItem}>• elektrisch materieel is geschikt voor zijn omgeving;</Text>
+              <Text style={styles.listItem}>• elektrisch materieel is veilig voor gebruik.</Text>
+            </View>
+            <Text style={styles.textBlock}>De visuele controle van schakel- en verdeelinrichtingen bestaat uit het controleren van:</Text>
+            <View style={{ marginBottom: 8 }}>
+              <Text style={styles.listItem}>• elektrisch materieel is bestand tegen het maximale kortsluitvermogen dat kan optreden;</Text>
+              <Text style={styles.listItem}>• de schakel- en verdeelinrichting wordt gebruikt volgens de productvoorschriften;</Text>
+              <Text style={styles.listItem}>• de schakel- en verdeelinrichting vertoont geen sporen van degeneratie;</Text>
+              <Text style={styles.listItem}>• de schakel- en verdeelinrichting vertoont geen sporen van oververhitting;</Text>
+              <Text style={styles.listItem}>• de overstroombeveiligingen van de schakel- en verdeelinrichting zijn juist gekozen;</Text>
+              <Text style={styles.listItem}>• de schakel- en verdeelinrichting is geschikt voor zijn omgeving;</Text>
+              <Text style={styles.listItem}>• de schakel- en verdeelinrichting is geschikt voor de gebruiker.</Text>
+            </View>
+            <Text style={styles.textBlock}>De schakel- en verdeelinrichtingen dienen vrij te zijn van vuil en vocht. Bij componenten waarbij periodiek onderhoud noodzakelijk is, moet worden gecontroleerd of dit daadwerkelijk wordt uitgevoerd.</Text>
+            <Text style={styles.textBlock}>De elektrische installatie moet afgestemd zijn op de eisen m.b.t. de opbouw van de installatie t.o.v. de omgeving en het gebruik. Met name:</Text>
+            <View style={{ marginBottom: 8 }}>
+              <Text style={styles.listItem}>• de handelingen die worden uitgevoerd door de gebruiker;</Text>
+              <Text style={styles.listItem}>• veiligheidsmaatregelen die zijn genomen;</Text>
+              <Text style={styles.listItem}>• toegang tot ruimtes met elektrisch gevaar;</Text>
+              <Text style={styles.listItem}>• schoonmaken van ruimten;</Text>
+              <Text style={styles.listItem}>• aanraakbeveiliging van schakel- en verdeelinrichtingen.</Text>
+            </View>
+            <Text style={{ marginBottom: 10, fontStyle: 'italic', fontSize: 9 }}>Geconstateerde afwijkingen worden in hoofdstuk 4 weergegeven.</Text>
+            <Text style={styles.headerLevel3}>METINGEN EN BEPROEVINGEN:</Text>
+            <Text style={styles.textBlock}>De inspectie door meting en beproeving aan de genoemde installatie(delen) wordt gedaan door:</Text>
+            <View style={{ marginBottom: 10 }}>
+              <Text style={styles.listItem}>• meting van isolatieweerstand;</Text>
+              <Text style={styles.listItem}>• het beproeven van de aardlekbeveiligingen;</Text>
+              <Text style={styles.listItem}>• meting voor het bepalen van de circuitimpedantie;</Text>
+              <Text style={styles.listItem}>• meting van laagohmige weerstand.</Text>
+            </View>
+            <Text style={{ fontStyle: 'italic', fontSize: 9 }}>Geconstateerde afwijkingen worden in hoofdstuk 4 weergegeven.</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.textBlock}>Voor de beoordeling van elektrisch materieel op brandrisico moet gelet worden op het volgende:</Text>
+            <View style={{ marginBottom: 10 }}><Text style={styles.listItem}>• kan er brand ontstaan bij normaal gebruik;</Text><Text style={styles.listItem}>• kan er brand ontstaan door oneigenlijk gebruik;</Text><Text style={styles.listItem}>• kan er brand ontstaan door een defect.</Text></View>
+            <Text style={styles.textBlock}>Voor het uitvoeren van de beoordeling wordt het elektrisch materieel beoordeeld op:</Text>
+            <View style={{ marginBottom: 10 }}><Text style={styles.listItem}>• bedrijfsomstandigheden;</Text><Text style={styles.listItem}>• wederzijde beïnvloeding;</Text><Text style={styles.listItem}>• uitwendige beïnvloeding;</Text><Text style={styles.listItem}>• automatische uitschakeling van de voeding.</Text></View>
+            <Text style={{ marginBottom: 15, fontStyle: 'italic', fontSize: 9 }}>Geconstateerde afwijkingen worden in hoofdstuk 4 weergegeven.</Text>
+            <Text style={styles.headerLevel3}>METINGEN EN BEPROEVINGEN:</Text>
+            <Text style={styles.textBlock}>De inspectie door meting en beproeving aan de genoemde installatie(delen) wordt gedaan door:</Text>
+            <View style={{ marginBottom: 10 }}><Text style={styles.listItem}>• meting van isolatieweerstand;</Text><Text style={styles.listItem}>• het beproeven van de aardlekbeveiligingen;</Text><Text style={styles.listItem}>• meting voor het bepalen de circuitimpedantie;</Text><Text style={styles.listItem}>• meting van temperatuur.</Text></View>
+            <Text style={{ fontStyle: 'italic', fontSize: 9 }}>Geconstateerde afwijkingen worden in hoofdstuk 4 weergegeven.</Text>
+          </>
+        )}
       </Page>
 
       {/* PAGINA 7: VERKLARING & HANDTEKENING */}
@@ -544,10 +593,21 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
         <Text style={styles.pageNumber} fixed render={({ pageNumber }) => { return pageNumber > 1 ? `Pagina ${pageNumber - 1}` : ''; }} />
         <Text style={styles.headerLevel1}>STEEKPROEF:</Text>
         <Text style={styles.bold}>Het bepalen van de steekproef</Text>
-        <Text style={styles.textBlock}>Bij de kwaliteitscontrole van producten is een steekproef gebruikelijk. Men wil zekerheid dat een product aan de opgegeven specificaties voldoet. Bij brandrisico-inspecties wil men ook zekerheid.</Text>
-        <Text style={styles.textBlock}>Een inspectie op basis van een wiskundig juist bepaalde steekproef geeft die zekerheid. De installatieverantwoordelijke geeft aan welke theoretische risico's men wil nemen voor de verschillende installaties en de verschillende onderdelen van de installatie. Voor een juiste beoordeling van dit theoretische risico is inzicht nodig in de wiskundige achtergrond van de steekproefmethode, in de kwaliteit van de elektrotechnische installatie en in de gevaren die aan het gebruik van de installatie zijn verbonden.</Text>
-        <Text style={styles.textBlock}>De omvang van de partij is de verzameling van op dezelfde wijze gemonteerde producten waaruit de steekproef moet worden genomen en goedgekeurd om te bepalen of aan de goedkeuringscriteria wordt voldaan.</Text>
-        <Text style={styles.textBlock}>De minimale omvang van de steekproef wordt bepaald door de tabel 1 op pagina 11 van de NTA 8220:2017. De steekproef beperkt zich tot de 1e steekproefcyclus.</Text>
+        {meta.sciosScope === '8' ? (
+          <>
+            <Text style={styles.textBlock}>Bij de kwaliteitscontrole van producten is een steekproef gebruikelijk. Men wil zekerheid dat een product aan de opgegeven specificaties voldoet. Bij veiligheidsinspecties wil men ook zekerheid. Een inspectie op basis van een wiskundig juist bepaalde steekproef geeft die zekerheid.</Text>
+            <Text style={styles.textBlock}>De installatieverantwoordelijke geeft aan welke theoretische risico's men wil nemen voor de verschillende installaties en de verschillende onderdelen van de installatie. Voor een juiste beoordeling van dit theoretische risico is inzicht nodig in de wiskundige achtergrond van de steekproefmethode, in de kwaliteit van de elektrotechnische installatie, en in de gevaren die aan het gebruik van de installatie zijn verbonden.</Text>
+            <Text style={styles.textBlock}>De omvang van de partij is de verzameling van op dezelfde wijze gemonteerde producten waaruit de steekproef moet worden genomen en goedgekeurd, om te bepalen of aan de goedkeuringscriteria wordt voldaan.</Text>
+            <Text style={styles.textBlock}>De minimale omvang van de steekproef wordt bepaald door bijlage J van NEN3140.</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.textBlock}>Bij de kwaliteitscontrole van producten is een steekproef gebruikelijk. Men wil zekerheid dat een product aan de opgegeven specificaties voldoet. Bij brandrisico-inspecties wil men ook zekerheid.</Text>
+            <Text style={styles.textBlock}>Een inspectie op basis van een wiskundig juist bepaalde steekproef geeft die zekerheid. De installatieverantwoordelijke geeft aan welke theoretische risico's men wil nemen voor de verschillende installaties en de verschillende onderdelen van de installatie. Voor een juiste beoordeling van dit theoretische risico is inzicht nodig in de wiskundige achtergrond van de steekproefmethode, in de kwaliteit van de elektrotechnische installatie en in de gevaren die aan het gebruik van de installatie zijn verbonden.</Text>
+            <Text style={styles.textBlock}>De omvang van de partij is de verzameling van op dezelfde wijze gemonteerde producten waaruit de steekproef moet worden genomen en goedgekeurd om te bepalen of aan de goedkeuringscriteria wordt voldaan.</Text>
+            <Text style={styles.textBlock}>De minimale omvang van de steekproef wordt bepaald door de tabel 1 op pagina 11 van de NTA 8220:2017. De steekproef beperkt zich tot de 1e steekproefcyclus.</Text>
+          </>
+        )}
         <Text style={{ textAlign: 'center', fontWeight: 'bold', marginVertical: 5 }}>Tabel 1 Omvang van de steekproef</Text>
         <View style={styles.steekContainer}>
           <View style={styles.stHeaderBlock}>
@@ -556,7 +616,20 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
             <View style={styles.stHeadColSteek}><Text>Steekproef</Text></View>
             <View style={styles.stHeadCol1000}><View style={styles.stSubRow}><Text>1,000</Text></View><View style={styles.stSubRow}><Text>%</Text></View><View style={styles.stSubRowLast}><View style={{ width: '50%', height: 18, borderRightWidth: 1, borderColor: '#000', justifyContent: 'center', alignItems: 'center' }}><Text>G</Text></View><View style={{ width: '50%', height: 18, justifyContent: 'center', alignItems: 'center' }}><Text>F</Text></View></View></View>
           </View>
-          {[
+          {(meta.sciosScope === '8' ? [
+            { code: 'A', van: 2, tot: 8, steek: 2, g: 0, f: 1 },
+            { code: 'B', van: 9, tot: 15, steek: 3, g: 0, f: 1 },
+            { code: 'C', van: 16, tot: 25, steek: 5, g: 0, f: 1 },
+            { code: 'D', van: 26, tot: 50, steek: 8, g: 0, f: 1 },
+            { code: 'E', van: 51, tot: 90, steek: 13, g: 0, f: 1 },
+            { code: 'F', van: 91, tot: 150, steek: 20, g: 0, f: 1 },
+            { code: 'G', van: 151, tot: 280, steek: 32, g: 1, f: 2 },
+            { code: 'H', van: 281, tot: 500, steek: 50, g: 1, f: 2 },
+            { code: 'J', van: 501, tot: 1200, steek: 80, g: 2, f: 3 },
+            { code: 'K', van: 1201, tot: 3200, steek: 125, g: 3, f: 4 },
+            { code: 'L', van: 3201, tot: 10000, steek: 200, g: 5, f: 6 },
+            { code: 'M', van: 10001, tot: 35000, steek: 315, g: 7, f: 8 },
+          ] : [
             { code: 'C', van: 5, tot: 25, steek: 5, g: 0, f: 1 },
             { code: 'D', van: 26, tot: 50, steek: 8, g: 0, f: 1 },
             { code: 'E', van: 51, tot: 90, steek: 13, g: 0, f: 1 },
@@ -567,7 +640,7 @@ export const PDFReport = ({ meta, defects, measurements, reportType = 'original'
             { code: 'K', van: 1201, tot: 3200, steek: 125, g: 3, f: 4 },
             { code: 'L', van: 3201, tot: 10000, steek: 200, g: 5, f: 6 },
             { code: 'M', van: 10001, tot: 35000, steek: 315, g: 7, f: 8 },
-          ].map((row, idx, arr) => (
+          ]).map((row, idx, arr) => (
             <View key={idx} style={[styles.stRow, idx === arr.length - 1 ? { borderBottomWidth: 0 } : {}]}>
               <View style={[styles.stCell, { width: '10%' }]}><Text>{row.code}</Text></View>
               <View style={[styles.stCell, { width: '15%' }]}><Text>{row.van}</Text></View>
