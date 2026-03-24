@@ -1,0 +1,57 @@
+name: Supabase Keepalive
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */12 * * *'
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: true
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+
+    steps:
+      - name: Validate configuration
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "Missing repository variables SUPABASE_URL or SUPABASE_ANON_KEY" >&2
+            exit 1
+          fi
+
+      - name: Ping Supabase endpoints
+        run: |
+          set -euo pipefail
+
+          base_url="${SUPABASE_URL%/}"
+
+          ping() {
+            local path="$1"
+            local http_code
+
+            http_code="$(
+              curl -sS -o /dev/null -w '%{http_code}' \
+                -H "apikey: ${SUPABASE_ANON_KEY}" \
+                -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+                "${base_url}${path}"
+            )"
+
+            if [ "${http_code#2}" = "${http_code}" ]; then
+              echo "Request failed for ${path} (HTTP ${http_code})" >&2
+              exit 1
+            fi
+
+            echo "OK ${path} (HTTP ${http_code})"
+          }
+
+          ping "/auth/v1/settings"
+          ping "/rest/v1/"
+          ping "/storage/v1/version"
