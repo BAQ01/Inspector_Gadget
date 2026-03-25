@@ -1025,65 +1025,88 @@ const handleCloudMerge = async () => {
   };
 
   return (
-    <div className="min-h-screen font-sans text-gray-800 pb-20 bg-gray-50">
-      <div className="max-w-2xl mx-auto bg-white shadow-xl min-h-screen md:min-h-0 md:rounded-lg md:my-8 overflow-hidden flex flex-col">
+    <div className="min-h-screen font-body text-on-surface pb-20 bg-surface">
+      <div className="max-w-5xl mx-auto bg-surface-container-lowest shadow-sm border border-outline-variant/10 min-h-screen md:min-h-0 md:rounded-xl md:my-8 overflow-hidden flex flex-col">
         {/* HEADER */}
-        <div className={`p-4 text-white flex justify-between items-center shadow-md ${meta.sciosScope === '8' ? 'bg-blue-700' : 'bg-emerald-700'}`}>
+        <div className="p-4 glass-nav border-b border-outline-variant/20 flex justify-between items-center">
             <div>
-              <h1 className="font-bold text-xl">SCIOS Scope {meta.sciosScope || '10'}</h1>
-              <p className="text-xs opacity-70">{meta.sciosScope === '8' ? 'NEN 3140 — Arbowet' : 'NTA 8220 — Brandrisico'}</p>
+              <h1 className="font-headline font-extrabold text-xl text-primary tracking-tight">SCIOS Scope {meta.sciosScope || '10'}</h1>
+              <p className="text-xs text-on-surface-variant font-medium mt-0.5">{meta.sciosScope === '8' ? 'NEN 3140 — Arbowet' : 'NTA 8220 — Brandrisico'}</p>
             </div>
-            <div className="flex items-center gap-2">
-                <div className={`items-center gap-1 text-[10px] px-2 py-1 rounded hidden md:flex animate-pulse ${meta.sciosScope === '8' ? 'bg-blue-800/50 text-blue-100' : 'bg-emerald-800/50 text-emerald-100'}`}><RefreshCw size={10} /> Autosave</div>
-                <div className={`text-xs font-mono px-3 py-1 rounded hidden md:block ${meta.sciosScope === '8' ? 'bg-blue-900/50' : 'bg-emerald-900/50'}`}>{meta.date}</div>
-                <button onClick={() => setShowProfile(true)} className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm ${meta.sciosScope === '8' ? 'bg-blue-800 hover:bg-blue-900 border border-blue-600' : 'bg-emerald-800 hover:bg-emerald-900 border border-emerald-600'}`}>
-                    <UserCircle size={18} /> <span className="hidden md:inline">Mijn Profiel</span>
+            <div className="flex items-center gap-3">
+                <div className="items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-full hidden md:flex animate-pulse bg-secondary-container text-on-secondary-container font-bold"><RefreshCw size={12} /> Autosave</div>
+                <div className="text-xs font-mono px-3 py-1.5 rounded-md hidden md:block bg-surface-container-highest text-on-surface-variant">{meta.date}</div>
+                
+                <div className="h-6 w-[1px] bg-outline-variant/30 hidden md:block mx-1"></div>
+
+                <button onClick={() => setShowProfile(true)} className="flex items-center justify-center p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors" title="Mijn Profiel">
+                    <UserCircle size={22} className="md:hidden" />
+                    <span className="hidden md:flex items-center gap-2 text-sm font-bold text-primary bg-surface-container-highest px-3 py-1.5 rounded-md hover:bg-surface-container-high transition-colors"><UserCircle size={18} /> Profiel</span>
                 </button>
                 {userRole === 'admin' && onOpenAdmin && (
-                    <button onClick={onOpenAdmin} title="Beheerder" className={`flex items-center gap-1 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm ${meta.sciosScope === '8' ? 'bg-blue-800 hover:bg-blue-900 border border-blue-600' : 'bg-emerald-800 hover:bg-emerald-900 border border-emerald-600'}`}>
-                        <Settings size={18} /> <span className="hidden md:inline">Beheer</span>
+                    <button onClick={onOpenAdmin} title="Beheerder" className="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors hidden md:flex">
+                        <Settings size={20} />
                     </button>
                 )}
                 {onLogout && (
-                    <button onClick={onLogout} title="Uitloggen" className={`flex items-center gap-1 px-3 py-2 rounded text-sm font-bold transition-colors shadow-sm ${meta.sciosScope === '8' ? 'bg-blue-800 hover:bg-blue-900 border border-blue-600' : 'bg-emerald-800 hover:bg-emerald-900 border border-emerald-600'}`}>
-                        <LogOut size={18} /> <span className="hidden md:inline">Uitloggen</span>
+                    <button onClick={onLogout} title="Uitloggen" className="p-2 rounded-full text-on-surface-variant hover:bg-error-container hover:text-on-error-container transition-colors hidden md:flex">
+                        <LogOut size={20} />
                     </button>
                 )}
             </div>
         </div>
 
-        <div className="flex border-b overflow-x-auto bg-white">{STEPS.map((tab, i) => {
-          const isScope8 = meta.sciosScope === '8';
-          const activeColor = isScope8 ? 'text-blue-700 border-b-4 border-blue-700 bg-blue-50' : 'text-emerald-700 border-b-4 border-emerald-700 bg-emerald-50';
-          return (<button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 p-3 text-xs md:text-sm font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${activeTab === tab ? activeColor : 'text-gray-400 hover:text-gray-600'}`}>{i + 1}. {tab === 'setup' ? 'Basis' : tab === 'measure' ? 'Metingen' : tab === 'inspect' ? 'Gebreken' : 'Export'}</button>);
-        })}</div>
+        <div className="flex border-b border-outline-variant/10 overflow-x-auto bg-surface-container-lowest glass-nav sticky top-0 z-40">
+          {STEPS.map((tab, i) => {
+            const isActive = activeTab === tab;
+            const activeColor = 'text-primary border-b-[3px] border-primary bg-primary/5';
+            return (
+              <button 
+                key={tab} 
+                onClick={() => setActiveTab(tab)} 
+                className={`flex-1 p-3 text-xs md:text-sm font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isActive ? activeColor : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-low border-b-[3px] border-transparent'}`}
+              >
+                 {i + 1}. {tab === 'setup' ? 'Basis' : tab === 'measure' ? 'Metingen' : tab === 'inspect' ? 'Gebreken' : 'Export'}
+              </button>
+            );
+          })}
+        </div>
 
         <div className="p-6 flex-grow">
           {activeTab === 'setup' && (
             <div className="space-y-6">
-               <div className="flex gap-2 mb-4">
-                 <button onClick={handleImportClick} className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><Upload size={16} /><span className="hidden md:inline">Laden</span></button>
-                 <button onClick={fetchWorkOrders} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-2 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><CloudDownload size={16} /><span className="hidden md:inline">Werkvoorraad</span></button>
-                 <button onClick={handleReset} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded flex items-center justify-center gap-2 font-bold shadow text-xs md:text-sm"><RotateCcw size={16} /><span className="hidden md:inline">Leegmaken</span></button>
+               <div className="grid grid-cols-3 gap-3 mb-6">
+                 <button onClick={handleImportClick} className="flex flex-col items-center justify-center py-4 px-2 rounded-xl bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-all active:scale-95 shadow-sm">
+                   <Upload size={24} className="mb-1" />
+                   <span className="text-[10px] font-bold uppercase tracking-tighter">Laden</span>
+                 </button>
+                 <button onClick={fetchWorkOrders} className="flex flex-col items-center justify-center py-4 px-2 rounded-xl bg-secondary-container text-on-secondary-container hover:bg-[#b0d5e8] transition-all active:scale-95 shadow-sm">
+                   <CloudDownload size={24} className="mb-1" />
+                   <span className="text-[10px] font-bold uppercase tracking-tighter">Werkvoorraad</span>
+                 </button>
+                 <button onClick={handleReset} className="flex flex-col items-center justify-center py-4 px-2 rounded-xl bg-error-container text-on-error-container hover:bg-[#f5c2bc] transition-all active:scale-95 shadow-sm">
+                   <RotateCcw size={24} className="mb-1" />
+                   <span className="text-[10px] font-bold uppercase tracking-tighter">Leegmaken</span>
+                 </button>
                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json,application/json" className="hidden" />
                </div>
 
                {/* SCOPE TOGGLE — alleen zichtbaar voor hoofdinspecteur */}
                {!meta.isContributionMode && (
-                 <div className="flex rounded-lg overflow-hidden border border-gray-300 mb-4 shadow-sm">
+                 <div className="flex bg-surface-container-low rounded-xl p-1 mb-6 border border-outline-variant/20 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]">
                    <button
                      onClick={() => setMeta({ sciosScope: '10', inspectionBasis: { nta8220: true, nen3140: false, verzekering: false } })}
-                     className={`flex-1 py-3 px-4 text-center transition-colors ${(meta.sciosScope || '10') === '10' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                     className={`flex-1 py-3 px-2 text-center rounded-lg transition-all duration-300 ${(meta.sciosScope || '10') === '10' ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/10' : 'text-on-surface-variant hover:bg-surface-container-highest'}`}
                    >
-                     <div className="font-bold text-sm">Scope 10</div>
-                     <div className="text-xs opacity-80">NTA 8220 — Brandrisico</div>
+                     <div className="font-headline font-extrabold text-sm">Scope 10</div>
+                     <div className="text-[10px] uppercase tracking-wider mt-0.5">NTA 8220</div>
                    </button>
                    <button
                      onClick={() => setMeta({ sciosScope: '8', inspectionBasis: { nta8220: false, nen3140: true, verzekering: false } })}
-                     className={`flex-1 py-3 px-4 text-center transition-colors ${meta.sciosScope === '8' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                     className={`flex-1 py-3 px-2 text-center rounded-lg transition-all duration-300 ${meta.sciosScope === '8' ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/10' : 'text-on-surface-variant hover:bg-surface-container-highest'}`}
                    >
-                     <div className="font-bold text-sm">Scope 8</div>
-                     <div className="text-xs opacity-80">NEN 3140 — Arbowet</div>
+                     <div className="font-headline font-extrabold text-sm">Scope 8</div>
+                     <div className="text-[10px] uppercase tracking-wider mt-0.5">NEN 3140</div>
                    </button>
                  </div>
                )}
@@ -1229,8 +1252,8 @@ const handleCloudMerge = async () => {
           </div>
         )}
 
-               <div className={`bg-gray-50 p-4 rounded border ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
-                 <h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Opdrachtgever</h2>
+               <div className={`bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
+                 <h2 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Opdrachtgever</h2>
                  {/* Google Places zoeker */}
                  {!meta.isContributionMode && (
                    <div className="relative mb-3">
@@ -1287,8 +1310,8 @@ const handleCloudMerge = async () => {
                  </div>
                </div>
                
-               <div className={`bg-gray-50 p-4 rounded border ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
-                   <h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Projectgegevens</h2>
+               <div className={`bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mt-6 ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
+                   <h2 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Projectgegevens</h2>
                    {/* Google Places zoeker */}
                    {!meta.isContributionMode && (
                      <div className="relative mb-3">
@@ -1345,10 +1368,10 @@ const handleCloudMerge = async () => {
                    </div>
                </div>
 
-               <div className={`bg-gray-50 p-4 rounded border ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}><h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Gebruiksfunctie</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="space-y-2">{usageOptionsLeft.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div><div className="space-y-2">{usageOptionsRight.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div></div></div>
+               <div className={`bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mt-6 ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}><h2 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Gebruiksfunctie</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="space-y-2">{usageOptionsLeft.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div><div className="space-y-2">{usageOptionsRight.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div></div></div>
                
-               <div className="bg-gray-50 p-4 rounded border">
-                   <h2 className="text-sm font-bold text-emerald-700 uppercase border-b border-emerald-200 pb-2 mb-3">Inspectiebedrijf</h2>
+               <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mt-6">
+                   <h2 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Inspectiebedrijf</h2>
                    {/* Google Places zoeking */}
                    {!meta.isContributionMode && (
                      <div className="relative mb-3">
@@ -1466,8 +1489,8 @@ const handleCloudMerge = async () => {
             <div className="space-y-4">
                 <h2 className="text-lg font-bold text-gray-700 border-b pb-2">Metingen & Beproevingen</h2>
                 
-                <div className="bg-blue-50 p-4 rounded border border-blue-100 mb-4">
-                <label className="block text-xs font-bold text-blue-800 uppercase mb-2">Gebruikte Meetinstrumenten</label>
+                <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mb-6">
+                <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-widest mb-4">Gebruikte Meetinstrumenten</label>
                 <div className="flex gap-2 mb-3">
                     <select className="border rounded p-2 w-full bg-white" value={selectedInstrumentId} onChange={(e) => {
                         const id = e.target.value;
@@ -1559,9 +1582,9 @@ const handleCloudMerge = async () => {
                 
                 </div>
 
-                <div className={`grid grid-cols-2 gap-4 p-4 rounded border ${meta.isContributionMode ? 'bg-gray-50 border-gray-200' : 'bg-white border-emerald-100'}`}>
+                <div className={`grid grid-cols-2 gap-4 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mb-6 ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
                     <div className="col-span-2">
-                        <h3 className="text-xs font-bold text-emerald-700 uppercase mb-2">Algemene Installatiegegevens</h3>
+                        <h3 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Algemene Installatiegegevens</h3>
                     </div>
                     
                     {/* STROOMSTELSEL */}
@@ -1599,10 +1622,10 @@ const handleCloudMerge = async () => {
                     </div>
                 </div>
 
-                <div className="space-y-4 pt-4">
-                <div className="flex justify-between items-center border-b border-emerald-200 pb-2">
-                    <h3 className="font-bold text-emerald-800">Metingen per Verdeelinrichting</h3>
-                    <button onClick={() => addBoard({ id: generateId(), name: '', switchboardTemp: '20', insulationResistance: '999', impedance: '0.35' })} className="bg-emerald-600 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-emerald-700 transition shadow-sm">
+                <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mb-6">
+                <div className="flex justify-between items-center border-b border-outline-variant/20 pb-4 mb-4">
+                    <h3 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">Metingen per Verdeelinrichting</h3>
+                    <button onClick={() => addBoard({ id: generateId(), name: '', switchboardTemp: '20', insulationResistance: '999', impedance: '0.35' })} className="bg-primary text-white px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 hover:bg-primary-container transition shadow-sm active:scale-95">
                       <PlusCircle size={14} /> Verdeler Toevoegen
                     </button>
                 </div>
@@ -1634,8 +1657,8 @@ const handleCloudMerge = async () => {
 
           {activeTab === 'inspect' && (
             <div className="space-y-6">
-              <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-5">
-                <h3 className="font-bold text-gray-800 mb-4">{editingId ? 'Gebrek Bewerken' : 'Nieuw Gebrek Melden'}</h3>
+              <div className="bg-surface-container-lowest border-2 border-dashed border-outline-variant/30 rounded-xl p-6 shadow-sm">
+                <h3 className="font-headline font-extrabold text-primary mb-5 tracking-tight">{editingId ? 'Gebrek Bewerken' : 'Nieuw Gebrek Melden'}</h3>
                 <div className="space-y-4">
                   <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Locatie</label><input className="w-full border rounded p-2" placeholder="Bijv. Meterkast" value={location} onChange={(e) => setLocation(e.target.value)}/></div>
 
@@ -1698,7 +1721,7 @@ const handleCloudMerge = async () => {
                         reorderDefects(next);
                         setDefectDragIdx(null); setDefectDragOverIdx(null);
                       }}
-                      className={`bg-white border-l-4 shadow-sm p-3 rounded flex items-start gap-2 group select-none transition-all ${defectDragOverIdx === i && defectDragIdx !== i ? 'ring-2 ring-emerald-400 ring-offset-1' : ''}`}
+                      className={`bg-surface-container-lowest border-l-4 shadow-sm p-4 rounded-xl flex items-start gap-3 group select-none transition-all ${defectDragOverIdx === i && defectDragIdx !== i ? 'ring-2 ring-primary ring-offset-2' : ''}`}
                       style={{ borderColor, cursor: 'grab', opacity: defectDragIdx === i ? 0.5 : 1 }}
                     >
                       <GripVertical size={16} className="text-gray-300 mt-1 shrink-0" />
