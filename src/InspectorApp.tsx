@@ -41,7 +41,7 @@ const ClearableInput = ({ value, onChange, placeholder, list, disabled, classNam
     <div className="relative w-full">
         <input 
             list={list}
-            className={`${className} pr-8`} 
+            className={`\${className} pr-12`} 
             value={value} 
             onChange={onChange} 
             placeholder={placeholder}
@@ -1025,88 +1025,98 @@ const handleCloudMerge = async () => {
   };
 
   return (
-    <div className="min-h-screen font-body text-on-surface pb-20 bg-surface">
-      <div className="max-w-5xl mx-auto bg-surface-container-lowest shadow-sm border border-outline-variant/10 min-h-screen md:min-h-0 md:rounded-xl md:my-8 overflow-hidden flex flex-col">
+    <div className={`min-h-screen font-body text-on-surface pb-24 md:pb-12 transition-colors duration-500 ${meta.sciosScope === '10' ? 'bg-[#ccfbf1] text-[#134e4a]' : meta.sciosScope === '8' ? 'bg-[#dbeafe] text-[#1e3a8a]' : 'bg-surface'}`}>
+      <div className={`max-w-5xl mx-auto shadow-sm border-0 md:border min-h-screen md:min-h-0 md:rounded-[32px] md:my-8 overflow-hidden flex flex-col transition-colors duration-500 ${meta.sciosScope === '10' ? 'bg-white border-teal-300' : meta.sciosScope === '8' ? 'bg-white border-blue-300' : 'bg-surface-container-lowest border-outline-variant/20'}`}>
         {/* HEADER */}
-        <div className="p-4 glass-nav border-b border-outline-variant/20 flex justify-between items-center">
+        <div className="px-5 py-4 bg-surface-container-lowest/90 backdrop-blur-xl border-b border-outline-variant/10 flex justify-between items-center sticky top-0 z-50">
             <div>
-              <h1 className="font-headline font-extrabold text-xl text-primary tracking-tight">SCIOS Scope {meta.sciosScope || '10'}</h1>
-              <p className="text-xs text-on-surface-variant font-medium mt-0.5">{meta.sciosScope === '8' ? 'NEN 3140 — Arbowet' : 'NTA 8220 — Brandrisico'}</p>
+              <h1 className="font-headline font-extrabold text-xl md:text-2xl text-primary tracking-tight">SCIOS Scope {meta.sciosScope || '10'}</h1>
+              <p className="text-[12px] md:text-[13px] text-on-surface-variant font-medium mt-0.5">{meta.sciosScope === '8' ? 'NEN 3140 — Arbowet' : 'NTA 8220 — Brandrisico'}</p>
             </div>
-            <div className="flex items-center gap-3">
-                <div className="items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-full hidden md:flex animate-pulse bg-secondary-container text-on-secondary-container font-bold"><RefreshCw size={12} /> Autosave</div>
-                <div className="text-xs font-mono px-3 py-1.5 rounded-md hidden md:block bg-surface-container-highest text-on-surface-variant">{meta.date}</div>
+            <div className="flex items-center gap-2">
+                <div className="items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full hidden md:flex animate-pulse bg-secondary-container/50 text-on-secondary-container font-bold"><RefreshCw size={14} /> Autosave</div>
+                <div className="text-[13px] font-mono px-3 py-1.5 rounded-full hidden md:block bg-surface-container-high text-on-surface-variant font-medium">{meta.date}</div>
                 
-                <div className="h-6 w-[1px] bg-outline-variant/30 hidden md:block mx-1"></div>
+                <div className="h-8 w-[1px] bg-outline-variant/20 hidden md:block mx-1"></div>
 
-                <button onClick={() => setShowProfile(true)} className="flex items-center justify-center p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors" title="Mijn Profiel">
-                    <UserCircle size={22} className="md:hidden" />
-                    <span className="hidden md:flex items-center gap-2 text-sm font-bold text-primary bg-surface-container-highest px-3 py-1.5 rounded-md hover:bg-surface-container-high transition-colors"><UserCircle size={18} /> Profiel</span>
+                <button onClick={() => setShowProfile(true)} className="flex items-center justify-center p-2.5 md:h-auto md:w-auto md:px-4 md:py-2 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low" title="Mijn Profiel">
+                    <UserCircle size={24} className="md:hidden" />
+                    <span className="hidden md:flex items-center gap-2 text-sm font-bold text-primary"><UserCircle size={18} /> Profiel</span>
                 </button>
                 {userRole === 'admin' && onOpenAdmin && (
-                    <button onClick={onOpenAdmin} title="Beheerder" className="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors hidden md:flex">
-                        <Settings size={20} />
+                    <button onClick={onOpenAdmin} title="Beheerder" className="p-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low hidden md:flex">
+                        <Settings size={22} />
                     </button>
                 )}
                 {onLogout && (
-                    <button onClick={onLogout} title="Uitloggen" className="p-2 rounded-full text-on-surface-variant hover:bg-error-container hover:text-on-error-container transition-colors hidden md:flex">
-                        <LogOut size={20} />
+                    <button onClick={onLogout} title="Uitloggen" className="p-2.5 rounded-full text-error hover:bg-error-container active:scale-95 transition-all bg-surface-container-low hidden md:flex">
+                        <LogOut size={22} />
                     </button>
                 )}
             </div>
         </div>
 
-        <div className="flex border-b border-outline-variant/10 overflow-x-auto bg-surface-container-lowest glass-nav sticky top-0 z-40">
+        {/* TABS (Segmented Control Style) */}
+        <div className="bg-surface-container-lowest/95 backdrop-blur-xl border-b border-outline-variant/10 p-3 md:p-4 md:sticky md:top-[73px] z-40 overflow-x-auto no-scrollbar">
+            <div className="flex bg-surface-container-low p-1.5 rounded-2xl w-max md:w-full min-w-full">
           {STEPS.map((tab, i) => {
             const isActive = activeTab === tab;
-            const activeColor = 'text-primary border-b-[3px] border-primary bg-primary/5';
+            const activeColor = 'bg-white text-primary shadow-sm transform scale-100';
+            const inactiveColor = 'text-on-surface-variant hover:text-primary hover:bg-surface-container-highest scale-95';
             return (
               <button 
                 key={tab} 
                 onClick={() => setActiveTab(tab)} 
-                className={`flex-1 p-3 text-xs md:text-sm font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isActive ? activeColor : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-low border-b-[3px] border-transparent'}`}
+                className={`flex-1 min-w-[100px] py-2.5 px-4 text-xs md:text-sm font-bold uppercase tracking-widest rounded-xl transition-all duration-300 ${isActive ? activeColor : inactiveColor}`}
               >
                  {i + 1}. {tab === 'setup' ? 'Basis' : tab === 'measure' ? 'Metingen' : tab === 'inspect' ? 'Gebreken' : 'Export'}
               </button>
             );
           })}
+            </div>
         </div>
 
         <div className="p-6 flex-grow">
           {activeTab === 'setup' && (
             <div className="space-y-6">
-               <div className="grid grid-cols-3 gap-3 mb-6">
-                 <button onClick={handleImportClick} className="flex flex-col items-center justify-center py-4 px-2 rounded-xl bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-all active:scale-95 shadow-sm">
-                   <Upload size={24} className="mb-1" />
-                   <span className="text-[10px] font-bold uppercase tracking-tighter">Laden</span>
+               <div className="grid grid-cols-3 gap-3 mb-8">
+                 <button onClick={handleImportClick} className="flex flex-col items-center justify-center py-5 px-3 rounded-[24px] bg-surface-container-lowest text-on-surface hover:bg-surface-container-low transition-all active:scale-[0.98] shadow-sm border border-outline-variant/20">
+                   <div className="bg-blue-50 text-blue-600 p-3 rounded-full mb-3">
+                     <Upload size={24} />
+                   </div>
+                   <span className="text-[11px] font-extrabold uppercase tracking-widest text-on-surface-variant">Laden</span>
                  </button>
-                 <button onClick={fetchWorkOrders} className="flex flex-col items-center justify-center py-4 px-2 rounded-xl bg-secondary-container text-on-secondary-container hover:bg-[#b0d5e8] transition-all active:scale-95 shadow-sm">
-                   <CloudDownload size={24} className="mb-1" />
-                   <span className="text-[10px] font-bold uppercase tracking-tighter">Werkvoorraad</span>
+                 <button onClick={fetchWorkOrders} className="flex flex-col items-center justify-center py-5 px-3 rounded-[24px] bg-secondary-container text-on-secondary-container hover:brightness-95 transition-all active:scale-[0.98] shadow-sm border border-outline-variant/10">
+                   <div className="bg-white/40 p-3 rounded-full mb-3">
+                     <CloudDownload size={24} />
+                   </div>
+                   <span className="text-[11px] font-extrabold uppercase tracking-widest">Werkvoorraad</span>
                  </button>
-                 <button onClick={handleReset} className="flex flex-col items-center justify-center py-4 px-2 rounded-xl bg-error-container text-on-error-container hover:bg-[#f5c2bc] transition-all active:scale-95 shadow-sm">
-                   <RotateCcw size={24} className="mb-1" />
-                   <span className="text-[10px] font-bold uppercase tracking-tighter">Leegmaken</span>
+                 <button onClick={handleReset} className="flex flex-col items-center justify-center py-5 px-3 rounded-[24px] bg-error-container text-on-error-container hover:brightness-95 transition-all active:scale-[0.98] shadow-sm border border-error/10">
+                   <div className="bg-white/40 p-3 rounded-full mb-3">
+                     <RotateCcw size={24} />
+                   </div>
+                   <span className="text-[11px] font-extrabold uppercase tracking-widest">Leegmaken</span>
                  </button>
                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json,application/json" className="hidden" />
                </div>
 
                {/* SCOPE TOGGLE — alleen zichtbaar voor hoofdinspecteur */}
                {!meta.isContributionMode && (
-                 <div className="flex bg-surface-container-low rounded-xl p-1 mb-6 border border-outline-variant/20 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]">
-                   <button
-                     onClick={() => setMeta({ sciosScope: '10', inspectionBasis: { nta8220: true, nen3140: false, verzekering: false } })}
-                     className={`flex-1 py-3 px-2 text-center rounded-lg transition-all duration-300 ${(meta.sciosScope || '10') === '10' ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/10' : 'text-on-surface-variant hover:bg-surface-container-highest'}`}
-                   >
-                     <div className="font-headline font-extrabold text-sm">Scope 10</div>
-                     <div className="text-[10px] uppercase tracking-wider mt-0.5">NTA 8220</div>
-                   </button>
+                 <div className="flex bg-surface-container-low rounded-[20px] p-1.5 mb-8 border border-outline-variant/20 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]">
                    <button
                      onClick={() => setMeta({ sciosScope: '8', inspectionBasis: { nta8220: false, nen3140: true, verzekering: false } })}
-                     className={`flex-1 py-3 px-2 text-center rounded-lg transition-all duration-300 ${meta.sciosScope === '8' ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/10' : 'text-on-surface-variant hover:bg-surface-container-highest'}`}
+                     className={`flex-1 py-3.5 px-2 text-center rounded-[16px] transition-all duration-300 ${meta.sciosScope === '8' ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-300 transform scale-100' : 'text-on-surface-variant hover:bg-surface-container-highest transform scale-[0.98]'}`}
                    >
-                     <div className="font-headline font-extrabold text-sm">Scope 8</div>
-                     <div className="text-[10px] uppercase tracking-wider mt-0.5">NEN 3140</div>
+                     <div className={`font-headline font-extrabold text-base ${meta.sciosScope === '8' ? 'text-white' : 'text-[#041632]'}`}>Scope 8</div>
+                     <div className="text-[11px] uppercase tracking-widest mt-0.5 opacity-80">NEN 3140</div>
+                   </button>
+                   <button
+                     onClick={() => setMeta({ sciosScope: '10', inspectionBasis: { nta8220: true, nen3140: false, verzekering: false } })}
+                     className={`flex-1 py-3.5 px-2 text-center rounded-[16px] transition-all duration-300 ${(meta.sciosScope || '10') === '10' ? 'bg-teal-600 text-white shadow-md ring-2 ring-teal-300 transform scale-100' : 'text-on-surface-variant hover:bg-surface-container-highest transform scale-[0.98]'}`}
+                   >
+                     <div className={`font-headline font-extrabold text-base ${(meta.sciosScope || '10') === '10' ? 'text-white' : 'text-[#041632]'}`}>Scope 10</div>
+                     <div className="text-[11px] uppercase tracking-widest mt-0.5 opacity-80">NTA 8220</div>
                    </button>
                  </div>
                )}
@@ -1252,7 +1262,7 @@ const handleCloudMerge = async () => {
           </div>
         )}
 
-               <div className={`bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
+               <div className={`bg-white p-5 md:p-8 rounded-[24px] border border-outline-variant/20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] mb-8 ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
                  <h2 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Opdrachtgever</h2>
                  {/* Google Places zoeker */}
                  {!meta.isContributionMode && (
@@ -1288,7 +1298,7 @@ const handleCloudMerge = async () => {
                  )}
                  <div className="grid grid-cols-1 gap-3">
                    <div className="relative">
-                     <input className="border rounded p-2 w-full" list="inspector-client-suggestions" placeholder="Naam (kies of typ)" value={meta.clientName}
+                     <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" list="inspector-client-suggestions" placeholder="Naam (kies of typ)" value={meta.clientName}
                        onChange={(e) => {
                          const val = e.target.value;
                          const match = appClients.find(c => c.name === val);
@@ -1302,15 +1312,15 @@ const handleCloudMerge = async () => {
                        {clientSuggestions.map((s, i) => <option key={i} value={s.name} />)}
                      </datalist>
                    </div>
-                   <input className="border rounded p-2" placeholder="Adres" value={meta.clientAddress} onChange={(e) => setMeta({ clientAddress: e.target.value })} />
-                   <div className="flex gap-2"><input className="border rounded p-2 w-1/3" placeholder="Postcode" value={meta.clientPostalCode} onChange={(e) => setMeta({ clientPostalCode: e.target.value })} /><input className="border rounded p-2 w-2/3" placeholder="Plaats" value={meta.clientCity} onChange={(e) => setMeta({ clientCity: e.target.value })} /></div>
-                   <input className="border rounded p-2" placeholder="Contactpersoon" value={meta.clientContactPerson} onChange={(e) => setMeta({ clientContactPerson: e.target.value })} />
-                   <input className="border rounded p-2" placeholder="Telefoon" value={meta.clientPhone} onChange={(e) => setMeta({ clientPhone: e.target.value })} />
-                   <input className="border rounded p-2" placeholder="Email" value={meta.clientEmail} onChange={(e) => setMeta({ clientEmail: e.target.value })} />
+                   <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Adres" value={meta.clientAddress} onChange={(e) => setMeta({ clientAddress: e.target.value })} />
+                   <div className="flex gap-2"><input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50 w-1/3" placeholder="Postcode" value={meta.clientPostalCode} onChange={(e) => setMeta({ clientPostalCode: e.target.value })} /><input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50 w-2/3" placeholder="Plaats" value={meta.clientCity} onChange={(e) => setMeta({ clientCity: e.target.value })} /></div>
+                   <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Contactpersoon" value={meta.clientContactPerson} onChange={(e) => setMeta({ clientContactPerson: e.target.value })} />
+                   <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Telefoon" value={meta.clientPhone} onChange={(e) => setMeta({ clientPhone: e.target.value })} />
+                   <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Email" value={meta.clientEmail} onChange={(e) => setMeta({ clientEmail: e.target.value })} />
                  </div>
                </div>
                
-               <div className={`bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mt-6 ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
+               <div className={`bg-white p-5 md:p-8 rounded-[24px] border border-outline-variant/20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] mb-8 mt-6 ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
                    <h2 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Projectgegevens</h2>
                    {/* Google Places zoeker */}
                    {!meta.isContributionMode && (
@@ -1345,15 +1355,15 @@ const handleCloudMerge = async () => {
                      </div>
                    )}
                    <div className="grid grid-cols-1 gap-3">
-                       <input className="border rounded p-2" placeholder="Locatie" value={meta.projectLocation} onChange={(e) => setMeta({ projectLocation: e.target.value })} />
-                       <input className="border rounded p-2" placeholder="Adres" value={meta.projectAddress} onChange={(e) => setMeta({ projectAddress: e.target.value })} />
-                       <div className="flex gap-2"><input className="border rounded p-2 w-1/3" placeholder="Postcode" value={meta.projectPostalCode} onChange={(e) => setMeta({ projectPostalCode: e.target.value })} /><input className="border rounded p-2 w-2/3" placeholder="Plaats" value={meta.projectCity} onChange={(e) => setMeta({ projectCity: e.target.value })} /></div>
-                       <input className="border rounded p-2" placeholder="Contactpersoon" value={meta.projectContactPerson} onChange={(e) => setMeta({ projectContactPerson: e.target.value })} />
-                       <input className="border rounded p-2" placeholder="Telefoon" value={meta.projectPhone} onChange={(e) => setMeta({ projectPhone: e.target.value })} />
-                       <input className="border rounded p-2" placeholder="Email" value={meta.projectEmail} onChange={(e) => setMeta({ projectEmail: e.target.value })} />
-                       <input className="border rounded p-2" placeholder="Installatieverantwoordelijke (IV'er)" value={meta.installationResponsible} onChange={(e) => setMeta({ installationResponsible: e.target.value })} />
+                       <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Locatie" value={meta.projectLocation} onChange={(e) => setMeta({ projectLocation: e.target.value })} />
+                       <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Adres" value={meta.projectAddress} onChange={(e) => setMeta({ projectAddress: e.target.value })} />
+                       <div className="flex gap-2"><input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50 w-1/3" placeholder="Postcode" value={meta.projectPostalCode} onChange={(e) => setMeta({ projectPostalCode: e.target.value })} /><input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50 w-2/3" placeholder="Plaats" value={meta.projectCity} onChange={(e) => setMeta({ projectCity: e.target.value })} /></div>
+                       <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Contactpersoon" value={meta.projectContactPerson} onChange={(e) => setMeta({ projectContactPerson: e.target.value })} />
+                       <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Telefoon" value={meta.projectPhone} onChange={(e) => setMeta({ projectPhone: e.target.value })} />
+                       <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Email" value={meta.projectEmail} onChange={(e) => setMeta({ projectEmail: e.target.value })} />
+                       <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Installatieverantwoordelijke (IV'er)" value={meta.installationResponsible} onChange={(e) => setMeta({ installationResponsible: e.target.value })} />
                        
-                       <div className="flex gap-2 items-center"><input className="border rounded p-2 flex-grow" placeholder="ID Bagviewer" value={meta.idBagviewer} onChange={(e) => setMeta({ idBagviewer: e.target.value })} /><button onClick={handleBagSearch} disabled={isSearchingBag} className="bg-emerald-600 text-white p-2 rounded hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1 text-sm font-bold whitespace-nowrap">{isSearchingBag ? '...' : <><Search size={16} /> Zoek ID</>}</button></div>
+                       <div className="flex gap-2 items-center"><input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50 flex-grow" placeholder="ID Bagviewer" value={meta.idBagviewer} onChange={(e) => setMeta({ idBagviewer: e.target.value })} /><button onClick={handleBagSearch} disabled={isSearchingBag} className="bg-emerald-600 text-white p-2 rounded hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1 text-sm font-bold whitespace-nowrap">{isSearchingBag ? '...' : <><Search size={16} /> Zoek ID</>}</button></div>
                        <div className="mt-4 border-t border-emerald-200 pt-4">
                            <label className="block text-xs font-bold text-emerald-800 uppercase mb-2">Foto voorblad rapport</label>
                            <div className="flex gap-4 items-center">
@@ -1368,9 +1378,9 @@ const handleCloudMerge = async () => {
                    </div>
                </div>
 
-               <div className={`bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mt-6 ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}><h2 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Gebruiksfunctie</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="space-y-2">{usageOptionsLeft.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div><div className="space-y-2">{usageOptionsRight.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div></div></div>
+               <div className={`bg-white p-5 md:p-8 rounded-[24px] border border-outline-variant/20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] mb-8 mt-6 ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}><h2 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Gebruiksfunctie</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="space-y-2">{usageOptionsLeft.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div><div className="space-y-2">{usageOptionsRight.map(opt => (<label key={opt.key} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-emerald-50 rounded"><input type="checkbox" checked={meta.usageFunctions[opt.key]} onChange={(e) => setUsageFunction(opt.key, e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" /><span className="text-sm text-gray-700">{opt.label}</span></label>))}</div></div></div>
                
-               <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mt-6">
+               <div className="bg-white p-5 md:p-8 rounded-[24px] border border-outline-variant/20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] mb-8 mt-6">
                    <h2 className="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Inspectiebedrijf</h2>
                    {/* Google Places zoeking */}
                    {!meta.isContributionMode && (
@@ -1434,10 +1444,10 @@ const handleCloudMerge = async () => {
                            {[...dbCompanies.map(c => c.label), ...COMPANIES.map(c => c.name)].map((name, i) => <option key={i} value={name} />)}
                        </datalist>
 
-                       <input className="border rounded p-2" placeholder="Adres" value={meta.inspectionCompanyAddress} onChange={(e) => setMeta({ inspectionCompanyAddress: e.target.value })} />
-                       <div className="flex gap-2"><input className="border rounded p-2 w-1/3" placeholder="Postcode" value={meta.inspectionCompanyPostalCode} onChange={(e) => setMeta({ inspectionCompanyPostalCode: e.target.value })} /><input className="border rounded p-2 w-2/3" placeholder="Plaats" value={meta.inspectionCompanyCity} onChange={(e) => setMeta({ inspectionCompanyCity: e.target.value })} /></div>
-                       <input className="border rounded p-2" placeholder="Tel" value={meta.inspectionCompanyPhone} onChange={(e) => setMeta({ inspectionCompanyPhone: e.target.value })} />
-                       <input className="border rounded p-2" placeholder="Email" value={meta.inspectionCompanyEmail} onChange={(e) => setMeta({ inspectionCompanyEmail: e.target.value })} />
+                       <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Adres" value={meta.inspectionCompanyAddress} onChange={(e) => setMeta({ inspectionCompanyAddress: e.target.value })} />
+                       <div className="flex gap-2"><input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50 w-1/3" placeholder="Postcode" value={meta.inspectionCompanyPostalCode} onChange={(e) => setMeta({ inspectionCompanyPostalCode: e.target.value })} /><input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50 w-2/3" placeholder="Plaats" value={meta.inspectionCompanyCity} onChange={(e) => setMeta({ inspectionCompanyCity: e.target.value })} /></div>
+                       <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Tel" value={meta.inspectionCompanyPhone} onChange={(e) => setMeta({ inspectionCompanyPhone: e.target.value })} />
+                       <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="Email" value={meta.inspectionCompanyEmail} onChange={(e) => setMeta({ inspectionCompanyEmail: e.target.value })} />
                    </div>
 
                    <div className="mt-4 pt-4 border-t border-emerald-200">
@@ -1445,7 +1455,7 @@ const handleCloudMerge = async () => {
                        <div className="grid grid-cols-1 gap-3">
                            <ClearableInput
                                list="inspectors-list"
-                               className="border rounded p-2 w-full"
+                               className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50"
                                placeholder="Naam Inspecteur"
                                value={meta.inspectorName}
                                onChange={(e: any) => {
@@ -1461,8 +1471,8 @@ const handleCloudMerge = async () => {
                                {inspectorProfiles.map((p, i) => <option key={i} value={p.full_name} />)}
                            </datalist>
 
-                           <input className="border rounded p-2" placeholder="SCIOS Nr" value={meta.sciosRegistrationNumber} onChange={(e) => setMeta({ sciosRegistrationNumber: e.target.value })} />
-                           <input className="border rounded p-2" type="date" value={meta.date} onChange={(e) => setMeta({ date: e.target.value })} />
+                           <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" placeholder="SCIOS Nr" value={meta.sciosRegistrationNumber} onChange={(e) => setMeta({ sciosRegistrationNumber: e.target.value })} />
+                           <input className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50" type="date" value={meta.date} onChange={(e) => setMeta({ date: e.target.value })} />
                        </div>
                    </div>
                </div>
@@ -1471,7 +1481,7 @@ const handleCloudMerge = async () => {
                    <label className="text-xs font-bold text-blue-800 uppercase">Totaal aantal componenten</label>
                    <input 
                        type="number" 
-                       className="border rounded p-3 w-full mt-1 bg-white" 
+                       className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50 mt-1 bg-white" 
                        value={meta.totalComponents || ''} 
                        onChange={(e) => setMeta({ totalComponents: parseInt(e.target.value) || 0 })} 
                        placeholder="0"
@@ -1489,10 +1499,10 @@ const handleCloudMerge = async () => {
             <div className="space-y-4">
                 <h2 className="text-lg font-bold text-gray-700 border-b pb-2">Metingen & Beproevingen</h2>
                 
-                <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mb-6">
+                <div className="bg-white p-5 md:p-8 rounded-[24px] border border-outline-variant/20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] mb-8 mb-6">
                 <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-widest mb-4">Gebruikte Meetinstrumenten</label>
                 <div className="flex gap-2 mb-3">
-                    <select className="border rounded p-2 w-full bg-white" value={selectedInstrumentId} onChange={(e) => {
+                    <select className="w-full h-12 px-4 rounded-[14px] bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-[14px] outline-none placeholder-on-surface-variant/50 bg-white" value={selectedInstrumentId} onChange={(e) => {
                         const id = e.target.value;
                         const inst = [...tier1, ...tier2, ...tier3].find(i => i.id === id);
                         if (inst) { addInstrument(inst); incrementUsage(inst.id); setSelectedInstrumentId(''); }
@@ -1582,7 +1592,7 @@ const handleCloudMerge = async () => {
                 
                 </div>
 
-                <div className={`grid grid-cols-2 gap-4 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mb-6 ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
+                <div className={`grid grid-cols-2 gap-4 bg-white p-5 md:p-8 rounded-[24px] border border-outline-variant/20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] mb-8 mb-6 ${meta.isContributionMode ? 'opacity-70 pointer-events-none' : ''}`}>
                     <div className="col-span-2">
                         <h3 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Algemene Installatiegegevens</h3>
                     </div>
@@ -1622,35 +1632,37 @@ const handleCloudMerge = async () => {
                     </div>
                 </div>
 
-                <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm mb-6">
-                <div className="flex justify-between items-center border-b border-outline-variant/20 pb-4 mb-4">
-                    <h3 className="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">Metingen per Verdeelinrichting</h3>
-                    <button onClick={() => addBoard({ id: generateId(), name: '', switchboardTemp: '20', insulationResistance: '999', impedance: '0.35' })} className="bg-primary text-white px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 hover:bg-primary-container transition shadow-sm active:scale-95">
-                      <PlusCircle size={14} /> Verdeler Toevoegen
+                <div className="bg-white p-5 md:p-8 rounded-[24px] border border-outline-variant/20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] mb-8">
+                <div className="flex justify-between items-center border-b border-outline-variant/20 pb-4 mb-5">
+                    <h3 className="text-[12px] font-bold text-on-surface-variant uppercase tracking-widest">Metingen per Verdeelinrichting</h3>
+                    <button onClick={() => addBoard({ id: generateId(), name: '', switchboardTemp: '20', insulationResistance: '999', impedance: '0.35' })} className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-primary-container hover:text-on-primary-container transition-all shadow-sm active:scale-95">
+                      <PlusCircle size={16} /> Verdeler Toevoegen
                     </button>
                 </div>
 
+                <div className="space-y-4">
                 {measurements.boards.map((board, index) => (
-                    <div key={board.id} className="bg-white border border-emerald-200 rounded-lg shadow-sm overflow-hidden animate-fadeIn">
-                    <div className="bg-emerald-50 px-4 py-2 border-b border-emerald-100 flex justify-between items-center">
-                        <span className="text-xs font-bold text-emerald-700 uppercase">Verdeelinrichting #{index + 1}</span>
+                    <div key={board.id} className="bg-surface-container-lowest border border-outline-variant/30 rounded-[16px] shadow-sm overflow-hidden animate-fadeIn">
+                    <div className="bg-surface-container-low px-5 py-3 border-b border-outline-variant/20 flex justify-between items-center">
+                        <span className="text-xs font-bold text-primary uppercase tracking-widest">Verdeelinrichting #{index + 1}</span>
                         {measurements.boards.length > 1 && (
-                          <button onClick={() => { if(window.confirm("Verwijder deze meting?")) removeBoard(board.id); }} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+                          <button onClick={() => { if(window.confirm("Verwijder deze meting?")) removeBoard(board.id); }} className="text-on-surface-variant/50 hover:text-error transition-colors p-1"><Trash2 size={18}/></button>
                         )}
                     </div>
-                    <div className="p-4 space-y-3">
+                    <div className="p-5 space-y-4">
                         <div>
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Naam / Locatie Kast</label>
-                        <input className="w-full border-b border-gray-200 p-1 focus:border-emerald-500 outline-none font-bold" placeholder="Bijv. HVK Begane Grond" value={board.name} onChange={(e) => updateBoard(board.id, { ...board, name: e.target.value })} />
+                        <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Naam / Locatie Kast</label>
+                        <input className="w-full h-11 px-3 rounded-lg bg-surface-container-low border-transparent focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm outline-none font-bold" placeholder="Bijv. HVK Begane Grond" value={board.name} onChange={(e) => updateBoard(board.id, { ...board, name: e.target.value })} />
                         </div>
                         <div className="grid grid-cols-3 gap-3">
-                        <div><label className="text-[10px] font-bold text-gray-400 uppercase block">Temp (°C)</label><input type="number" className="w-full border rounded p-2 text-sm bg-gray-50" value={board.switchboardTemp} onChange={(e) => updateBoard(board.id, { ...board, switchboardTemp: e.target.value })} onWheel={(e) => (e.target as HTMLInputElement).blur()} /></div>
-                        <div><label className="text-[10px] font-bold text-gray-400 uppercase block">Riso (MΩ)</label><input type="number" className="w-full border rounded p-2 text-sm bg-gray-50" value={board.insulationResistance} onChange={(e) => updateBoard(board.id, { ...board, insulationResistance: e.target.value })} onWheel={(e) => (e.target as HTMLInputElement).blur()} /></div>
-                        <div><label className="text-[10px] font-bold text-gray-400 uppercase block">Zi (Ω)</label><input type="number" step="0.01" className="w-full border rounded p-2 text-sm bg-gray-50" value={board.impedance} onChange={(e) => updateBoard(board.id, { ...board, impedance: e.target.value })} onWheel={(e) => (e.target as HTMLInputElement).blur()} /></div>
+                        <div><label className="text-[10px] font-bold text-on-surface-variant uppercase block mb-1">Temp (°C)</label><input type="number" className="w-full h-11 px-3 rounded-lg bg-surface-container-low focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all text-sm outline-none" value={board.switchboardTemp} onChange={(e) => updateBoard(board.id, { ...board, switchboardTemp: e.target.value })} onWheel={(e) => (e.target as HTMLInputElement).blur()} /></div>
+                        <div><label className="text-[10px] font-bold text-on-surface-variant uppercase block mb-1">Riso (MΩ)</label><input type="number" className="w-full h-11 px-3 rounded-lg bg-surface-container-low focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all text-sm outline-none" value={board.insulationResistance} onChange={(e) => updateBoard(board.id, { ...board, insulationResistance: e.target.value })} onWheel={(e) => (e.target as HTMLInputElement).blur()} /></div>
+                        <div><label className="text-[10px] font-bold text-on-surface-variant uppercase block mb-1">Zi (Ω)</label><input type="number" step="0.01" className="w-full h-11 px-3 rounded-lg bg-surface-container-low focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all text-sm outline-none" value={board.impedance} onChange={(e) => updateBoard(board.id, { ...board, impedance: e.target.value })} onWheel={(e) => (e.target as HTMLInputElement).blur()} /></div>
                         </div>
                     </div>
                     </div>
                 ))}
+                </div>
                 </div>
             </div>
             )}
@@ -1703,9 +1715,10 @@ const handleCloudMerge = async () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {defects.map((d, i) => {
-                  const borderColor = d.classification === 'Red' ? '#ef4444' : d.classification === 'Orange' || d.classification === 'Amber' ? '#f97316' : d.classification === 'Blue' ? '#3b82f6' : '#eab308';
+                  const borderColor = d.classification === 'Red' ? '#ba1a1a' : d.classification === 'Orange' || d.classification === 'Amber' ? '#f97316' : d.classification === 'Blue' ? '#3b82f6' : '#eab308';
+                  const bgColor = d.classification === 'Red' ? 'bg-error-container' : d.classification === 'Orange' || d.classification === 'Amber' ? 'bg-orange-50' : d.classification === 'Blue' ? 'bg-blue-50' : 'bg-[#fffbeb]';
                   return (
                     <div
                       key={d.id}
@@ -1721,17 +1734,21 @@ const handleCloudMerge = async () => {
                         reorderDefects(next);
                         setDefectDragIdx(null); setDefectDragOverIdx(null);
                       }}
-                      className={`bg-surface-container-lowest border-l-4 shadow-sm p-4 rounded-xl flex items-start gap-3 group select-none transition-all ${defectDragOverIdx === i && defectDragIdx !== i ? 'ring-2 ring-primary ring-offset-2' : ''}`}
-                      style={{ borderColor, cursor: 'grab', opacity: defectDragIdx === i ? 0.5 : 1 }}
+                      className={`bg-surface-container-lowest border border-outline-variant/20 shadow-sm p-4 rounded-[20px] flex items-start gap-4 group select-none transition-all hover:shadow-md ${defectDragOverIdx === i && defectDragIdx !== i ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                      style={{ opacity: defectDragIdx === i ? 0.5 : 1 }}
                     >
-                      <GripVertical size={16} className="text-gray-300 mt-1 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-gray-800 text-sm">{i + 1}. {d.location}</div>
-                        <p className="text-xs text-gray-500 whitespace-pre-wrap mt-0.5 line-clamp-2">{d.description}</p>
+                      <button className="text-on-surface-variant/40 mt-1 cursor-grab active:cursor-grabbing hover:text-primary transition-colors shrink-0"><GripVertical size={20} /></button>
+                      <div className="w-1.5 h-full rounded-full self-stretch" style={{ backgroundColor: borderColor }} />
+                      <div className="flex-1 min-w-0 py-0.5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-extrabold text-[#041632] text-sm md:text-base">{i + 1}. {d.location}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${bgColor}`} style={{ color: borderColor }}>{d.classification}</span>
+                        </div>
+                        <p className="text-[13px] text-on-surface-variant/80 whitespace-pre-wrap leading-snug line-clamp-3 md:line-clamp-none">{d.description}</p>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0">
-                        <button onClick={() => handleStartEdit(d)} className="p-1.5 text-gray-400 hover:text-blue-600"><Pencil size={15} /></button>
-                        <button onClick={() => removeDefect(d.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 size={15} /></button>
+                      <div className="flex gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 shrink-0 self-start mt-1 bg-surface-container-low p-1 rounded-full">
+                        <button onClick={() => handleStartEdit(d)} className="p-2 bg-white rounded-full text-on-surface-variant hover:text-primary shadow-sm active:scale-95 transition-all"><Pencil size={16} /></button>
+                        <button onClick={() => removeDefect(d.id)} className="p-2 bg-white rounded-full text-on-surface-variant hover:text-error shadow-sm active:scale-95 transition-all"><Trash2 size={16} /></button>
                       </div>
                     </div>
                   );
@@ -1743,60 +1760,83 @@ const handleCloudMerge = async () => {
           {activeTab === 'report' && (
             <div className="text-center py-6 space-y-6">
               {!meta.isContributionMode && (
-                <div className="bg-indigo-50 p-4 rounded border border-indigo-100 text-left">
-                  <h3 className="font-bold text-indigo-800 border-b border-indigo-200 pb-2 mb-3 flex items-center gap-2"><Calendar size={18}/> Advies Inspectiefrequentie</h3>
-                  <div className="space-y-4">
-                    <div><label className="block text-sm font-bold text-gray-700 mb-1">Interval:</label><div className="flex gap-4"><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="interval" checked={meta.inspectionInterval === 3} onChange={() => setMeta({ inspectionInterval: 3 })} /> 3 Jaar</label><label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="interval" checked={meta.inspectionInterval === 5} onChange={() => setMeta({ inspectionInterval: 5 })} /> 5 Jaar</label></div></div>
-                    <div className="bg-white p-2 rounded border"><span className="text-xs text-gray-500 block">Volgende inspectie uiterlijk:</span><span className="font-bold text-indigo-600">{meta.nextInspectionDate}</span></div>
+                <div className="bg-surface-container-lowest border border-outline-variant/20 p-6 rounded-[24px] shadow-sm text-left">
+                  <h3 className="font-bold text-primary border-b border-outline-variant/20 pb-3 mb-4 flex items-center gap-2 text-sm uppercase tracking-widest"><Calendar size={18}/> Advies Inspectiefrequentie</h3>
+                  <div className="space-y-5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Interval:</label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer bg-surface-container-low px-4 py-3 rounded-xl border border-transparent focus-within:border-primary transition-all hover:bg-surface-container-high w-1/2">
+                          <input type="radio" name="interval" checked={meta.inspectionInterval === 3} onChange={() => setMeta({ inspectionInterval: 3 })} className="w-4 h-4 text-primary" /> 
+                          <span className="font-bold text-sm">3 Jaar</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer bg-surface-container-low px-4 py-3 rounded-xl border border-transparent focus-within:border-primary transition-all hover:bg-surface-container-high w-1/2">
+                          <input type="radio" name="interval" checked={meta.inspectionInterval === 5} onChange={() => setMeta({ inspectionInterval: 5 })} className="w-4 h-4 text-primary" /> 
+                          <span className="font-bold text-sm">5 Jaar</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 flex items-center justify-between">
+                      <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Volgende inspectie uiterlijk:</span>
+                      <span className="font-extrabold text-primary text-lg">{meta.nextInspectionDate}</span>
+                    </div>
                   </div>
                 </div>
               )}
               
-              <div className="bg-white p-4 rounded shadow-sm border">
-                <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Handtekening Inspecteur</h3>
+              <div className="bg-surface-container-lowest border border-outline-variant/20 p-6 rounded-[24px] shadow-sm text-left">
+                <h3 className="font-bold text-primary pb-3 mb-2 flex items-center gap-2 text-sm uppercase tracking-widest">Handtekening Inspecteur</h3>
                 {!meta.signatureUrl ? (
-                  <div className="border border-gray-300 rounded bg-gray-50">
-                    <SignatureCanvas ref={sigPad} canvasProps={{width: 300, height: 150, className: 'mx-auto cursor-crosshair'}} />
-                    <div className="border-t flex justify-end p-2 gap-2"><button onClick={clearSignature} className="text-xs text-red-500 font-bold">Wissen</button><button onClick={saveSignature} className="text-xs bg-emerald-600 text-white px-3 py-1 rounded font-bold">Opslaan</button></div>
+                  <div className="border border-outline-variant/30 rounded-[16px] bg-surface-container-low overflow-hidden">
+                    <SignatureCanvas ref={sigPad} canvasProps={{width: 300, height: 150, className: 'w-full h-[150px] cursor-crosshair'}} />
+                    <div className="border-t border-outline-variant/20 flex justify-end px-4 py-3 gap-3 bg-surface-container-lowest">
+                      <button onClick={clearSignature} className="text-xs text-error font-bold hover:underline px-2">Wissen</button>
+                      <button onClick={saveSignature} className="text-xs bg-primary text-white px-5 py-2 rounded-full font-bold hover:bg-primary-container hover:text-on-primary-container transition-all shadow-sm">Opslaan</button>
+                    </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center"><img src={meta.signatureUrl} className="border h-24 mb-2" /><button onClick={() => setMeta({signatureUrl: ''})} className="text-xs text-red-500 underline">Opnieuw tekenen</button></div>
+                  <div className="flex flex-col items-center bg-surface-container-low p-4 rounded-[16px] border border-outline-variant/20">
+                    <img src={meta.signatureUrl} className="h-24 mix-blend-multiply mb-3" />
+                    <button onClick={() => setMeta({signatureUrl: ''})} className="text-xs text-error font-bold px-4 py-2 bg-white rounded-full shadow-sm hover:bg-error-container hover:text-on-error-container transition-all">Opnieuw tekenen</button>
+                  </div>
                 )}
               </div>
               
               {meta.supabaseId ? (
-                  <div className="bg-green-50 p-4 rounded border border-green-200 mb-6 w-full text-left">
-                      <h3 className="font-bold text-green-800 mb-2 flex items-center gap-2"><CloudCheck size={20}/> Klaar met inspecteren?</h3>
-                      <button onClick={handleFinalSync} disabled={isGenerating} className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-lg font-bold shadow flex items-center justify-center gap-3 text-lg disabled:bg-gray-400">
-                          {isGenerating ? <RefreshCw className="animate-spin" size={24} /> : (meta.isContributionMode ? 'Bijdrage Uploaden' : 'Inleveren bij Kantoor')}
+                  <div className="bg-[#f0fdf4] p-6 rounded-[24px] border border-[#bbf7d0] mb-6 w-full text-left shadow-sm">
+                      <h3 className="font-extrabold text-[#166534] mb-3 flex items-center gap-2 text-base"><CloudCheck size={22}/> Klaar met inspecteren?</h3>
+                      <button onClick={handleFinalSync} disabled={isGenerating} className="w-full bg-[#16a34a] hover:bg-[#15803d] text-white py-4 rounded-2xl font-bold shadow-sm flex items-center justify-center gap-3 text-[15px] disabled:opacity-70 transition-all active:scale-[0.98]">
+                          {isGenerating ? <RefreshCw className="animate-spin" size={20} /> : (meta.isContributionMode ? 'Bijdrage Uploaden' : 'Inleveren bij Kantoor')}
                       </button>
                   </div>
               ) : (
-                  <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-6 w-full text-left">
-                      <h3 className="font-bold text-blue-800 mb-2 flex items-center gap-2"><Upload size={20}/> Cloud Koppeling</h3>
-                      <p className="text-sm text-blue-600 mb-3">Nog niet in het online dashboard.</p>
-                      <button onClick={handleUploadAsNew} disabled={isGenerating} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-lg font-bold shadow flex items-center justify-center gap-3 text-lg">{isGenerating ? 'Bezig...' : (meta.isContributionMode ? 'Bijdrage Uploaden' : 'Uploaden als Nieuwe Opdracht')}</button>
+                  <div className="bg-primary/5 p-6 rounded-[24px] border border-primary/10 mb-6 w-full text-left shadow-sm">
+                      <h3 className="font-extrabold text-primary mb-2 flex items-center gap-2 text-base"><Upload size={22}/> Cloud Koppeling</h3>
+                      <p className="text-[13px] text-on-surface-variant mb-4 font-medium">Nog niet in het online dashboard.</p>
+                      <button onClick={handleUploadAsNew} disabled={isGenerating} className="w-full bg-primary hover:bg-primary-container hover:text-on-primary-container text-white py-4 rounded-2xl font-bold shadow-sm flex items-center justify-center gap-3 text-[15px] disabled:opacity-70 transition-all active:scale-[0.98]">
+                        {isGenerating ? <RefreshCw className="animate-spin" size={20} /> : (meta.isContributionMode ? 'Bijdrage Uploaden' : 'Uploaden als Nieuwe Opdracht')}
+                      </button>
                   </div>
               )}
 
               {!meta.isContributionMode && (
-                <button onClick={handleCloudMerge} className="bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded font-bold shadow flex items-center justify-center gap-2 text-sm w-full mb-6"><CloudDownload size={16} /> Zoek Cloud Bijdragen</button>
+                <button onClick={handleCloudMerge} className="bg-surface-container-highest hover:bg-outline-variant text-on-surface py-4 rounded-2xl font-bold shadow-sm flex items-center justify-center gap-2 text-sm w-full transition-all active:scale-[0.98]"><CloudDownload size={18} /> Zoek Cloud Bijdragen</button>
               )}
 
-              <div className="bg-orange-50 p-4 rounded border border-orange-200 mb-6 text-left">
-                  <h3 className="font-bold text-orange-800 mb-3 flex items-center gap-2 uppercase text-sm"><Download size={18}/> Data & Backup</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                      <button onClick={handleBackupDownload} className="bg-orange-600 hover:bg-orange-700 text-white py-3 rounded font-bold shadow flex items-center justify-center gap-2 text-sm"><Download size={16} /> Backup Opslaan</button>
-                      <button onClick={handleMergeClick} className="bg-purple-600 hover:bg-purple-700 text-white py-3 rounded font-bold shadow flex items-center justify-center gap-2 text-sm"><PlusCircle size={16} /> Samenvoegen (Lokaal)</button>
+              <div className="bg-[#fff7ed] p-6 rounded-[24px] border border-[#ffedd5] mb-6 text-left shadow-sm">
+                  <h3 className="font-extrabold text-[#9a3412] mb-4 flex items-center gap-2 uppercase tracking-widest text-[11px]"><Download size={16}/> Data & Backup</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <button onClick={handleBackupDownload} className="bg-[#ea580c] hover:bg-[#c2410c] text-white py-3.5 rounded-xl font-bold shadow-sm flex items-center justify-center gap-2 text-sm transition-all active:scale-[0.98]"><Download size={18} /> Backup Opslaan</button>
+                      <button onClick={handleMergeClick} className="bg-surface-container-lowest hover:bg-surface-container-low text-[#ea580c] border border-[#ea580c]/20 py-3.5 rounded-xl font-bold shadow-sm flex items-center justify-center gap-2 text-sm transition-all active:scale-[0.98]"><PlusCircle size={18} /> Samenvoegen (Lokaal)</button>
                   </div>
                   <input type="file" ref={mergeInputRef} onChange={handleMergeFile} accept=".json,application/json" className="hidden" />
               </div>
 
               {!meta.isContributionMode && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                    <button onClick={handleShareFindings} className="bg-purple-600 text-white px-6 py-4 rounded-lg font-bold shadow hover:bg-purple-700 flex items-center justify-center gap-3"><Share2 size={20} /><span>Bevindingen Delen</span></button>
-                    <button onClick={handleDownloadPDF} disabled={isGenerating || !meta.signatureUrl} className="bg-blue-600 text-white px-6 py-4 rounded-lg font-bold shadow hover:bg-blue-700 flex items-center justify-center gap-3 disabled:bg-gray-400">
-                        {isGenerating ? <RefreshCw className="animate-spin" size={20} /> : <Download size={20} />}<span>Rapport (PDF)</span>
+                    <button onClick={handleShareFindings} className="bg-surface-container-lowest text-primary border border-primary/20 hover:bg-primary/5 py-4 rounded-2xl font-bold shadow-sm flex items-center justify-center gap-3 transition-all active:scale-[0.98]"><Share2 size={20} /><span>Bevindingen Delen</span></button>
+                    <button onClick={handleDownloadPDF} disabled={isGenerating || !meta.signatureUrl} className="bg-primary text-white py-4 rounded-2xl font-bold shadow-md shadow-primary/20 hover:bg-primary-container hover:text-on-primary-container flex items-center justify-center gap-3 disabled:opacity-60 transition-all active:scale-[0.98]">
+                        {isGenerating ? <RefreshCw className="animate-spin" size={20} /> : <Download size={20} />}<span>Definitief Rapport (PDF)</span>
                     </button>
                 </div>
               )}
@@ -1804,27 +1844,27 @@ const handleCloudMerge = async () => {
           )}
         </div>
 
-        <div className="bg-white border-t p-4 flex justify-between items-center sticky bottom-0 shadow-inner">
-          <button onClick={goPrev} disabled={currentStepIndex === 0} className="flex items-center gap-2 px-4 py-2 rounded font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-30 transition-colors"><ChevronLeft size={18} /> Vorige</button>
+        <div className="bg-surface-container-lowest/90 backdrop-blur-xl border-t border-outline-variant/10 p-4 md:p-5 flex justify-between items-center sticky bottom-0 z-40">
+          <button onClick={goPrev} disabled={currentStepIndex === 0} className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-on-surface-variant bg-surface-container-high hover:bg-surface-container-highest disabled:opacity-30 transition-all active:scale-95 text-sm"><ChevronLeft size={18} /> Vorige</button>
           {currentStepIndex < STEPS.length - 1
-            ? (<button onClick={goNext} className={`flex items-center gap-2 px-6 py-2 rounded font-bold text-white transition-colors shadow-sm ${meta.sciosScope === '8' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>Volgende <ChevronRight size={18} /></button>)
-            : (<span className={`text-sm font-bold flex items-center gap-2 ${meta.sciosScope === '8' ? 'text-blue-700' : 'text-emerald-700'}`}>Klaar om te exporteren</span>)}
+            ? (<button onClick={goNext} className="flex items-center gap-2 px-6 py-2.5 rounded-full font-bold text-white bg-primary hover:bg-primary-container hover:text-on-primary-container transition-all shadow-md shadow-primary/20 active:scale-95 text-sm">Volgende <ChevronRight size={18} /></button>)
+            : (<span className="text-xs font-bold flex items-center gap-2 text-primary uppercase tracking-widest bg-primary/10 px-4 py-2 rounded-full">Klaar voor afronding</span>)}
         </div>
       </div>
       {/* MODAL: MIJN PROFIEL */}
         {showProfile && (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
-                <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                    <div className="p-4 border-b bg-emerald-50 flex justify-between items-center">
-                        <h2 className="text-lg font-bold text-emerald-800 flex items-center gap-2"><UserCircle size={20}/> Persoonlijke Instellingen</h2>
-                        <button onClick={() => setShowProfile(false)} className="text-gray-400 hover:text-gray-600"><X size={24}/></button>
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                <div className="bg-surface-container-lowest rounded-[24px] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col h-[85vh] md:h-[650px]">
+                    <div className="p-5 border-b border-outline-variant/10 bg-primary/5 flex justify-between items-center">
+                        <h2 className="text-lg font-bold text-primary flex items-center gap-2"><UserCircle size={22}/> Persoonlijke Instellingen</h2>
+                        <button onClick={() => setShowProfile(false)} className="text-on-surface-variant hover:text-error bg-white p-1.5 rounded-full shadow-sm active:scale-95 transition-all"><X size={20}/></button>
                     </div>
                     
-                    <div className="flex border-b bg-gray-100 overflow-x-auto">
-                        <button onClick={() => setProfileTab('persoonlijk')} className={`flex-1 px-2 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'persoonlijk' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Persoonlijk</button>
-                        <button onClick={() => setProfileTab('bedrijf')} className={`flex-1 px-2 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'bedrijf' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Mijn Bedrijf</button>
-                        <button onClick={() => setProfileTab('handtekening')} className={`flex-1 px-2 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'handtekening' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>Handtekening</button>
-                        <button onClick={() => setProfileTab('instrumenten')} className={`flex-1 px-2 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'instrumenten' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}>De Koffer</button>
+                    <div className="flex border-b border-outline-variant/10 bg-surface-container-highest overflow-x-auto no-scrollbar">
+                        <button onClick={() => setProfileTab('persoonlijk')} className={`flex-1 min-w-max px-4 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'persoonlijk' ? 'bg-white text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-primary hover:bg-white/50'}`}>Persoonlijk</button>
+                        <button onClick={() => setProfileTab('bedrijf')} className={`flex-1 min-w-max px-4 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'bedrijf' ? 'bg-white text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-primary hover:bg-white/50'}`}>Mijn Bedrijf</button>
+                        <button onClick={() => setProfileTab('handtekening')} className={`flex-1 min-w-max px-4 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'handtekening' ? 'bg-white text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-primary hover:bg-white/50'}`}>Handtekening</button>
+                        <button onClick={() => setProfileTab('instrumenten')} className={`flex-1 min-w-max px-4 whitespace-nowrap py-3.5 text-xs md:text-sm font-bold transition-colors ${profileTab === 'instrumenten' ? 'bg-white text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-primary hover:bg-white/50'}`}>De Koffer</button>
                     </div>
 
                     <div className="p-4 md:p-6 overflow-y-auto flex-grow bg-white">

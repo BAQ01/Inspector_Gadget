@@ -4,6 +4,7 @@ import InspectorApp from './InspectorApp'; //
 import InstallerApp from './InstallerApp'; //
 import AdminDashboard from './components/AdminDashboard'; //
 import Login from './components/Login'; //
+import { ChevronLeft } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -79,9 +80,9 @@ export default function App() {
       <div className="relative">
         <button 
           onClick={() => setShowAdminDashboard(false)}
-          className="fixed top-4 right-4 z-50 bg-emerald-600 text-white px-4 py-2 rounded-full shadow-lg font-bold hover:bg-emerald-700 transition flex items-center gap-2"
+          className="fixed bottom-6 right-6 z-[100] bg-emerald-600 text-white px-6 py-3 rounded-full shadow-2xl font-bold hover:bg-emerald-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 border-2 border-white/20"
         >
-          Terug naar Inspecties
+          <ChevronLeft size={18} /> Terug naar Inspecties
         </button>
         <AdminDashboard />
       </div>
