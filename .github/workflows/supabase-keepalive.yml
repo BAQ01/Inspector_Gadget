@@ -3,7 +3,8 @@ name: Supabase Keepalive
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 */12 * * *'
+    # Elke 3 dagen om 08:00 UTC — ruim binnen de 7-dagen inactiviteitsgrens
+    - cron: '0 8 */3 * *'
 
 concurrency:
   group: supabase-keepalive
@@ -23,11 +24,17 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
-            echo "Missing repository variables SUPABASE_URL or SUPABASE_ANON_KEY" >&2
+            echo "::error::Missing repository variables SUPABASE_URL or SUPABASE_ANON_KEY"
+            echo ""
+            echo "Go to: GitHub repo → Settings → Secrets and variables → Actions → Variables"
+            echo "Add these repository variables:"
+            echo "  SUPABASE_URL       = https://blqpecudiddxwbidtdjk.supabase.co"
+            echo "  SUPABASE_ANON_KEY  = (your anon/public key from Supabase dashboard)"
             exit 1
           fi
+          echo "✅ Configuration valid"
 
-      - name: Ping Supabase endpoints
+      - name: Ping Supabase REST endpoints
         run: |
           set -euo pipefail
 
@@ -45,13 +52,40 @@ jobs:
             )"
 
             if [ "${http_code#2}" = "${http_code}" ]; then
-              echo "Request failed for ${path} (HTTP ${http_code})" >&2
-              exit 1
+              echo "::warning::Ping failed for ${path} (HTTP ${http_code})"
+              return 1
             fi
 
-            echo "OK ${path} (HTTP ${http_code})"
+            echo "✅ ${path} → HTTP ${http_code}"
           }
 
           ping "/auth/v1/settings"
           ping "/rest/v1/"
           ping "/storage/v1/version"
+
+      - name: Query database (real activity)
+        run: |
+          set -euo pipefail
+
+          base_url="${SUPABASE_URL%/}"
+
+          # Doe een echte SELECT query op de profiles tabel — dit telt als database-activiteit
+          response=$(curl -sS -w '\n%{http_code}' \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: count=exact" \
+            "${base_url}/rest/v1/profiles?select=id&limit=1")
+
+          http_code=$(echo "$response" | tail -1)
+          body=$(echo "$response" | sed '$d')
+
+          if [ "${http_code#2}" = "${http_code}" ]; then
+            echo "::warning::Database query failed (HTTP ${http_code}): ${body}"
+            exit 1
+          fi
+
+          echo "✅ Database query succeeded (HTTP ${http_code})"
+          echo "   Response: ${body}"
+          echo ""
+          echo "🏓 Supabase project blqpecudiddxwbidtdjk is alive and active!"

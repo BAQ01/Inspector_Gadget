@@ -4,9 +4,13 @@ import InspectorApp from './InspectorApp'; //
 import InstallerApp from './InstallerApp'; //
 import AdminDashboard from './components/AdminDashboard'; //
 import Login from './components/Login'; //
+import { useSupabaseKeepAlive } from './hooks/useSupabaseKeepAlive';
 import { ChevronLeft } from 'lucide-react';
 
 export default function App() {
+  // Voorkom dat Supabase free-tier project gepauzeerd wordt
+  useSupabaseKeepAlive();
+
   const [session, setSession] = useState<any>(null);
   const [userRole, setUserRole] = useState<'admin' | 'inspector' | 'installer' | null>(null);
   const [loading, setLoading] = useState(true);
