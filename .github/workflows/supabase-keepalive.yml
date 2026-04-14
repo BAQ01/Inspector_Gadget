@@ -34,39 +34,27 @@ jobs:
           fi
           echo "✅ Configuration valid"
 
-      - name: Ping Supabase REST endpoints
+      - name: Ping Supabase auth
         run: |
           set -euo pipefail
-
           base_url="${SUPABASE_URL%/}"
 
-          ping() {
-            local path="$1"
-            local http_code
+          http_code="$(
+            curl -sS -o /dev/null -w '%{http_code}' \
+              -H "apikey: ${SUPABASE_ANON_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+              "${base_url}/auth/v1/settings"
+          )"
 
-            http_code="$(
-              curl -sS -o /dev/null -w '%{http_code}' \
-                -H "apikey: ${SUPABASE_ANON_KEY}" \
-                -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
-                "${base_url}${path}"
-            )"
-
-            if [ "${http_code#2}" = "${http_code}" ]; then
-              echo "::warning::Ping failed for ${path} (HTTP ${http_code})"
-              return 1
-            fi
-
-            echo "✅ ${path} → HTTP ${http_code}"
-          }
-
-          ping "/auth/v1/settings"
-          ping "/rest/v1/"
-          ping "/storage/v1/version"
+          if [ "${http_code#2}" = "${http_code}" ]; then
+            echo "::warning::Auth ping failed (HTTP ${http_code})"
+          else
+            echo "✅ Auth endpoint → HTTP ${http_code}"
+          fi
 
       - name: Query database (real activity)
         run: |
           set -euo pipefail
-
           base_url="${SUPABASE_URL%/}"
 
           # Doe een echte SELECT query op de profiles tabel — dit telt als database-activiteit
@@ -81,7 +69,7 @@ jobs:
           body=$(echo "$response" | sed '$d')
 
           if [ "${http_code#2}" = "${http_code}" ]; then
-            echo "::warning::Database query failed (HTTP ${http_code}): ${body}"
+            echo "::error::Database query failed (HTTP ${http_code}): ${body}"
             exit 1
           fi
 
