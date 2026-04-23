@@ -16,18 +16,18 @@ jobs:
     timeout-minutes: 5
 
     env:
-      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-      SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
     steps:
       - name: Validate configuration
         run: |
           set -euo pipefail
           if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
-            echo "::error::Missing repository variables SUPABASE_URL or SUPABASE_ANON_KEY"
+            echo "::error::Missing repository secrets SUPABASE_URL or SUPABASE_ANON_KEY"
             echo ""
-            echo "Go to: GitHub repo → Settings → Secrets and variables → Actions → Variables"
-            echo "Add these repository variables:"
+            echo "Go to: GitHub repo → Settings → Secrets and variables → Actions → Secrets tab"
+            echo "Add these repository secrets:"
             echo "  SUPABASE_URL       = https://blqpecudiddxwbidtdjk.supabase.co"
             echo "  SUPABASE_ANON_KEY  = (your anon/public key from Supabase dashboard)"
             exit 1
