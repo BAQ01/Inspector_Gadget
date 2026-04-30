@@ -3,8 +3,8 @@ name: Supabase Keepalive
 on:
   workflow_dispatch:
   schedule:
-    # Elke 3 dagen om 08:00 UTC — ruim binnen de 7-dagen inactiviteitsgrens
-    - cron: '0 8 */3 * *'
+    # Elke dag om 08:00 UTC — voorkomt Supabase free-tier pauzering (grens: 7 dagen inactiviteit)
+    - cron: '0 8 * * *'
 
 concurrency:
   group: supabase-keepalive
@@ -32,7 +32,7 @@ jobs:
             echo "  SUPABASE_ANON_KEY  = (your anon/public key from Supabase dashboard)"
             exit 1
           fi
-          echo "✅ Configuration valid"
+          echo "Configuration valid"
 
       - name: Ping Supabase auth
         run: |
@@ -49,7 +49,7 @@ jobs:
           if [ "${http_code#2}" = "${http_code}" ]; then
             echo "::warning::Auth ping failed (HTTP ${http_code})"
           else
-            echo "✅ Auth endpoint → HTTP ${http_code}"
+            echo "Auth endpoint OK (HTTP ${http_code})"
           fi
 
       - name: Query database (real activity)
@@ -57,7 +57,7 @@ jobs:
           set -euo pipefail
           base_url="${SUPABASE_URL%/}"
 
-          # Doe een echte SELECT query op de profiles tabel — dit telt als database-activiteit
+          # SELECT op profiles — telt als database-activiteit bij Supabase
           response=$(curl -sS -w '\n%{http_code}' \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
@@ -73,7 +73,28 @@ jobs:
             exit 1
           fi
 
-          echo "✅ Database query succeeded (HTTP ${http_code})"
-          echo "   Response: ${body}"
-          echo ""
-          echo "🏓 Supabase project blqpecudiddxwbidtdjk is alive and active!"
+          echo "Database query OK (HTTP ${http_code}) — project is active"
+
+      - name: Query inspections (extra activiteit)
+        run: |
+          set -euo pipefail
+          base_url="${SUPABASE_URL%/}"
+
+          # Tweede query op inspections tabel — meer database-activiteit
+          response=$(curl -sS -w '\n%{http_code}' \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: count=exact" \
+            "${base_url}/rest/v1/inspections?select=id&limit=1")
+
+          http_code=$(echo "$response" | tail -1)
+          body=$(echo "$response" | sed '$d')
+
+          if [ "${http_code#2}" = "${http_code}" ]; then
+            echo "::warning::Inspections query failed (HTTP ${http_code}): ${body}"
+          else
+            echo "Inspections query OK (HTTP ${http_code})"
+          fi
+
+          echo "Keepalive complete — Supabase project blqpecudiddxwbidtdjk blijft actief"
