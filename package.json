@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/prepare-production.mjs",
+    "build:legacy-source": "vite build",
+    "verify:production": "node scripts/verify-production-snapshot.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
