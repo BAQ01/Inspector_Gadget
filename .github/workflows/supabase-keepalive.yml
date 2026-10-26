@@ -3,8 +3,11 @@ name: Supabase Keepalive
 on:
   workflow_dispatch:
   schedule:
-    # Elke dag om 08:00 UTC — voorkomt Supabase free-tier pauzering (grens: 7 dagen inactiviteit)
+    # Dagelijks om 08:00 UTC om Free-tier-pauzering bij lage activiteit te voorkomen.
     - cron: '0 8 * * *'
+
+permissions:
+  contents: read
 
 concurrency:
   group: supabase-keepalive
@@ -13,88 +16,50 @@ concurrency:
 jobs:
   keepalive:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 2
 
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_KEEPALIVE_SECRET: ${{ secrets.SUPABASE_KEEPALIVE_SECRET }}
 
     steps:
       - name: Validate configuration
         run: |
           set -euo pipefail
-          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
-            echo "::error::Missing repository secrets SUPABASE_URL or SUPABASE_ANON_KEY"
-            echo ""
-            echo "Go to: GitHub repo → Settings → Secrets and variables → Actions → Secrets tab"
-            echo "Add these repository secrets:"
-            echo "  SUPABASE_URL       = https://blqpecudiddxwbidtdjk.supabase.co"
-            echo "  SUPABASE_ANON_KEY  = (your anon/public key from Supabase dashboard)"
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ] || [ -z "${SUPABASE_KEEPALIVE_SECRET:-}" ]; then
+            echo "::error::Missing SUPABASE_URL, SUPABASE_ANON_KEY or SUPABASE_KEEPALIVE_SECRET"
             exit 1
           fi
           echo "Configuration valid"
 
-      - name: Ping Supabase auth
+      - name: Run protected database keepalive
         run: |
           set -euo pipefail
           base_url="${SUPABASE_URL%/}"
 
-          http_code="$(
-            curl -sS -o /dev/null -w '%{http_code}' \
-              -H "apikey: ${SUPABASE_ANON_KEY}" \
-              -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
-              "${base_url}/auth/v1/settings"
-          )"
-
-          if [ "${http_code#2}" = "${http_code}" ]; then
-            echo "::warning::Auth ping failed (HTTP ${http_code})"
-          else
-            echo "Auth endpoint OK (HTTP ${http_code})"
-          fi
-
-      - name: Query database (real activity)
-        run: |
-          set -euo pipefail
-          base_url="${SUPABASE_URL%/}"
-
-          # SELECT op profiles — telt als database-activiteit bij Supabase
           response=$(curl -sS -w '\n%{http_code}' \
+            -X POST \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
             -H "Content-Type: application/json" \
-            -H "Prefer: count=exact" \
-            "${base_url}/rest/v1/profiles?select=id&limit=1")
+            --data "{\"p_secret\":\"${SUPABASE_KEEPALIVE_SECRET}\"}" \
+            "${base_url}/rest/v1/rpc/github_keepalive")
 
-          http_code=$(echo "$response" | tail -1)
-          body=$(echo "$response" | sed '$d')
+          http_code=$(printf '%s\n' "$response" | tail -1)
+          body=$(printf '%s\n' "$response" | sed '$d')
 
-          if [ "${http_code#2}" = "${http_code}" ]; then
-            echo "::error::Database query failed (HTTP ${http_code}): ${body}"
+          case "$http_code" in
+            2*) ;;
+            *)
+              echo "::error::Keepalive RPC failed (HTTP ${http_code}): ${body}"
+              exit 1
+              ;;
+          esac
+
+          if ! printf '%s' "$body" | grep -q '"ok":true'; then
+            echo "::error::Keepalive RPC returned an unexpected response"
             exit 1
           fi
 
-          echo "Database query OK (HTTP ${http_code}) — project is active"
-
-      - name: Query inspections (extra activiteit)
-        run: |
-          set -euo pipefail
-          base_url="${SUPABASE_URL%/}"
-
-          # Tweede query op inspections tabel — meer database-activiteit
-          response=$(curl -sS -w '\n%{http_code}' \
-            -H "apikey: ${SUPABASE_ANON_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
-            -H "Content-Type: application/json" \
-            -H "Prefer: count=exact" \
-            "${base_url}/rest/v1/inspections?select=id&limit=1")
-
-          http_code=$(echo "$response" | tail -1)
-          body=$(echo "$response" | sed '$d')
-
-          if [ "${http_code#2}" = "${http_code}" ]; then
-            echo "::warning::Inspections query failed (HTTP ${http_code}): ${body}"
-          else
-            echo "Inspections query OK (HTTP ${http_code})"
-          fi
-
-          echo "Keepalive complete — Supabase project blqpecudiddxwbidtdjk blijft actief"
+          echo "Keepalive RPC OK (HTTP ${http_code}) — no business tables were read"
