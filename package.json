@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/prepare-production.mjs",
-    "build:legacy-source": "vite build",
-    "verify:production": "node scripts/verify-production-snapshot.mjs",
+    "build": "vite build && node scripts/verify-recovered-source.mjs",
+    "build:snapshot": "node scripts/prepare-production.mjs",
+    "verify:production": "node scripts/verify-recovered-source.mjs",
+    "verify:snapshot": "node scripts/verify-production-snapshot.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

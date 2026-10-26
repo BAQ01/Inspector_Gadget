@@ -5,17 +5,18 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/inspector/',
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'SCIOS Inspector App',
-        short_name: 'SCIOS App',
-        description: 'Professionele inspectie tool voor Scope 10',
-        theme_color: '#047857', // Emerald groen
-        background_color: '#ffffff',
+        name: 'Inspector Gadget · B2Inspect',
+        short_name: 'Inspector',
+        description: 'B2Inspect werkruimte voor SCIOS Scope 8- en Scope 10-inspecties.',
+        theme_color: '#3f3f46',
+        background_color: '#f5f5f4',
         display: 'standalone',
         orientation: 'portrait',
         icons: [
@@ -39,13 +40,14 @@ export default defineConfig({
       },
       // --- FIX: Verhoog cache limiet voor PDF bibliotheken ---
       workbox: {
-        maximumFileSizeToCacheInBytes: 4000000, // Limiet op 4MB gezet (standaard is 2MB)
+        maximumFileSizeToCacheInBytes: 5000000,
         globPatterns: ['**/*.{js,css,html,ico,png,svg}']
       }
     })
   ],
   // --- FIX: Onderdruk waarschuwing over bestandsgrootte ---
   build: {
-    chunkSizeWarningLimit: 4000, // Waarschuwing pas bij 4MB (4000kB)
+    modulePreload: { polyfill: false },
+    chunkSizeWarningLimit: 5000,
   }
 })

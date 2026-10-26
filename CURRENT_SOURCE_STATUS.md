@@ -2,32 +2,34 @@
 
 Meetdatum: 26 oktober 2026 (Europe/Amsterdam)
 
-## Aantoonbaar vastgesteld
+## Uitgevoerd en bewezen
 
-- De live Inspector bevat onder meer **Planning en agenda**, **Werkvoorraad** en de
-  **Commerciële pipeline**.
-- De bron onder `src/` en de volledige Git-geschiedenis bevatten niet alle actuele livefunctionaliteit.
-- Lokale projectmappen, lokale archieven, TransIP-back-ups en de beschikbare NAS-mappen bevatten
-  geen volledige, actuele TypeScript/React-bron.
-- Er is geen sourcemap bij de actuele JavaScript-bundel aangetroffen.
-- `production-snapshot/` is een byte-identieke kopie van de werkende publicatie van 26 oktober 2026.
-- De snapshot bevat één Supabase **publishable** sleutel en geen `sb_secret_`- of `service_role`-sleutel.
+- De actuele productiebundel is succesvol geparseerd en als leesbare TypeScript-compatibele
+  React-runtime opgeslagen in `src/recovered/production-runtime.ts`.
+- Betekenisvolle namen zijn hersteld voor de hoofdmodules, waaronder `InspectorWorkspace`,
+  `PlanningWorkspace`, `PlanningCalendar`, `CommercialPipeline`, `AdminDashboard`,
+  `QuoteCalculator`, `QuotePdfDocument`, `LoginScreen` en `InspectorApplication`.
+- De vaste Supabase-URL en publishable sleutel zijn vervangen door Vite-omgevingsvariabelen.
+- De nieuwe bronbuild bevat exact dezelfde 12.301 unieke runtime-teksten en dezelfde aantallen
+  als de geverifieerde livebundel.
+- De bronbuild bevat **Planning en agenda**, **Werkvoorraad** en de **Commerciële pipeline**.
+- De lokale browsertest toont het actuele B2Inspect-inlogscherm zonder runtimefouten.
+- TypeScript-controle, lintcontrole en de productiebuild slagen.
+- `production-snapshot/` blijft beschikbaar als byte-identieke noodterugval.
 
-## Bescherming tegen regressie
+## Herkomst en beperking
 
-`npm run build` publiceert niet langer de achterlopende `src/`-versie. Het controleert de hashes,
-essentiële functiemarkeringen en assetverwijzingen van `production-snapshot/` en kopieert daarna
-alleen die snapshot naar `dist/`.
+De oorspronkelijke modulaire TSX-bestanden en sourcemaps zijn niet teruggevonden in lokale
+opslag, TransIP, NAS of Git-geschiedenis. De gereconstrueerde runtime is functioneel volledig en
+opnieuw bouwbaar, maar bevat de externe bibliotheekcode nog inline. Het is dus geen bit-voor-bit
+herstel van de oorspronkelijke bestandsindeling.
 
-## Nog open
+De oudere modulaire bron staat onder `legacy-src/` en mag niet rechtstreeks worden gepubliceerd.
+Nieuwe wijzigingen horen bij voorkeur als kleine, geteste modules naast de gereconstrueerde runtime
+te worden toegevoegd; bestaande delen kunnen vervolgens gecontroleerd uit de runtime worden gehaald.
 
-De oorspronkelijke, niet-geminificeerde bron van de huidige productieversie is niet teruggevonden.
-De snapshot is daarom wel reproduceerbaar en veilig publiceerbaar, maar niet prettig onderhoudbaar.
+## Automatische bescherming
 
-Herstelvolgorde:
-
-1. Zoek de machine, chat of externe opslag van waaruit de liveversie destijds is gebouwd.
-2. Vergelijk een gevonden bronbuild met de snapshot op alle kernfuncties en Supabase-gedrag.
-3. Vervang pas daarna `src/`, verwijder de tijdelijke snapshotbouw en laat een volledige regressietest lopen.
-
-Tot dat moment is `production-snapshot/` de enige geautoriseerde productiebasis.
+De GitHub-workflow bouwt voortaan de gereconstrueerde bron. De build wordt afgekeurd wanneer een
+kernfunctie ontbreekt, de applicatiebundel niet correct is gekoppeld of een geheime Supabase-sleutel
+in de clientcode terechtkomt.

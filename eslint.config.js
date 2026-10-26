@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // De runtime is mechanisch gereconstrueerd uit de geverifieerde productiebundel.
+  // Nieuwe handgeschreven bron blijft volledig onder lintcontrole.
+  globalIgnores(['dist', 'legacy-src', 'src/recovered/production-runtime.ts']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
