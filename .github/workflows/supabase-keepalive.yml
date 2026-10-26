@@ -57,7 +57,7 @@ jobs:
               ;;
           esac
 
-          if ! printf '%s' "$body" | grep -q '"ok":true'; then
+          if ! printf '%s' "$body" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then
             echo "::error::Keepalive RPC returned an unexpected response"
             exit 1
           fi
