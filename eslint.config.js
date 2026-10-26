@@ -8,7 +8,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   // De runtime is mechanisch gereconstrueerd uit de geverifieerde productiebundel.
   // Nieuwe handgeschreven bron blijft volledig onder lintcontrole.
-  globalIgnores(['dist', 'legacy-src', 'src/recovered/production-runtime.ts']),
+  globalIgnores(['dist', 'legacy-src', 'recovery', 'src/runtime']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

@@ -25,3 +25,9 @@ jobs:
           VITE_SUPABASE_URL: https://ci-placeholder.supabase.co
           VITE_SUPABASE_ANON_KEY: sb_publishable_ci_placeholder
         run: npm run build
+      - name: TypeScript check
+        run: npx tsc -b --pretty false
+      - name: Lint maintained source
+        run: npm run lint
+      - name: Dependency security audit
+        run: npm run verify:security
