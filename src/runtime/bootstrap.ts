@@ -3,6 +3,7 @@
 import { Ex, Ze, b5, dX, g, gCe, hr, mC, wEe, zCe } from './vendor-core'
 import { InspectorWorkspace, InstallerWorkspace } from './inspector-workspaces'
 import { AdminDashboard, PlanningWorkspace } from './admin-workspaces'
+import { MileageWorkspace } from './mileage-workspace'
 
 function LoginScreen() {
   const [r, e] = Ze.useState(""),
@@ -206,13 +207,14 @@ function InspectorApplication() {
     [i, a] = Ze.useState(!0),
     [s, o] = Ze.useState(""),
     [c, l] = Ze.useState(!1),
-    [u, d] = Ze.useState(!1);
+    [u, d] = Ze.useState(!1),
+    [mileageOpen, setMileageOpen] = Ze.useState(!1);
   Ze.useEffect(() => {
     let h = !0,
       m = 0;
     const v = async y => {
       const b = ++m;
-      if (e(y), n(null), o(""), l(!1), d(!1), !y) {
+      if (e(y), n(null), o(""), l(!1), d(!1), setMileageOpen(!1), !y) {
         a(!1);
         return;
       }
@@ -250,7 +252,11 @@ function InspectorApplication() {
       className: "text-sm font-semibold text-on-surface-variant",
       children: "Systeem laden…"
     })]
-  }) : r ? t ? c && t === "admin" ? g.jsxs("div", {
+  }) : r ? t ? mileageOpen && (t === "admin" || t === "inspector") ? g.jsx(MileageWorkspace, {
+    userId: r.user.id,
+    userRole: t,
+    onBack: () => setMileageOpen(!1)
+  }) : c && t === "admin" ? g.jsxs("div", {
     className: "relative",
     children: [g.jsxs("button", {
       type: "button",
@@ -276,10 +282,13 @@ function InspectorApplication() {
       userRole: t,
       onLogout: f,
       onOpenAdmin: t === "admin" ? () => {
-        d(!1), l(!0);
+        d(!1), setMileageOpen(!1), l(!0);
       } : void 0,
       onOpenPlanning: t === "admin" || t === "inspector" ? () => {
-        l(!1), d(!0);
+        l(!1), setMileageOpen(!1), d(!0);
+      } : void 0,
+      onOpenMileage: t === "admin" || t === "inspector" ? () => {
+        l(!1), d(!1), setMileageOpen(!0);
       } : void 0
     })
   }) : g.jsx("main", {

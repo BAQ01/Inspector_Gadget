@@ -8,6 +8,7 @@ De actuele Inspector is opnieuw bouwbaar vanuit leesbare broncode.
 - `src/runtime/inspector-workspaces.ts`: inspecteur- en installateurswerkruimte.
 - `src/runtime/reporting-vendor.ts`: rapportage-, PDF-, Excel-, agenda- en kaartondersteuning.
 - `src/runtime/admin-workspaces.ts`: planning, offertes, commerciële pipeline en beheer.
+- `src/runtime/mileage-workspace.ts`: kilometerdeclaraties voor medewerkers en beoordeling door beheerders.
 - `src/runtime/bootstrap.ts`: login, autorisatie en applicatiestart.
 - `src/recovered/production.css`: actuele productiestijlen.
 - `recovery/production-runtime.monolith.ts`: alleen de bewaarde reconstructiebasis; wordt niet gebouwd.
@@ -28,7 +29,7 @@ npm run verify:security
 ```
 
 `npm run build` bouwt de gereconstrueerde bron en controleert automatisch of Planning,
-Werkvoorraad en de Commerciële pipeline aanwezig zijn en of geen geheime Supabase-sleutel in
+Werkvoorraad, Kilometerdeclaraties en de Commerciële pipeline aanwezig zijn en of geen geheime Supabase-sleutel in
 de clientbundel terechtkomt.
 
 De runtime heeft geen losse productieafhankelijkheden meer in `node_modules`; de teruggewonnen

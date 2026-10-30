@@ -6,7 +6,8 @@ function InspectorWorkspace({
   userRole: r,
   onLogout: e,
   onOpenAdmin: t,
-  onOpenPlanning: n
+  onOpenPlanning: n,
+  onOpenMileage: mileage
 }) {
   const [i, a] = Ze.useState(!1),
     [s, o] = Ze.useState(!1),
@@ -1005,6 +1006,16 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
             children: g.jsx(Eg, {
               size: 21
             })
+          }), mileage && g.jsx("button", {
+            onClick: mileage,
+            title: "Kilometerdeclaraties",
+            "aria-label": "Kilometerdeclaraties",
+            className: "p-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low hidden md:flex",
+            children: g.jsx("span", {
+              "aria-hidden": "true",
+              className: "text-sm font-black",
+              children: "KM"
+            })
           }), r === "admin" && t && g.jsx("button", {
             onClick: t,
             title: "Beheerder",
@@ -1054,6 +1065,17 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
             children: [g.jsx(Eg, {
               size: 20
             }), " Planning & agenda"]
+          }), mileage && g.jsxs("button", {
+            type: "button",
+            onClick: () => {
+              mileage(), o(!1);
+            },
+            className: "flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left font-semibold text-primary hover:bg-surface-container-low",
+            children: [g.jsx("span", {
+              "aria-hidden": "true",
+              className: "font-black",
+              children: "KM"
+            }), " Kilometerdeclaraties"]
           }), r === "admin" && t && g.jsxs("button", {
             type: "button",
             onClick: () => {
