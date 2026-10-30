@@ -8,7 +8,7 @@ De actuele Inspector is opnieuw bouwbaar vanuit leesbare broncode.
 - `src/runtime/inspector-workspaces.ts`: inspecteur- en installateurswerkruimte.
 - `src/runtime/reporting-vendor.ts`: rapportage-, PDF-, Excel-, agenda- en kaartondersteuning.
 - `src/runtime/admin-workspaces.ts`: planning, offertes, commerciële pipeline en beheer.
-- `src/runtime/mileage-workspace.ts`: kilometerdeclaraties voor medewerkers en beoordeling door beheerders.
+- `src/runtime/mileage-workspace.ts`: kilometerdeclaraties met Excel-import en -export voor medewerkers en beheerders.
 - `src/runtime/bootstrap.ts`: login, autorisatie en applicatiestart.
 - `src/recovered/production.css`: actuele productiestijlen.
 - `recovery/production-runtime.monolith.ts`: alleen de bewaarde reconstructiebasis; wordt niet gebouwd.

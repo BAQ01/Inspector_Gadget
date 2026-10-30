@@ -1,0 +1,35 @@
+.ig-mileage-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.ig-mileage-file-input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+}
+
+.ig-mileage-refresh:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+@media (max-width: 800px) {
+  .ig-mileage-list-heading {
+    flex-direction: column;
+  }
+
+  .ig-mileage-toolbar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .ig-mileage-refresh {
+    flex: 1 1 auto;
+  }
+}

@@ -13,7 +13,7 @@ Meetdatum: 30 oktober 2026 (Europe/Amsterdam)
 - De nieuwe bronbuild bevat exact dezelfde 12.301 unieke runtime-teksten en dezelfde aantallen
   als de geverifieerde livebundel.
 - De bronbuild bevat **Planning en agenda**, **Werkvoorraad** en de **Commerciële pipeline**.
-- Medewerkers kunnen kilometerdeclaraties indienen; beheerders kunnen deze beoordelen. De declaraties zijn met RLS per medewerker afgeschermd.
+- Medewerkers kunnen kilometerdeclaraties indienen en via Excel inladen of downloaden; beheerders kunnen dit voor alle geregistreerde medewerkers doen en declaraties beoordelen. De declaraties zijn met RLS per medewerker afgeschermd.
 - De lokale browsertest toont het actuele B2Inspect-inlogscherm zonder runtimefouten.
 - TypeScript-controle, lintcontrole en de productiebuild slagen.
 - `npm audit` rapporteert na gerichte updates en verwijdering van ongebruikte pakketten
