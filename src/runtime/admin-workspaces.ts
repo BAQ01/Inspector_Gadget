@@ -4145,6 +4145,247 @@ function CommercialPipeline({
     })()]
   });
 }
+function MailWorkQueue() {
+  const [r, e] = Ze.useState([]),
+    [t, n] = Ze.useState(!0),
+    [i, a] = Ze.useState(""),
+    [s, o] = Ze.useState("open"),
+    [c, l] = Ze.useState(null),
+    u = {
+      quote_request: "Offerteaanvraag",
+      purchase_invoice: "Inkoopfactuur",
+      mileage_claim: "Kilometervergoeding",
+      job_application: "Sollicitatie",
+      inspection_file: "Inspectiedossier",
+      follow_up: "Opvolging",
+      other: "Overige taak"
+    },
+    d = {
+      controle_nodig: "Controle nodig",
+      in_behandeling: "In behandeling",
+      afgerond: "Afgerond",
+      genegeerd: "Genegeerd"
+    },
+    f = async () => {
+      n(!0), a("");
+      const {
+        data: S,
+        error: k
+      } = await hr.from("mail_work_items").select("id, task_id, task_type, title, summary, sender_name, sender_email, subject, customer, project, deadline, missing_fields, details, attachments, status, created_at, updated_at, handled_at").order("created_at", {
+        ascending: !1
+      }).limit(200);
+      k ? a("De mailwerkvoorraad kon niet worden geladen.") : e(S || []), n(!1);
+    };
+  Ze.useEffect(() => {
+    f();
+  }, []);
+  const h = async (S, k) => {
+      if (k === S.status) return;
+      l(S.id), a("");
+      const {
+        data: j,
+        error: W
+      } = await hr.from("mail_work_items").update({
+        status: k
+      }).eq("id", S.id).eq("updated_at", S.updated_at).select("id").maybeSingle();
+      if (W || !j) {
+        a(W?.message || "Deze taak is intussen gewijzigd. Vernieuw en probeer opnieuw."), l(null);
+        return;
+      }
+      await ac("admin", "mail_work_item_status_updated", "mail_work_item", S.id, S.task_id, {
+        previous_status: S.status,
+        status: k
+      }), await f(), l(null);
+    },
+    m = r.filter(S => s === "all" || s === "open" ? s === "all" || !["afgerond", "genegeerd"].includes(S.status) : S.status === s),
+    v = r.filter(S => !["afgerond", "genegeerd"].includes(S.status)).length;
+  return g.jsxs("section", {
+    className: "space-y-4",
+    children: [g.jsxs("div", {
+      className: "bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between",
+      children: [g.jsxs("div", {
+        children: [g.jsx("h2", {
+          className: "font-bold text-slate-900",
+          children: "Taken uit de B2Inspect-mailbox"
+        }), g.jsxs("p", {
+          className: "text-sm text-slate-500",
+          children: [v, " open taak", v === 1 ? "" : "en", ". Originele e-mails en bijlagen blijven veilig op de NAS."]
+        })]
+      }), g.jsxs("div", {
+        className: "flex flex-wrap gap-2",
+        children: [g.jsx("select", {
+          value: s,
+          onChange: S => o(S.target.value),
+          className: "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm",
+          "aria-label": "Filter mailtaken",
+          children: [g.jsx("option", {
+            value: "open",
+            children: "Open taken"
+          }), g.jsx("option", {
+            value: "all",
+            children: "Alle taken"
+          }), ...Object.entries(d).map(([S, k]) => g.jsx("option", {
+            value: S,
+            children: k
+          }, S))]
+        }), g.jsx("button", {
+          type: "button",
+          onClick: f,
+          disabled: t,
+          className: "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50",
+          children: t ? "Laden…" : "Vernieuwen"
+        })]
+      })]
+    }), i && g.jsx("div", {
+      role: "alert",
+      className: "rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800",
+      children: i
+    }), !t && m.length === 0 && g.jsx("div", {
+      className: "rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500",
+      children: "Geen mailtaken binnen dit filter."
+    }), g.jsx("div", {
+      className: "grid gap-4 xl:grid-cols-2",
+      children: m.map(S => {
+        const k = Array.isArray(S.missing_fields) ? S.missing_fields : [],
+          j = Array.isArray(S.attachments) ? S.attachments : [],
+          W = Array.isArray(S.details?.fields) ? S.details.fields : [],
+          V = S.details?.calculation,
+          K = Array.isArray(S.details?.mileage?.trips) ? S.details.mileage.trips : [];
+        return g.jsxs("article", {
+          className: "rounded-xl border border-slate-200 bg-white p-5 shadow-sm",
+          children: [g.jsxs("div", {
+            className: "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
+            children: [g.jsxs("div", {
+              className: "min-w-0",
+              children: [g.jsx("span", {
+                className: "inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700",
+                children: u[S.task_type] || "Administratieve taak"
+              }), g.jsx("h3", {
+                className: "mt-2 text-lg font-extrabold text-slate-900 break-words",
+                children: S.title
+              }), g.jsxs("p", {
+                className: "mt-1 text-xs text-slate-500",
+                children: [S.task_id, " · ontvangen ", AU(S.created_at)]
+              })]
+            }), g.jsx("select", {
+              value: S.status,
+              onChange: K => h(S, K.target.value),
+              disabled: c === S.id,
+              className: "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold disabled:opacity-50",
+              "aria-label": `Status van ${S.title}`,
+              children: Object.entries(d).map(([K, oe]) => g.jsx("option", {
+                value: K,
+                children: oe
+              }, K))
+            })]
+          }), S.summary && g.jsx("p", {
+            className: "mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700",
+            children: S.summary
+          }), g.jsxs("dl", {
+            className: "mt-4 grid gap-3 text-sm sm:grid-cols-2",
+            children: [S.sender_email && g.jsxs("div", {
+              children: [g.jsx("dt", {
+                className: "font-bold text-slate-500",
+                children: "Afzender"
+              }), g.jsx("dd", {
+                className: "break-words text-slate-800",
+                children: S.sender_name ? `${S.sender_name} · ${S.sender_email}` : S.sender_email
+              })]
+            }), S.customer && g.jsxs("div", {
+              children: [g.jsx("dt", {
+                className: "font-bold text-slate-500",
+                children: "Klant"
+              }), g.jsx("dd", {
+                className: "text-slate-800",
+                children: S.customer
+              })]
+            }), S.project && g.jsxs("div", {
+              children: [g.jsx("dt", {
+                className: "font-bold text-slate-500",
+                children: "Project"
+              }), g.jsx("dd", {
+                className: "text-slate-800",
+                children: S.project
+              })]
+            }), S.deadline && g.jsxs("div", {
+              children: [g.jsx("dt", {
+                className: "font-bold text-slate-500",
+                children: "Termijn"
+              }), g.jsx("dd", {
+                className: "text-slate-800",
+                children: S.deadline
+              })]
+            })]
+          }), W.length > 0 && g.jsxs("details", {
+            className: "mt-4 rounded-lg bg-slate-50 p-3 text-sm",
+            children: [g.jsx("summary", {
+              className: "cursor-pointer font-bold text-slate-700",
+              children: "Herkende gegevens"
+            }), g.jsx("dl", {
+              className: "mt-3 space-y-2",
+              children: W.map((K, oe) => g.jsxs("div", {
+                children: [g.jsx("dt", {
+                  className: "font-semibold text-slate-500",
+                  children: K.name
+                }), g.jsx("dd", {
+                  className: "whitespace-pre-wrap break-words text-slate-800",
+                  children: K.value
+                })]
+              }, `${K.name}-${oe}`))
+            })]
+          }), V && g.jsxs("div", {
+            className: "mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900",
+            children: [g.jsx("strong", {
+              children: "Kilometercontrole"
+            }), g.jsxs("p", {
+              className: "mt-1",
+              children: [V.total_kilometers || "0", " km · berekend € ", V.calculated_amount_eur || "—", " · tarief € ", V.policy_rate_eur || "—"]
+            })]
+          }), K.length > 0 && g.jsxs("details", {
+            className: "mt-4 rounded-lg border border-slate-200 p-3 text-sm",
+            children: [g.jsxs("summary", {
+              className: "cursor-pointer font-bold text-slate-700",
+              children: [K.length, " rit", K.length === 1 ? "" : "ten"]
+            }), g.jsx("div", {
+              className: "mt-3 space-y-2",
+              children: K.map((oe, ue) => g.jsxs("div", {
+                className: "rounded-lg bg-slate-50 p-3",
+                children: [g.jsxs("p", {
+                  className: "font-semibold text-slate-800",
+                  children: [oe.date || "Datum ontbreekt", " · ", oe.from || "Vertrek ontbreekt", " → ", oe.to || "Bestemming ontbreekt"]
+                }), g.jsxs("p", {
+                  className: "mt-1 text-slate-600",
+                  children: [oe.purpose || "Doel ontbreekt", oe.project ? ` · ${oe.project}` : "", " · ", oe.kilometers || "0", " km"]
+                })]
+              }, `${oe.date}-${ue}`))
+            })]
+          }), k.length > 0 && g.jsxs("div", {
+            className: "mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900",
+            children: [g.jsx("strong", {
+              children: "Nog nodig"
+            }), g.jsx("ul", {
+              className: "mt-1 list-disc pl-5",
+              children: k.map((K, oe) => g.jsx("li", {
+                children: K
+              }, `${K}-${oe}`))
+            })]
+          }), j.length > 0 && g.jsxs("div", {
+            className: "mt-4 text-sm text-slate-600",
+            children: [g.jsxs("strong", {
+              className: "text-slate-700",
+              children: [j.length, " bijlage", j.length === 1 ? "" : "n", " op de NAS"]
+            }), g.jsx("ul", {
+              className: "mt-1 list-disc pl-5",
+              children: j.map((K, oe) => g.jsx("li", {
+                children: K.name || `Bijlage ${oe + 1}`
+              }, `${K.sha256 || K.name}-${oe}`))
+            })]
+          })]
+        }, S.id);
+      })
+    })]
+  });
+}
 const up = 20,
   Du = r => {
     if (!r) return "";
@@ -5841,6 +6082,10 @@ ${an} Projecten bijgewerkt`), Dr();
         title: "Commerciële pipeline",
         subtitle: "Van aanvraag en offerte naar opdracht en planning"
       },
+      mailtaken: {
+        title: "Mailtaken",
+        subtitle: "Administratieve werkvoorraad uit de B2Inspect-mailbox"
+      },
       inspections: {
         title: "Inspecties",
         subtitle: `${xe} inspecties in beheer`
@@ -5974,6 +6219,13 @@ ${an} Projecten bijgewerkt`), Dr();
             size: 17
           }), " Pipeline"]
         }), g.jsxs("button", {
+          onClick: () => e("mailtaken"),
+          "aria-current": r === "mailtaken" ? "page" : void 0,
+          className: `ig-admin-nav-item ${r === "mailtaken" ? "is-active" : ""}`,
+          children: [g.jsx(LM, {
+            size: 17
+          }), " Mailtaken"]
+        }), g.jsxs("button", {
           onClick: () => e("inspections"),
           "aria-current": r === "inspections" ? "page" : void 0,
           className: `ig-admin-nav-item ${r === "inspections" ? "is-active" : ""}`,
@@ -6030,7 +6282,7 @@ ${an} Projecten bijgewerkt`), Dr();
             size: 17
           }), " Instellingen"]
         })]
-      }), r === "pipeline" && g.jsx(CommercialPipeline, {
+      }), r === "mailtaken" && g.jsx(MailWorkQueue, {}), r === "pipeline" && g.jsx(CommercialPipeline, {
         onOpenInspection: eo
       }), r === "inspections" && g.jsxs(g.Fragment, {
         children: [g.jsxs("div", {

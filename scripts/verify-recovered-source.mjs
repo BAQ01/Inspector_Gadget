@@ -12,7 +12,7 @@ if (bundles.length !== 1) {
 }
 
 const bundle = await readFile(join(dist, 'assets', bundles[0]), 'utf8')
-for (const marker of ['Planning en agenda', 'Werkvoorraad', 'Commerciële pipeline', 'Kilometerdeclaraties', 'Excel inladen', 'Excel downloaden']) {
+for (const marker of ['Planning en agenda', 'Werkvoorraad', 'Commerciële pipeline', 'Mailtaken', 'Taken uit de B2Inspect-mailbox', 'Kilometerdeclaraties', 'Excel inladen', 'Excel downloaden']) {
   if (!bundle.includes(marker)) throw new Error(`Kernfunctie ontbreekt in bronbuild: ${marker}`)
 }
 

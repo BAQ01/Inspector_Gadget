@@ -8,6 +8,9 @@ De actuele Inspector is opnieuw bouwbaar vanuit leesbare broncode.
 - `src/runtime/inspector-workspaces.ts`: inspecteur- en installateurswerkruimte.
 - `src/runtime/reporting-vendor.ts`: rapportage-, PDF-, Excel-, agenda- en kaartondersteuning.
 - `src/runtime/admin-workspaces.ts`: planning, offertes, commerciële pipeline en beheer.
+- De beheeromgeving bevat daarnaast **Mailtaken**: een afgeschermde werkvoorraad
+  voor gestructureerde taken uit de NAS-mailassistent. Originele mail en bijlagen
+  blijven op de NAS; alleen de taakstatus wordt in Inspector beheerd.
 - `src/runtime/mileage-workspace.ts`: kilometerdeclaraties met Excel-import en -export voor medewerkers en beheerders.
 - `src/runtime/bootstrap.ts`: login, autorisatie en applicatiestart.
 - `src/recovered/production.css`: actuele productiestijlen.
