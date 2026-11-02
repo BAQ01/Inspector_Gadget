@@ -1,5 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { verifySupabaseClientKey } from './verify-supabase-client-key.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const dist = join(root, 'dist')
@@ -15,12 +16,7 @@ for (const marker of ['Planning en agenda', 'Werkvoorraad', 'Commerciële pipeli
   if (!bundle.includes(marker)) throw new Error(`Kernfunctie ontbreekt in bronbuild: ${marker}`)
 }
 
-if ((bundle.match(/sb_publishable_/g) ?? []).length !== 1) {
-  throw new Error('Bronbuild moet precies één Supabase publishable sleutel bevatten')
-}
-if (bundle.includes('sb_secret_') || bundle.includes('service_role')) {
-  throw new Error('Geheime Supabase-sleutel aangetroffen in clientbundel')
-}
+verifySupabaseClientKey(bundle, 'Bronbuild')
 
 const index = await readFile(join(dist, 'index.html'), 'utf8')
 if (!index.includes(`assets/${bundles[0]}`)) {

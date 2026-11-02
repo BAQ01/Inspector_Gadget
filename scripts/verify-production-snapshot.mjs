@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFile, readdir } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
+import { verifySupabaseClientKey } from './verify-supabase-client-key.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const snapshot = join(root, 'production-snapshot')
@@ -45,12 +46,7 @@ const bundle = await readFile(join(snapshot, assets[0]), 'utf8')
 for (const marker of ['Planning en agenda', 'Werkvoorraad', 'Commerciële pipeline']) {
   if (!bundle.includes(marker)) throw new Error(`Kernfunctie ontbreekt in productie-bundel: ${marker}`)
 }
-if ((bundle.match(/sb_publishable_/g) ?? []).length !== 1) {
-  throw new Error('Productiebundel moet precies één Supabase publishable sleutel bevatten')
-}
-if (bundle.includes('sb_secret_') || bundle.includes('service_role')) {
-  throw new Error('Geheime Supabase-sleutel aangetroffen in clientbundel')
-}
+verifySupabaseClientKey(bundle, 'Productiebundel')
 
 const index = await readFile(join(snapshot, 'index.html'), 'utf8')
 if (!index.includes(assets[0])) {
