@@ -28,6 +28,10 @@ npx tsc -b --pretty false
 npm run verify:security
 ```
 
+De standaard beveiligingspoort blokkeert middelhoge of ernstigere bevindingen in productieafhankelijkheden
+en hoge of kritieke bevindingen in ontwikkelgereedschappen. Gebruik `npm run verify:security:all` om ook
+lage en middelhoge meldingen in de volledige bouwketen als foutstatus te beoordelen.
+
 `npm run build` bouwt de gereconstrueerde bron en controleert automatisch of Planning,
 Werkvoorraad, Kilometerdeclaraties en de Commerciële pipeline aanwezig zijn en of geen geheime Supabase-sleutel in
 de clientbundel terechtkomt.
