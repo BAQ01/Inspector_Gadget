@@ -1,5 +1,16 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
+    { "source": "/inspector/assets/:path*", "destination": "/assets/:path*" },
+    { "source": "/inspector/manifest.webmanifest", "destination": "/manifest.webmanifest" },
+    { "source": "/inspector/registerSW.js", "destination": "/registerSW.js" },
+    { "source": "/inspector/sw.js", "destination": "/sw.js" },
+    { "source": "/inspector/workbox-:path*", "destination": "/workbox-:path*" },
+    { "source": "/inspector/pwa-192x192.png", "destination": "/pwa-192x192.png" },
+    { "source": "/inspector/pwa-512x512.png", "destination": "/pwa-512x512.png" },
+    { "source": "/inspector/scios-logo.png", "destination": "/scios-logo.png" },
+    { "source": "/inspector/vite.svg", "destination": "/vite.svg" },
+    { "source": "/inspector/:path*", "destination": "/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
