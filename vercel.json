@@ -5,7 +5,7 @@
     { "source": "/inspector/manifest.webmanifest", "destination": "/manifest.webmanifest" },
     { "source": "/inspector/registerSW.js", "destination": "/registerSW.js" },
     { "source": "/inspector/sw.js", "destination": "/sw.js" },
-    { "source": "/inspector/workbox-:path*", "destination": "/workbox-:path*" },
+    { "source": "/inspector/workbox-:hash.js", "destination": "/workbox-:hash.js" },
     { "source": "/inspector/pwa-192x192.png", "destination": "/pwa-192x192.png" },
     { "source": "/inspector/pwa-512x512.png", "destination": "/pwa-512x512.png" },
     { "source": "/inspector/scios-logo.png", "destination": "/scios-logo.png" },
