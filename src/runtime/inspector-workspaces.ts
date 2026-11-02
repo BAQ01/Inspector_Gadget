@@ -1,6 +1,7 @@
 // @ts-nocheck
 /* Recovered module: inspector-workspaces. Generated from the verified 2026-10-26 production runtime. */
-import { $V, $c, Av, BS, Cx, DT, Eg, Fd, Fg, Gv, HEe, IS, Kc, LEe, Mu, NS, Ng, Ns, OM, QEe, Rm, SS, TEe, UI, Vm, YEe, Yee, ZCe, Ze, ac, b5, d2, e1, f2, g, g3e, gf, h1, hr, k1, kS, lC, m3e, mf, mv, rEe, sd, t1, u0, u2, uC, x5, y5 } from './vendor-core'
+import { $V, $c, Av, BS, Cx, DT, Eg, Fd, Fg, Gv, HEe, IS, Kc, LEe, Mu, NS, Ng, Ns, OM, QEe, Rm, SS, TEe, UI, Vm, YEe, Yee, ZCe, Ze, ac, b5, d2, e1, f2, g, g3e, gf, h1, hr, k1, kS, lC, m3e, mf, mv, rEe, sd, setInspectionDraftScope, t1, u0, u2, uC, x5, y5 } from './vendor-core'
+import { isInstrumentValidForInspection, validateInspectionForSubmission } from './inspection-validation'
 
 function InspectorWorkspace({
   userRole: r,
@@ -146,6 +147,7 @@ function InspectorWorkspace({
       dir: "asc"
     }),
     [_r, Ur] = Ze.useState(!1),
+    [showTraining, setShowTraining] = Ze.useState(!1),
     [pr, Wr] = Ze.useState(null),
     [Nr, Yr] = Ze.useState(""),
     [en, Zr] = Ze.useState(null),
@@ -181,7 +183,15 @@ function InspectorWorkspace({
     ma = Ze.useRef(null),
     ka = Ze.useRef(null),
     Ki = Ze.useRef(null),
-    ra = Rm.indexOf(K);
+    ra = Rm.indexOf(K),
+    submissionValidation = Ze.useMemo(() => validateInspectionForSubmission(b, E, w), [b, E, w]),
+    requireValidSubmission = () => {
+      const result = validateInspectionForSubmission(b, E, w);
+      if (result.valid) return !0;
+      const first = result.errors[0];
+      oe(first?.section || "setup"), window.scrollTo(0, 0), alert(`De inspectie is nog niet compleet:\n\n${result.errors.slice(0, 8).map(error => `• ${error.message}`).join("\n")}${result.errors.length > 8 ? `\n• en nog ${result.errors.length - 8} punt(en)` : ""}`);
+      return !1;
+    };
   Ze.useEffect(() => {
     (async () => {
       const {
@@ -216,6 +226,7 @@ function InspectorWorkspace({
         }
       } = await hr.auth.getSession();
       if (xr?.user) {
+        await setInspectionDraftScope(xr.user.id, "new");
         h(xr.user.email || "");
         const {
           data: Sr
@@ -423,6 +434,9 @@ function InspectorWorkspace({
     },
     xn = async (ie, Se) => {
       if (!ie) return;
+      const session = (await hr.auth.getSession()).data.session;
+      if (!session?.user) return alert("Sessie verlopen. Log opnieuw in.");
+      await setInspectionDraftScope(session.user.id, Se ? `contribution-${ie.id}` : String(ie.id));
       const Re = ie.report_data,
         lt = Re.meta || {},
         wt = {
@@ -505,7 +519,7 @@ Bevat ${Sr} gebreken en ${an} verdelers.`)) {
     Pi = async () => {
       const ie = b.supabaseId;
       if (!ie) return alert("❌ FOUT: ID kwijt.");
-      if (!b.signatureUrl) return alert("Graag eerst tekenen.");
+      if (!requireValidSubmission()) return;
       if (!window.confirm("Inleveren bij kantoor?")) return;
       xe(!0);
       const Se = {
@@ -527,7 +541,7 @@ Bevat ${Sr} gebreken en ${an} verdelers.`)) {
       }), alert("✅ Gelukt! De inspectie is ingeleverd."));
     },
     Ci = async () => {
-      if (!b.clientName) return alert("Vul eerst een klantnaam in.");
+      if (!requireValidSubmission()) return;
       const {
         data: {
           session: ie
@@ -573,7 +587,10 @@ Bevat ${Sr} gebreken en ${an} verdelers.`)) {
           data: un,
           error: Zn
         } = await hr.from("inspections").insert(an).select().single();
-      xe(!1), Zn ? alert("Fout bij opslaan: " + Zn.message) : (P({
+      xe(!1);
+      if (Zn) return alert("Fout bij opslaan: " + Zn.message);
+      await setInspectionDraftScope(ie.user.id, rr ? `contribution-${un.id}` : String(un.id));
+      N(xr), P({
         supabaseId: un.id,
         inspectionNumber: un.inspection_number
       }), ac("inspector", rr ? "inspection_updated" : "inspection_created", "inspection", un.id, b.clientName || "Onbekend", {
@@ -582,7 +599,7 @@ Bevat ${Sr} gebreken en ${an} verdelers.`)) {
         date: b.date
       }), alert(rr ? `✅ Bijdrage verzonden!
 Je unieke nummer is: ${un.inspection_number}` : `✅ Opgeslagen in de cloud.
-Project nummer: ${un.inspection_number}`));
+Project nummer: ${un.inspection_number}`);
     },
     ho = () => {
       window.confirm("Bestand lokaal samenvoegen?") && Ki.current?.click();
@@ -851,8 +868,10 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
         }
       }, Re.readAsText(Se);
     },
-    zo = () => {
-      window.confirm("Alles wissen?") && (S(), ma.current && ma.current.clear(), window.scrollTo(0, 0));
+    zo = async () => {
+      if (!window.confirm("Alles wissen?")) return;
+      const session = (await hr.auth.getSession()).data.session;
+      session?.user && await setInspectionDraftScope(session.user.id, "new"), S(), ma.current && ma.current.clear(), window.scrollTo(0, 0);
     },
     iu = () => {
       ma.current && P({
@@ -911,7 +930,9 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
         rr = (lt.projectCity || "").toLowerCase(),
         er = (lt.date || "").toLowerCase(),
         xr = (ie.inspection_number || "").toLowerCase(),
-        Sr = Re.includes(Se) || wt.includes(Se) || rr.includes(Se) || er.includes(Se) || xr.includes(Se);
+        Sr = Re.includes(Se) || wt.includes(Se) || rr.includes(Se) || er.includes(Se) || xr.includes(Se),
+        isTraining = Re.startsWith("[training]") || lt.isTraining === !0;
+      if (showTraining !== isTraining) return !1;
       if (_r) {
         const an = new Date().toISOString().split("T")[0];
         return Sr && er === an;
@@ -929,7 +950,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
       }));
     },
     gs = async () => {
-      if (!b.signatureUrl) return alert("Teken eerst.");
+      if (!requireValidSubmission()) return;
       xe(!0);
       const ie = `${b.date || "Datum"}_${b.clientName || "Klant"}_${b.projectLocation || "Project"}_${b.projectCity || "Plaats"}`;
       try {
@@ -1164,6 +1185,24 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
               accept: ".json,application/json",
               className: "hidden"
             })]
+          }), !b.isContributionMode && g.jsx("label", {
+            className: `mb-4 flex min-h-11 items-center gap-3 rounded-xl border px-4 py-3 ${b.isTraining ? "border-amber-400 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-700"}`,
+            children: [g.jsx("input", {
+              type: "checkbox",
+              className: "h-5 w-5 rounded text-amber-600",
+              checked: b.isTraining === !0,
+              onChange: ie => P({
+                isTraining: ie.target.checked
+              })
+            }), g.jsxs("span", {
+              children: [g.jsx("span", {
+                className: "block text-sm font-bold",
+                children: "Trainingsinspectie"
+              }), g.jsx("span", {
+                className: "block text-xs opacity-75",
+                children: "Wordt strikt gescheiden van productieoverzichten en rapportages."
+              })]
+            })]
           }), !b.isContributionMode && g.jsxs("div", {
             className: "ig-scope-toggle flex p-1.5 mb-8",
             children: [g.jsxs("button", {
@@ -1230,6 +1269,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                       className: "absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400",
                       size: 18
                     }), g.jsx("input", {
+                      "aria-label": `Naam of locatie verdeelinrichting ${Se + 1}`,
                       type: "text",
                       placeholder: "Zoek op naam, project, plaats...",
                       className: "w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-500",
@@ -1246,6 +1286,17 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                     }), g.jsx("span", {
                       className: "text-xs font-bold text-gray-700",
                       children: "Vandaag"
+                    })]
+                  }), g.jsxs("label", {
+                    className: `flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${showTraining ? "border-amber-400 bg-amber-100" : "bg-white hover:bg-zinc-50"}`,
+                    children: [g.jsx("input", {
+                      type: "checkbox",
+                      className: "h-4 w-4 rounded text-amber-600",
+                      checked: showTraining,
+                      onChange: ie => setShowTraining(ie.target.checked)
+                    }), g.jsx("span", {
+                      className: "text-xs font-bold text-gray-700",
+                      children: "Training"
                     })]
                   })]
                 }), g.jsxs("div", {
@@ -2074,7 +2125,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                 onChange: ie => {
                   const Se = ie.target.value,
                     Re = [...ge, ...xt, ...Nt].find(lt => lt.id === Se);
-                  Re && (D(Re), xi(Re.id), Vi(""));
+                  Re && (isInstrumentValidForInspection(Re, b.date) ? (D(Re), xi(Re.id), Vi("")) : alert("Dit meetinstrument heeft op de inspectiedatum geen geldige kalibratie en kan niet worden gebruikt."));
                 },
                 children: [g.jsx("option", {
                   value: "",
@@ -2084,19 +2135,22 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                   label: "⭐ Mijn Koffer",
                   children: ge.map(ie => g.jsxs("option", {
                     value: ie.id,
-                    children: [ie.name, " (SN: ", ie.serialNumber || "Onbekend", ")"]
+                    disabled: !isInstrumentValidForInspection(ie, b.date),
+                    children: [ie.name, " (SN: ", ie.serialNumber || "Onbekend", ")", isInstrumentValidForInspection(ie, b.date) ? "" : " — NIET GELDIG"]
                   }, ie.id))
                 }), xt.length > 0 && g.jsx("optgroup", {
                   label: "🕐 Eerder Gebruikt",
                   children: xt.map(ie => g.jsxs("option", {
                     value: ie.id,
-                    children: [ie.name, " (SN: ", ie.serialNumber || "Onbekend", ")"]
+                    disabled: !isInstrumentValidForInspection(ie, b.date),
+                    children: [ie.name, " (SN: ", ie.serialNumber || "Onbekend", ")", isInstrumentValidForInspection(ie, b.date) ? "" : " — NIET GELDIG"]
                   }, ie.id))
                 }), Nt.length > 0 && g.jsx("optgroup", {
                   label: "Alle Instrumenten",
                   children: Nt.map(ie => g.jsxs("option", {
                     value: ie.id,
-                    children: [ie.name, " (SN: ", ie.serialNumber || "Onbekend", ")"]
+                    disabled: !isInstrumentValidForInspection(ie, b.date),
+                    children: [ie.name, " (SN: ", ie.serialNumber || "Onbekend", ")", isInstrumentValidForInspection(ie, b.date) ? "" : " — NIET GELDIG"]
                   }, ie.id))
                 })]
               }), g.jsxs("button", {
@@ -2130,15 +2184,16 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                     className: "border rounded divide-y max-h-40 overflow-y-auto mb-2",
                     children: Se.map(Re => g.jsxs("button", {
                       onClick: () => {
-                        D(Re), hs(Number(Re.id)), xi(Re.id), Mt(!1), gr("");
+                        isInstrumentValidForInspection(Re, b.date) ? (D(Re), hs(Number(Re.id)), xi(Re.id), Mt(!1), gr("")) : alert("Dit meetinstrument heeft op de inspectiedatum geen geldige kalibratie en kan niet worden gebruikt.");
                       },
-                      className: "w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors",
+                      disabled: !isInstrumentValidForInspection(Re, b.date),
+                      className: "w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors disabled:cursor-not-allowed disabled:bg-red-50 disabled:text-red-700",
                       children: [g.jsx("span", {
                         className: "font-medium text-sm",
                         children: Re.name
                       }), " ", g.jsxs("span", {
                         className: "text-xs text-gray-500",
-                        children: ["(SN: ", Re.serialNumber || "Onbekend", ")"]
+                        children: ["(SN: ", Re.serialNumber || "Onbekend", ")", isInstrumentValidForInspection(Re, b.date) ? "" : " · geen geldige kalibratie"]
                       })]
                     }, Re.id))
                   }) : g.jsx("p", {
@@ -2265,6 +2320,9 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
               }), g.jsx("div", {
                 className: "relative w-full",
                 children: g.jsxs("select", {
+                  id: "installation-type",
+                  name: "installationType",
+                  "aria-label": "Stroomstelsel",
                   disabled: b.isContributionMode,
                   className: "border rounded px-3 w-full bg-white h-11 focus:outline-none focus:ring-2 focus:ring-emerald-500",
                   value: E.installationType,
@@ -2272,6 +2330,10 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                     installationType: ie.target.value
                   }),
                   children: [g.jsx("option", {
+                    value: "",
+                    disabled: !0,
+                    children: "Selecteer stroomstelsel"
+                  }), g.jsx("option", {
                     value: "TT",
                     children: "TT-Stelsel"
                   }), g.jsx("option", {
@@ -2305,6 +2367,37 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                   value: ie
                 }, ie))
               })]
+            }), g.jsxs("div", {
+              children: [g.jsx("label", {
+                htmlFor: "mains-voltage",
+                className: "block text-xs text-gray-500 italic mb-1",
+                children: "Netspanning"
+              }), g.jsx("input", {
+                id: "mains-voltage",
+                name: "mainsVoltage",
+                disabled: b.isContributionMode,
+                className: "border rounded px-3 w-full bg-white h-11 focus:outline-none focus:ring-2 focus:ring-emerald-500",
+                value: E.mainsVoltage || "",
+                onChange: ie => M({ mainsVoltage: ie.target.value }),
+                placeholder: "Bijv. 400 V ~ 3 fase + N"
+              })]
+            }), g.jsxs("div", {
+              children: [g.jsx("label", {
+                htmlFor: "installation-year",
+                className: "block text-xs text-gray-500 italic mb-1",
+                children: "Bouwjaar installatie"
+              }), g.jsx("input", {
+                id: "installation-year",
+                name: "yearOfConstruction",
+                type: "number",
+                min: "1900",
+                max: String(new Date().getFullYear()),
+                disabled: b.isContributionMode,
+                className: "border rounded px-3 w-full bg-white h-11 focus:outline-none focus:ring-2 focus:ring-emerald-500",
+                value: E.yearOfConstruction || "",
+                onChange: ie => M({ yearOfConstruction: ie.target.value }),
+                placeholder: "JJJJ"
+              })]
             })]
           }), g.jsxs("div", {
             className: "bg-white p-5 md:p-8 rounded-[24px] border border-outline-variant/20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] mb-8",
@@ -2317,9 +2410,9 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                 onClick: () => j({
                   id: d2(),
                   name: "",
-                  switchboardTemp: "20",
-                  insulationResistance: "999",
-                  impedance: "0.35"
+                  switchboardTemp: "",
+                  insulationResistance: "",
+                  impedance: ""
                 }),
                 className: "bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-primary-container hover:text-on-primary-container transition-all shadow-sm active:scale-95",
                 children: [g.jsx(uC, {
@@ -2366,6 +2459,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                         className: "text-[10px] font-bold text-on-surface-variant uppercase block mb-1",
                         children: "Temp (°C)"
                       }), g.jsx("input", {
+                        "aria-label": `Temperatuur verdeelinrichting ${Se + 1} in graden Celsius`,
                         type: "number",
                         className: "w-full h-11 px-3 rounded-lg bg-surface-container-low focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all text-sm outline-none",
                         value: ie.switchboardTemp,
@@ -2380,6 +2474,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                         className: "text-[10px] font-bold text-on-surface-variant uppercase block mb-1",
                         children: "Riso (MΩ)"
                       }), g.jsx("input", {
+                        "aria-label": `Isolatieweerstand verdeelinrichting ${Se + 1} in megaohm`,
                         type: "number",
                         className: "w-full h-11 px-3 rounded-lg bg-surface-container-low focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all text-sm outline-none",
                         value: ie.insulationResistance,
@@ -2394,6 +2489,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                         className: "text-[10px] font-bold text-on-surface-variant uppercase block mb-1",
                         children: "Zi (Ω)"
                       }), g.jsx("input", {
+                        "aria-label": `Impedantie verdeelinrichting ${Se + 1} in ohm`,
                         type: "number",
                         step: "0.01",
                         className: "w-full h-11 px-3 rounded-lg bg-surface-container-low focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all text-sm outline-none",
@@ -2651,7 +2747,24 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
           })]
         }), K === "report" && g.jsxs("div", {
           className: "text-center py-6 space-y-6",
-          children: [!b.isContributionMode && g.jsxs("div", {
+          children: [!submissionValidation.valid && g.jsxs("section", {
+            role: "alert",
+            className: "rounded-[20px] border border-red-200 bg-red-50 p-5 text-left",
+            children: [g.jsx("h3", {
+              className: "font-extrabold text-red-800",
+              children: `Nog ${submissionValidation.errors.length} controlepunt${submissionValidation.errors.length === 1 ? "" : "en"}`
+            }), g.jsx("ul", {
+              className: "mt-3 list-disc space-y-1 pl-5 text-sm text-red-800",
+              children: submissionValidation.errors.map((error, index) => g.jsx("li", {
+                children: g.jsx("button", {
+                  type: "button",
+                  className: "text-left underline decoration-red-300 underline-offset-2",
+                  onClick: () => oe(error.section),
+                  children: error.message
+                })
+              }, `${error.section}-${index}`))
+            })]
+          }), !b.isContributionMode && g.jsxs("div", {
             className: "bg-surface-container-lowest border border-outline-variant/20 p-6 rounded-[24px] shadow-sm text-left",
             children: [g.jsxs("h3", {
               className: "font-bold text-primary border-b border-outline-variant/20 pb-3 mb-4 flex items-center gap-2 text-sm uppercase tracking-widest",
@@ -2745,6 +2858,16 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                   children: "Opslaan"
                 })]
               })]
+            }), g.jsxs("label", {
+              className: "mt-4 flex min-h-12 cursor-pointer items-start gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 text-sm",
+              children: [g.jsx("input", {
+                type: "checkbox",
+                checked: b.completionConfirmed === !0,
+                onChange: ie => P({ completionConfirmed: ie.target.checked }),
+                className: "mt-0.5 h-5 w-5 shrink-0"
+              }), g.jsx("span", {
+                children: "Ik bevestig dat de inspectie volledig is uitgevoerd, de gegevens zijn gecontroleerd en afwijkingen correct zijn vastgelegd."
+              })]
             })]
           }), b.supabaseId ? g.jsxs("div", {
             className: "bg-[#f0fdf4] p-6 rounded-[24px] border border-[#bbf7d0] mb-6 w-full text-left shadow-sm",
@@ -2755,7 +2878,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
               }), " Klaar met inspecteren?"]
             }), g.jsx("button", {
               onClick: fo,
-              disabled: ue,
+              disabled: ue || !submissionValidation.valid,
               className: "w-full bg-[#16a34a] hover:bg-[#15803d] text-white py-4 rounded-2xl font-bold shadow-sm flex items-center justify-center gap-3 text-[15px] disabled:opacity-70 transition-all active:scale-[0.98]",
               children: ue ? g.jsx(Ns, {
                 className: "animate-spin",
@@ -2774,7 +2897,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
               children: "Nog niet in het online dashboard."
             }), g.jsx("button", {
               onClick: Ci,
-              disabled: ue,
+              disabled: ue || !submissionValidation.valid,
               className: "w-full bg-primary hover:bg-primary-container hover:text-on-primary-container text-white py-4 rounded-2xl font-bold shadow-sm flex items-center justify-center gap-3 text-[15px] disabled:opacity-70 transition-all active:scale-[0.98]",
               children: ue ? g.jsx(Ns, {
                 className: "animate-spin",
@@ -2828,7 +2951,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
               })]
             }), g.jsxs("button", {
               onClick: gs,
-              disabled: ue || !b.signatureUrl,
+              disabled: ue || !submissionValidation.valid,
               className: "bg-primary text-white py-4 rounded-2xl font-bold shadow-md shadow-primary/20 hover:bg-primary-container hover:text-on-primary-container flex items-center justify-center gap-3 disabled:opacity-60 transition-all active:scale-[0.98]",
               children: [ue ? g.jsx(Ns, {
                 className: "animate-spin",
@@ -2857,8 +2980,8 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
             size: 18
           })]
         }) : g.jsx("span", {
-          className: "text-[10px] sm:text-xs font-bold flex items-center gap-2 text-primary uppercase tracking-wide sm:tracking-widest bg-primary/10 px-3 sm:px-4 py-2 rounded-full",
-          children: "Klaar voor afronding"
+          className: `text-[10px] sm:text-xs font-bold flex items-center gap-2 uppercase tracking-wide sm:tracking-widest px-3 sm:px-4 py-2 rounded-full ${submissionValidation.valid ? "text-primary bg-primary/10" : "text-red-700 bg-red-50"}`,
+          children: submissionValidation.valid ? "Klaar voor afronding" : `${submissionValidation.errors.length} controlepunt${submissionValidation.errors.length === 1 ? "" : "en"}`
         })]
       })]
     }), i && g.jsx("div", {

@@ -41,6 +41,9 @@ export default defineConfig({
       // --- FIX: Verhoog cache limiet voor PDF bibliotheken ---
       workbox: {
         maximumFileSizeToCacheInBytes: 5000000,
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg}']
       }
     })

@@ -1,6 +1,6 @@
 // @ts-nocheck
 /* Recovered module: bootstrap. Generated from the verified 2026-10-26 production runtime. */
-import { Ex, Ze, b5, dX, g, gCe, hr, mC, wEe, zCe } from './vendor-core'
+import { Ex, Ze, b5, clearInspectionDraftScope, dX, g, gCe, hr, mC, wEe, zCe } from './vendor-core'
 import { InspectorWorkspace, InstallerWorkspace } from './inspector-workspaces'
 import { AdminDashboard, PlanningWorkspace } from './admin-workspaces'
 import { MileageWorkspace } from './mileage-workspace'
@@ -240,7 +240,7 @@ function InspectorApplication() {
     };
   }, []);
   const f = async () => {
-    await hr.auth.signOut();
+    clearInspectionDraftScope(), await hr.auth.signOut();
   };
   return i ? g.jsxs("div", {
     className: "min-h-[100dvh] flex flex-col items-center justify-center gap-3 bg-surface",

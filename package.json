@@ -12,6 +12,7 @@
     "verify:security": "npm audit --omit=dev --audit-level=moderate && npm audit --audit-level=high",
     "verify:security:all": "npm audit --audit-level=moderate",
     "lint": "eslint .",
+    "test:quality": "node --test tests/*.test.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {

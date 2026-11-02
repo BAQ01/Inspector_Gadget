@@ -16171,6 +16171,8 @@ const zI = r => e => {
         bouwwerkGeenGebouw: !1
       },
       inspectionInterval: null,
+      completionConfirmed: !1,
+      isTraining: !1,
       inspectionBasis: {
         nta8220: !0,
         nen3140: !1,
@@ -16181,16 +16183,16 @@ const zI = r => e => {
       signatureUrl: ""
     },
     measurements: {
-      installationType: "TN-S",
-      mainFuse: "3x63A",
-      mainsVoltage: "400 V ~ 3 fase + N",
-      yearOfConstruction: "1990",
+      installationType: "",
+      mainFuse: "",
+      mainsVoltage: "",
+      yearOfConstruction: "",
       boards: [{
         id: "initial_hvk",
-        name: "HVK",
-        switchboardTemp: "20",
-        insulationResistance: "999",
-        impedance: "0.35"
+        name: "",
+        switchboardTemp: "",
+        insulationResistance: "",
+        impedance: ""
       }],
       selectedInstruments: [],
       hasEnergyStorage: null,
@@ -16198,6 +16200,21 @@ const zI = r => e => {
     },
     defects: [],
     customLibrary: null
+  },
+  INSPECTION_DRAFT_SCOPE_KEY = "b2inspect-inspection-draft-scope",
+  inspectionDraftStorage = {
+    getItem: r => {
+      const e = globalThis.sessionStorage?.getItem(INSPECTION_DRAFT_SCOPE_KEY);
+      return e ? globalThis.localStorage?.getItem(`${r}:${e}`) ?? null : null;
+    },
+    setItem: (r, e) => {
+      const t = globalThis.sessionStorage?.getItem(INSPECTION_DRAFT_SCOPE_KEY);
+      t && globalThis.localStorage?.setItem(`${r}:${t}`, e);
+    },
+    removeItem: r => {
+      const e = globalThis.sessionStorage?.getItem(INSPECTION_DRAFT_SCOPE_KEY);
+      e && globalThis.localStorage?.removeItem(`${r}:${e}`);
+    }
   },
   sd = Gee()($ee(r => ({
     ...Cy,
@@ -16318,8 +16335,36 @@ const zI = r => e => {
     resetState: () => r(() => Cy)
   }), {
     name: "inspection-storage",
-    storage: MU(() => localStorage)
+    storage: MU(() => inspectionDraftStorage),
+    skipHydration: !0
   })),
+  setInspectionDraftScope = async (r, e = "new") => {
+    if (!r) return;
+    const t = `${r}:${e || "new"}`,
+      n = globalThis.localStorage?.getItem(`inspection-storage:${t}`);
+    let i = Cy;
+    if (n) try {
+      const a = JSON.parse(n)?.state;
+      a && (i = {
+        ...Cy,
+        ...a,
+        meta: {
+          ...Cy.meta,
+          ...a.meta
+        },
+        measurements: {
+          ...Cy.measurements,
+          ...a.measurements
+        }
+      });
+    } catch {
+      globalThis.localStorage?.removeItem(`inspection-storage:${t}`);
+    }
+    globalThis.sessionStorage?.setItem(INSPECTION_DRAFT_SCOPE_KEY, t), sd.setState(i);
+  },
+  clearInspectionDraftScope = () => {
+    globalThis.sessionStorage?.removeItem(INSPECTION_DRAFT_SCOPE_KEY), sd.getState().resetState();
+  },
   rn = ["8", "10"],
   Yee = r => r <= 0 ? 0 : r <= 5 ? r : r <= 25 ? 5 : r <= 50 ? 8 : r <= 90 ? 13 : r <= 150 ? 20 : r <= 280 ? 32 : r <= 500 ? 50 : r <= 1200 ? 80 : r <= 3200 ? 125 : r <= 1e4 ? 200 : 315,
   DT = [],
@@ -73311,4 +73356,4 @@ const p3e = [["path", {
     })]
   });
 
-export { $A, $Ce, $V, $c, AC, Av, B1, BS, Bk, CEe, Cw, Cx, DCe, DM, DT, Di, Ee, Eg, Eh, Ex, FM, Fd, Fg, Fl, Gt, Gv, H0, HEe, HV, IS, Jr, Kc, LCe, LEe, LM, MM, Mu, NM, NS, Ng, Ns, OM, Ou, PM, Q1, QEe, QM, Ql, RM, Rm, SS, Si, TEe, TS, UI, UV, VS, Vm, Vo, WEe, WV, YEe, Yee, ZCe, ZEe, Zd, Ze, ac, b5, bEe, bU, c3e, cC, d2, dC, dEe, dX, e1, eEe, f2, f3e, fC, g, g3e, gC, gCe, gEe, gf, h1, hC, hr, i3e, iEe, ip, jM, k1, kCe, kS, kk, lC, lEe, m3e, mC, mf, mh, mv, nu, oC, p1, pC, qCe, qV, r3e, rEe, s3e, sd, st, t1, u0, u2, uC, v5, wCe, wEe, x5, y5, yCe, zCe, zM }
+export { $A, $Ce, $V, $c, AC, Av, B1, BS, Bk, CEe, Cw, Cx, DCe, DM, DT, Di, Ee, Eg, Eh, Ex, FM, Fd, Fg, Fl, Gt, Gv, H0, HEe, HV, IS, Jr, Kc, LCe, LEe, LM, MM, Mu, NM, NS, Ng, Ns, OM, Ou, PM, Q1, QEe, QM, Ql, RM, Rm, SS, Si, TEe, TS, UI, UV, VS, Vm, Vo, WEe, WV, YEe, Yee, ZCe, ZEe, Zd, Ze, ac, b5, bEe, bU, c3e, cC, clearInspectionDraftScope, d2, dC, dEe, dX, e1, eEe, f2, f3e, fC, g, g3e, gC, gCe, gEe, gf, h1, hC, hr, i3e, iEe, ip, jM, k1, kCe, kS, kk, lC, lEe, m3e, mC, mf, mh, mv, nu, oC, p1, pC, qCe, qV, r3e, rEe, s3e, sd, setInspectionDraftScope, st, t1, u0, u2, uC, v5, wCe, wEe, x5, y5, yCe, zCe, zM }

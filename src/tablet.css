@@ -1,5 +1,72 @@
 /* Tablet-specific ergonomics. Desktop and phone layouts remain owned by production.css. */
 
+.ig-admin-nav-more {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .ig-admin-nav:not(.is-more-open) {
+    overflow: hidden !important;
+  }
+
+  .ig-admin-nav:not(.is-more-open) .ig-admin-nav-item {
+    flex: 1 1 20% !important;
+    min-width: 0;
+  }
+
+  .ig-admin-nav:not(.is-more-open) .ig-nav-secondary {
+    display: none;
+  }
+
+  .ig-admin-nav .ig-admin-nav-more {
+    display: flex;
+  }
+
+  .ig-admin-nav.is-more-open {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: min(75dvh, 38rem);
+    overflow-y: auto !important;
+    padding: 0.8rem 0.8rem max(0.8rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  .ig-admin-nav.is-more-open .ig-admin-nav-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    min-height: 3rem;
+    padding-inline: 0.75rem !important;
+  }
+
+  .ig-step-nav {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible !important;
+  }
+
+  .ig-step-item {
+    min-width: 0 !important;
+    min-height: 2.75rem !important;
+    white-space: normal !important;
+  }
+
+  .ig-admin-actions {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    overflow: visible !important;
+  }
+
+  .ig-admin-actions > button,
+  .ig-mileage-actions button,
+  .ig-inspector-shell button {
+    min-height: 2.75rem;
+  }
+
+  .ig-table-card button[title],
+  .ig-table-card td button:not(.ig-mileage-refresh) {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
 @media (min-width: 768px) and (max-width: 1023px) {
   .ig-login-shell {
     padding: 2rem;

@@ -2,6 +2,18 @@
 /* Recovered module: admin-workspaces. Generated from the verified 2026-10-26 production runtime. */
 import { $Ce, $V, $c, AC, Av, BS, CEe, Cx, DCe, DM, Ee, Eg, Ex, FM, Fd, Gt, Gv, Kc, LCe, LM, MM, Mu, NM, NS, Ng, Ns, Ou, PM, QM, RM, TS, UI, UV, VS, Vm, WEe, WV, ZEe, Ze, ac, b5, bEe, c3e, cC, dC, dEe, e1, eEe, f3e, fC, g, gC, gEe, gf, h1, hC, hr, i3e, ip, jM, k1, kCe, lEe, mf, mh, mv, oC, p1, pC, qCe, r3e, s3e, st, t1, u0, wCe, y5, yCe, zM } from './vendor-core'
 import { BB, D9e, FNe, GNe, HA, II, JNe, KNe, Nk, PNe, PhoneAgendaConnection, QNe, Ru, UNe, WK, XNe, Yo, _I, aU, eje, iU, lo, lp, pf, qM, rZ, tje, wI, zA, zNe } from './reporting-vendor'
+import { InspectionReviewDialog } from './inspection-review-dialog'
+
+const normalizeClientValue = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+const clientsLikelyDuplicate = (left, right) => {
+  if (!left || !right || left.id === right.id) return false
+  const sameName = normalizeClientValue(left.name) && normalizeClientValue(left.name) === normalizeClientValue(right.name)
+  const leftPostalCode = normalizeClientValue(left.postal_code)
+  const rightPostalCode = normalizeClientValue(right.postal_code)
+  const compatiblePostalCode = !leftPostalCode || !rightPostalCode || leftPostalCode === rightPostalCode
+  const sameEmail = normalizeClientValue(left.email) && normalizeClientValue(left.email) === normalizeClientValue(right.email)
+  return sameEmail || (sameName && compatiblePostalCode)
+}
 
 function PlanningCalendar({
   inspections: r,
@@ -146,8 +158,8 @@ function PlanningCalendar({
         start: Nr,
         end: Yr,
         resource: We,
-        inspectorName: en?.full_name || Wt.inspectorName || "Niet toegewezen",
-        resourceId: en?.id || Wt.assignedInspectorId || `name:${Wt.inspectorName || "unassigned"}`
+        inspectorName: en?.full_name || (Wt.inspectorName ? `${Wt.inspectorName} (historisch)` : "Niet toegewezen"),
+        resourceId: en?.id || Wt.assignedInspectorId || "unassigned"
       }];
     }), [r, be, e]),
     _e = Ze.useMemo(() => {
@@ -158,19 +170,13 @@ function PlanningCalendar({
     Ae = Ze.useMemo(() => JNe(Me.map(We => We.resourceId)), [Me]),
     Ue = Ze.useMemo(() => {
       const We = De.map(at => ({
-          id: at.id,
-          title: at.full_name || at.email
-        })),
-        Wt = new Set(We.map(at => at.id)),
-        Ot = Me.filter(at => !Wt.has(at.resourceId)).map(at => ({
-          id: at.resourceId,
-          title: at.inspectorName
-        })),
-        St = [...We, ...Ot].filter((at, vt, _r) => _r.findIndex(Ur => Ur.id === at.id) === vt);
-      if (B === "team") return St;
+        id: at.id,
+        title: at.full_name || at.email
+      }));
+      if (B === "team") return We;
       const $e = B === "mine" ? t?.id : B;
-      return St.filter(at => at.id === $e);
-    }, [Me, B, t, De]),
+      return We.filter(at => at.id === $e);
+    }, [B, t, De]),
     tt = Ze.useMemo(() => {
       const We = new Set(),
         Wt = new Map();
@@ -4455,6 +4461,10 @@ const up = 20,
   };
 function AdminDashboard() {
   const [r, e] = Ze.useState("pipeline"),
+    [mobileMoreOpen, setMobileMoreOpen] = Ze.useState(!1),
+    [showTraining, setShowTraining] = Ze.useState(!1),
+    [inspectionReviewRequest, setInspectionReviewRequest] = Ze.useState(null),
+    [inspectionReviewBusy, setInspectionReviewBusy] = Ze.useState(!1),
     [t, n] = Ze.useState([]),
     [i, a] = Ze.useState(!1),
     [s, o] = Ze.useState({
@@ -4577,6 +4587,7 @@ function AdminDashboard() {
         let xr = `client_name.ilike.%${ve}%,inspection_number.ilike.%${ve}%,report_data->meta->>projectCity.ilike.%${ve}%,report_data->meta->>projectLocation.ilike.%${ve}%,report_data->meta->>inspectorName.ilike.%${ve}%`;
         er.length > 0 && (xr += `,installer_id.in.(${er.join(",")})`), Re = Re.or(xr);
       }
+      Re = showTraining ? Re.or("client_name.ilike.[TRAINING]%,report_data->meta->>isTraining.eq.true") : Re.not("client_name", "ilike", "[TRAINING]%").or("report_data->meta->>isTraining.is.null,report_data->meta->>isTraining.neq.true");
       Y.key === "created_at" ? Re = Re.order("created_at", {
         ascending: Y.direction === "asc"
       }) : Y.key === "updated_at" ? Re = Re.order("updated_at", {
@@ -4925,17 +4936,19 @@ Gebruiker verwijderen?`) && (await hr.rpc("delete_user", {
     },
     Ki = async () => {
       if (!Rn.name?.trim()) return alert("Naam is verplicht.");
+      const ie = Ot.find(Se => clientsLikelyDuplicate(Se, Rn));
+      if (ie) return alert(`Deze klant lijkt al te bestaan als “${ie.name}” (${[ie.postal_code, ie.city].filter(Boolean).join(" ") || "adres onbekend"}). Open die relatie en werk de bestaande gegevens bij.`);
       const {
-        data: ie,
-        error: Se
+        data: Se,
+        error: Re
       } = await hr.from("clients").insert({
         ...Rn,
         contacts: []
       }).select().single();
-      Se ? alert("Fout: " + Se.message) : (ac("admin", "client_created", "client", ie.id, Rn.name), pn(!1), Sn({
+      Re ? alert("Fout: " + Re.message) : (ac("admin", "client_created", "client", Se.id, Rn.name), pn(!1), Sn({
         name: "",
         contacts: []
-      }), Yn(), ii(ie));
+      }), Yn(), ii(Se));
     },
     ra = async ie => {
       if (!$e) return;
@@ -4957,6 +4970,26 @@ Gebruiker verwijderen?`) && (await hr.rpc("delete_user", {
     _s = async () => {
       $e && window.confirm(`Klant "${$e.name}" verwijderen?`) && (await hr.from("clients").delete().eq("id", $e.id), at(null), Yn());
     },
+    mergeClient = async target => {
+      if (!$e || !target || !clientsLikelyDuplicate($e, target)) return;
+      const keepCurrent = window.confirm(`Twee mogelijke dubbele relaties gevonden.\n\nOK: “${$e.name}” behouden en “${target.name}” daarin samenvoegen.\nAnnuleren: niets wijzigen.`);
+      if (!keepCurrent) return;
+      const {
+        data: ie,
+        error: Se
+      } = await hr.rpc("merge_clients", {
+        source_client_id: target.id,
+        target_client_id: $e.id
+      });
+      if (Se) return alert("Samenvoegen mislukt: " + Se.message);
+      await ac("admin", "client_merged", "client", $e.id, $e.name, {
+        merged_client: target.name
+      });
+      await Yn();
+      const Re = Array.isArray(ie) ? ie[0] : ie;
+      Re && ii(Re);
+      alert("De dubbele klantrelatie is samengevoegd. Projecten, contactpersonen en dossiergegevens zijn behouden.");
+    },
     ci = async ie => {
       $e && (await hr.from("clients").update({
         contacts: ie,
@@ -4974,13 +5007,13 @@ Gebruiker verwijderen?`) && (await hr.rpc("delete_user", {
         }, {
           data: Re
         }] = await Promise.all([hr.from("inspections").select("client_name, report_data"), hr.from("profiles").select("full_name, contact_email, company_name, company_address, company_postal_code, company_city, company_phone, company_email").eq("role", "installer").not("company_name", "is", null).neq("company_name", ""), hr.from("clients").select("name")]),
-        lt = new Set((Re || []).map(er => er.name.trim().toLowerCase())),
+        lt = new Set((Re || []).map(er => normalizeClientValue(er.name))),
         wt = new Set(),
         rr = [];
       for (const er of ie || []) {
         const xr = er.client_name?.trim();
-        if (!xr || wt.has(xr.toLowerCase()) || lt.has(xr.toLowerCase()) || er.report_data?.meta?.isContributionMode) continue;
-        wt.add(xr.toLowerCase());
+        if (!xr || wt.has(normalizeClientValue(xr)) || lt.has(normalizeClientValue(xr)) || er.report_data?.meta?.isContributionMode) continue;
+        wt.add(normalizeClientValue(xr));
         const Sr = er.report_data?.meta || {},
           an = [];
         Sr.clientContactPerson?.trim() && an.push({
@@ -5001,8 +5034,8 @@ Gebruiker verwijderen?`) && (await hr.rpc("delete_user", {
       }
       for (const er of Se || []) {
         const xr = er.company_name?.trim();
-        if (!xr || wt.has(xr.toLowerCase()) || lt.has(xr.toLowerCase())) continue;
-        wt.add(xr.toLowerCase());
+        if (!xr || wt.has(normalizeClientValue(xr)) || lt.has(normalizeClientValue(xr))) continue;
+        wt.add(normalizeClientValue(xr));
         const Sr = er.full_name?.trim() ? [{
           id: crypto.randomUUID(),
           name: er.full_name.trim(),
@@ -5038,7 +5071,7 @@ Gebruiker verwijderen?`) && (await hr.rpc("delete_user", {
   }, [Lr, Ot]);
   Ze.useEffect(() => {
     r === "inspections" && (Dr(), is()), r === "users" && Vi(), (r === "settings" || B) && (Ti(), Vi()), B && (Yn(), Bn()), r === "library" && vi(), r === "clients" && Yn(), r === "log" && Qs();
-  }, [oe, ve, r, B, Y]);
+  }, [oe, ve, r, B, Y, showTraining]);
   const Qs = async () => {
       a(!0);
       let ie = hr.from("audit_log").select("*").order("created_at", {
@@ -5076,7 +5109,7 @@ Gebruiker verwijderen?`) && (await hr.rpc("delete_user", {
         ascending: Bt.direction === "asc"
       }) : Re = Re.order("report_data->meta->>nextInspectionDate", {
         ascending: !0
-      }), Re = Re.range(ie, Se);
+      }), Re = showTraining ? Re.or("client_name.ilike.[TRAINING]%,report_data->meta->>isTraining.eq.true") : Re.not("client_name", "ilike", "[TRAINING]%").or("report_data->meta->>isTraining.is.null,report_data->meta->>isTraining.neq.true"), Re = Re.range(ie, Se);
       const {
         data: lt,
         count: wt,
@@ -5105,7 +5138,7 @@ Gebruiker verwijderen?`) && (await hr.rpc("delete_user", {
     };
   Ze.useEffect(() => {
     r === "projecten" && Cs();
-  }, [tn, yt, Bt, r]);
+  }, [tn, yt, Bt, r, showTraining]);
   const _i = ie => {
       if (!ie) return "";
       const Re = (new Date(Du(ie)).getTime() - Date.now()) / 864e5;
@@ -5555,23 +5588,37 @@ Gebruiker verwijderen?`) && (await hr.rpc("delete_user", {
         K(!1);
       }
     },
-    ps = async ie => {
-      let Se = "";
-      if (ie.status === "completed" ? Se = "in_progress" : (ie.status, Se = "completed"), !window.confirm("Status wijzigen?")) return;
-      const Re = {
-        ...ie.report_data?.meta
-      };
-      Se === "completed" ? Re.finalizedDate = new Date().toISOString().split("T")[0] : Se === "in_progress" && (Re.finalizedDate = null);
-      const {
-        error: lt
-      } = await hr.from("inspections").update({
-        status: Se,
-        report_data: {
-          ...ie.report_data,
-          meta: Re
-        }
-      }).eq("id", ie.id);
-      lt ? alert("Fout: " + lt.message) : Dr();
+    ps = ie => {
+      if (!["review_ready", "completed"].includes(ie.status)) return alert("Alleen een ingeleverde inspectie kan definitief worden beoordeeld.");
+      setInspectionReviewRequest(ie);
+    },
+    finalizeInspection = async checklist => {
+      if (!inspectionReviewRequest) return;
+      setInspectionReviewBusy(!0);
+      const { error: ie } = await hr.rpc("finalize_inspection", {
+        inspection_id: inspectionReviewRequest.id,
+        checklist
+      });
+      setInspectionReviewBusy(!1);
+      if (ie) return alert("Afronden mislukt: " + ie.message);
+      await ac("admin", "inspection_finalized", "inspection", inspectionReviewRequest.id, inspectionReviewRequest.client_name || String(inspectionReviewRequest.id), {
+        checklist_completed: true
+      });
+      setInspectionReviewRequest(null), await Dr();
+    },
+    reopenInspection = async reason => {
+      if (!inspectionReviewRequest) return;
+      setInspectionReviewBusy(!0);
+      const { error: ie } = await hr.rpc("reopen_inspection", {
+        inspection_id: inspectionReviewRequest.id,
+        reason
+      });
+      setInspectionReviewBusy(!1);
+      if (ie) return alert("Heropenen mislukt: " + ie.message);
+      await ac("admin", "inspection_reopened", "inspection", inspectionReviewRequest.id, inspectionReviewRequest.client_name || String(inspectionReviewRequest.id), {
+        reden: reason
+      });
+      setInspectionReviewRequest(null), await Dr();
     },
     zo = async () => {
       if (window.confirm("Volledige backup maken van het HELE systeem (Inspecties, Bibliotheek, Instellingen, Gebruikers)?")) {
@@ -6137,9 +6184,15 @@ ${an} Projecten bijgewerkt`), Dr();
             className: "text-slate-500 text-sm",
             children: gs.subtitle
           })]
-        }), g.jsx("div", {
+        }), g.jsxs("div", {
           className: "ig-admin-actions grid grid-cols-2 gap-2 w-full sm:flex sm:flex-wrap md:w-auto",
-          children: r === "inspections" && g.jsxs(g.Fragment, {
+          children: [["pipeline", "inspections", "agenda", "projecten"].includes(r) && g.jsx("button", {
+            type: "button",
+            "aria-pressed": showTraining,
+            onClick: () => setShowTraining(ie => !ie),
+            className: `min-h-11 rounded-lg border px-3 text-sm font-bold ${showTraining ? "border-amber-400 bg-amber-100 text-amber-900" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`,
+            children: showTraining ? "Trainingsdossiers" : "Productiedossiers"
+          }), r === "inspections" && g.jsxs(g.Fragment, {
             children: [g.jsxs("button", {
               onClick: () => {
                 G(w2), P(!0);
@@ -6206,10 +6259,10 @@ ${an} Projecten bijgewerkt`), Dr();
                 }), " Verwijder (", be.length, ")"]
               })]
             })]
-          })
+          })]
         })]
       }), g.jsxs("nav", {
-        className: "ig-admin-nav",
+        className: `ig-admin-nav ${mobileMoreOpen ? "is-more-open" : ""}`,
         "aria-label": "Kantooronderdelen",
         children: [g.jsxs("button", {
           onClick: () => e("pipeline"),
@@ -6219,9 +6272,11 @@ ${an} Projecten bijgewerkt`), Dr();
             size: 17
           }), " Pipeline"]
         }), g.jsxs("button", {
-          onClick: () => e("mailtaken"),
+          onClick: () => {
+            e("mailtaken"), setMobileMoreOpen(!1);
+          },
           "aria-current": r === "mailtaken" ? "page" : void 0,
-          className: `ig-admin-nav-item ${r === "mailtaken" ? "is-active" : ""}`,
+          className: `ig-admin-nav-item ig-nav-secondary ${r === "mailtaken" ? "is-active" : ""}`,
           children: [g.jsx(LM, {
             size: 17
           }), " Mailtaken"]
@@ -6247,40 +6302,58 @@ ${an} Projecten bijgewerkt`), Dr();
             size: 17
           }), " Werkvoorraad"]
         }), g.jsxs("button", {
-          onClick: () => e("clients"),
+          onClick: () => {
+            e("clients"), setMobileMoreOpen(!1);
+          },
           "aria-current": r === "clients" ? "page" : void 0,
-          className: `ig-admin-nav-item ${r === "clients" ? "is-active" : ""}`,
+          className: `ig-admin-nav-item ig-nav-secondary ${r === "clients" ? "is-active" : ""}`,
           children: [g.jsx(ip, {
             size: 17
           }), " Klanten"]
         }), g.jsxs("button", {
-          onClick: () => e("users"),
+          onClick: () => {
+            e("users"), setMobileMoreOpen(!1);
+          },
           "aria-current": r === "users" ? "page" : void 0,
-          className: `ig-admin-nav-item ${r === "users" ? "is-active" : ""}`,
+          className: `ig-admin-nav-item ig-nav-secondary ${r === "users" ? "is-active" : ""}`,
           children: [g.jsx(NS, {
             size: 17
           }), " Gebruikers"]
         }), g.jsxs("button", {
-          onClick: () => e("library"),
+          onClick: () => {
+            e("library"), setMobileMoreOpen(!1);
+          },
           "aria-current": r === "library" ? "page" : void 0,
-          className: `ig-admin-nav-item ${r === "library" ? "is-active" : ""}`,
+          className: `ig-admin-nav-item ig-nav-secondary ${r === "library" ? "is-active" : ""}`,
           children: [g.jsx(jM, {
             size: 17
           }), " Bibliotheek"]
         }), g.jsxs("button", {
-          onClick: () => e("log"),
+          onClick: () => {
+            e("log"), setMobileMoreOpen(!1);
+          },
           "aria-current": r === "log" ? "page" : void 0,
-          className: `ig-admin-nav-item ${r === "log" ? "is-active" : ""}`,
+          className: `ig-admin-nav-item ig-nav-secondary ${r === "log" ? "is-active" : ""}`,
           children: [g.jsx(fC, {
             size: 17
           }), " Activiteiten"]
         }), g.jsxs("button", {
-          onClick: () => e("settings"),
+          onClick: () => {
+            e("settings"), setMobileMoreOpen(!1);
+          },
           "aria-current": r === "settings" ? "page" : void 0,
-          className: `ig-admin-nav-item ${r === "settings" ? "is-active" : ""}`,
+          className: `ig-admin-nav-item ig-nav-secondary ${r === "settings" ? "is-active" : ""}`,
           children: [g.jsx(BS, {
             size: 17
           }), " Instellingen"]
+        }), g.jsxs("button", {
+          type: "button",
+          onClick: () => setMobileMoreOpen(value => !value),
+          "aria-expanded": mobileMoreOpen,
+          className: "ig-admin-nav-item ig-admin-nav-more",
+          children: [g.jsx(gC, {
+            size: 17
+          }), mobileMoreOpen ? " Minder" : " Meer"]
         })]
       }), r === "mailtaken" && g.jsx(MailWorkQueue, {}), r === "pipeline" && g.jsx(CommercialPipeline, {
         onOpenInspection: eo
@@ -6997,6 +7070,15 @@ ${an} Projecten bijgewerkt`), Dr();
               }), g.jsx("option", {
                 value: "user_company_updated",
                 children: "Bedrijf bijgewerkt"
+              }), g.jsx("option", {
+                value: "inspection_finalized",
+                children: "Inspectie definitief gemaakt"
+              }), g.jsx("option", {
+                value: "inspection_reopened",
+                children: "Inspectie heropend"
+              }), g.jsx("option", {
+                value: "client_merged",
+                children: "Klanten samengevoegd"
               })]
             })]
           }), g.jsxs("div", {
@@ -7076,6 +7158,7 @@ ${an} Projecten bijgewerkt`), Dr();
                     inspection_updated: "Inspectie bijgewerkt",
                     inspection_deleted: "Inspectie verwijderd",
                     inspection_finalized: "Inspectie afgerond",
+                    inspection_reopened: "Inspectie heropend",
                     inspection_rescheduled: "Inspectie verplaatst",
                     repair_submitted: "Herstel ingediend",
                     repair_approved: "Herstel goedgekeurd",
@@ -7083,10 +7166,17 @@ ${an} Projecten bijgewerkt`), Dr();
                     installer_assigned: "Installateur toegewezen",
                     client_created: "Klant aangemaakt",
                     client_updated: "Klant bijgewerkt",
+                    client_merged: "Klanten samengevoegd",
                     client_deleted: "Klant verwijderd",
                     user_company_updated: "Bedrijf bijgewerkt",
                     profile_updated: "Profiel bijgewerkt",
-                    settings_company_updated: "Inspectiebedrijf bijgewerkt"
+                    settings_company_updated: "Inspectiebedrijf bijgewerkt",
+                    expense_claim_submitted: "Onkosten ingediend",
+                    expense_claim_approved: "Onkosten goedgekeurd",
+                    expense_claim_rejected: "Onkosten afgekeurd",
+                    mileage_claim_submitted: "Kilometers ingediend",
+                    mileage_claim_approved: "Kilometers goedgekeurd",
+                    mileage_claim_rejected: "Kilometers afgekeurd"
                   },
                   lt = Se[ie.app] || {
                     label: ie.app,
@@ -7129,7 +7219,7 @@ ${an} Projecten bijgewerkt`), Dr();
                   }), g.jsx("td", {
                     className: "p-2 text-gray-400 text-xs max-w-[180px] truncate",
                     title: ie.details ? JSON.stringify(ie.details) : "",
-                    children: ie.details ? Object.entries(ie.details).map(([xr, Sr]) => `${xr}: ${Sr}`).join(", ") : "—"
+                    children: ie.details ? Object.entries(ie.details).map(([xr, Sr]) => `${({ checklist_completed: "Checklist voltooid", merged_client: "Samengevoegde relatie", reden: "Reden", toelichting: "Toelichting", kilometers: "Kilometers", datum: "Datum", bedrag: "Bedrag" })[xr] || xr}: ${Sr === true ? "ja" : Sr === false ? "nee" : Sr}`).join(", ") : "—"
                   })]
                 }, ie.id);
               })
@@ -8830,6 +8920,24 @@ ${an} Projecten bijgewerkt`), Dr();
                   }), " Verwijderen"]
                 })]
               })]
+            }), Ot.filter(ie => clientsLikelyDuplicate($e, ie)).length > 0 && g.jsxs("div", {
+              className: "mx-4 mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:mx-6",
+              role: "alert",
+              children: [g.jsx("div", {
+                className: "font-bold",
+                children: "Mogelijk dubbele klant"
+              }), Ot.filter(ie => clientsLikelyDuplicate($e, ie)).map(ie => g.jsxs("div", {
+                className: "mt-1 flex items-center justify-between gap-2",
+                children: [g.jsx("span", {
+                  className: "truncate",
+                  children: `${ie.name}${ie.postal_code ? ` · ${ie.postal_code}` : ""}`
+                }), g.jsx("button", {
+                  type: "button",
+                  className: "min-h-11 shrink-0 rounded-md border border-amber-400 bg-white px-2 font-bold hover:bg-amber-100",
+                  onClick: () => mergeClient(ie),
+                  children: "Samenvoegen"
+                })]
+              }, ie.id))]
             }), g.jsx("div", {
               className: "flex overflow-x-auto border-b border-gray-100 px-2 sm:px-4",
               children: [["gegevens", g.jsx(ip, {
@@ -9638,6 +9746,12 @@ ${an} Projecten bijgewerkt`), Dr();
             })]
           })]
         })
+      }), g.jsx(InspectionReviewDialog, {
+        request: inspectionReviewRequest,
+        busy: inspectionReviewBusy,
+        onCancel: () => setInspectionReviewRequest(null),
+        onFinalize: finalizeInspection,
+        onReopen: reopenInspection
       }), Ne && g.jsx("div", {
         className: "fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50",
         children: g.jsxs("div", {

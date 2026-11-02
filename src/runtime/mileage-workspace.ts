@@ -1,7 +1,8 @@
 // @ts-nocheck
-import { Ze, g, hr } from './vendor-core'
+import { Ze, ac, g, hr } from './vendor-core'
 import { qM } from './reporting-vendor'
 import { ExpenseWorkspace } from './expense-workspace'
+import { ClaimReviewDialog } from './claim-review-dialog'
 
 function localDateValue(date = new Date()) {
   const localTime = date.getTime() - date.getTimezoneOffset() * 60_000
@@ -78,6 +79,8 @@ function MileageWorkspace({ userId, userRole, onBack }) {
   const [message, setMessage] = Ze.useState('')
   const [error, setError] = Ze.useState('')
   const [importing, setImporting] = Ze.useState(false)
+  const [reviewingId, setReviewingId] = Ze.useState('')
+  const [reviewRequest, setReviewRequest] = Ze.useState(null)
   const fileInputRef = Ze.useRef(null)
 
   const loadClaims = Ze.useCallback(async () => {
@@ -140,7 +143,7 @@ function MileageWorkspace({ userId, userRole, onBack }) {
     }
 
     setSaving(true)
-    const { error: insertError } = await hr.from('mileage_claims').insert({
+    const { data: insertedClaim, error: insertError } = await hr.from('mileage_claims').insert({
       user_id: userId,
       trip_date: form.trip_date,
       origin: form.origin.trim(),
@@ -148,7 +151,7 @@ function MileageWorkspace({ userId, userRole, onBack }) {
       purpose: form.purpose.trim(),
       kilometers: Math.round(kilometers * 10) / 10,
       notes: form.notes.trim() || null,
-    })
+    }).select('id').single()
     setSaving(false)
 
     if (insertError) {
@@ -157,12 +160,17 @@ function MileageWorkspace({ userId, userRole, onBack }) {
       return
     }
 
+    await ac(isAdmin ? 'admin' : 'inspector', 'mileage_claim_submitted', 'mileage_claim', insertedClaim?.id || null, `${form.origin} – ${form.destination}`, {
+      kilometers,
+      datum: form.trip_date,
+    })
     setForm({ ...EMPTY_CLAIM, trip_date: localDateValue() })
     setMessage('Kilometerdeclaratie is ingediend.')
     await loadClaims()
   }
 
-  const reviewClaim = async (claimId, status) => {
+  const reviewClaim = async (claimId, status, reviewNote) => {
+    setReviewingId(claimId)
     setMessage('')
     setError('')
     const { data: updatedClaim, error: updateError } = await hr
@@ -171,12 +179,14 @@ function MileageWorkspace({ userId, userRole, onBack }) {
         status,
         reviewed_by: userId,
         reviewed_at: new Date().toISOString(),
+        review_note: reviewNote || null,
       })
       .eq('id', claimId)
       .eq('status', 'pending')
       .select('id')
       .maybeSingle()
 
+    setReviewingId('')
     if (updateError) {
       console.error('Kilometerdeclaratie beoordelen mislukt:', updateError)
       setError('De beoordeling kon niet worden opgeslagen.')
@@ -187,6 +197,8 @@ function MileageWorkspace({ userId, userRole, onBack }) {
       await loadClaims()
       return
     }
+    await ac('admin', status === 'approved' ? 'mileage_claim_approved' : 'mileage_claim_rejected', 'mileage_claim', claimId, 'Kilometerdeclaratie', reviewNote ? { toelichting: reviewNote } : undefined)
+    setReviewRequest(null)
     setMessage(status === 'approved' ? 'Declaratie goedgekeurd.' : 'Declaratie afgekeurd.')
     await loadClaims()
   }
@@ -207,6 +219,9 @@ function MileageWorkspace({ userId, userRole, onBack }) {
         { header: 'Toelichting', key: 'notes', width: 40 },
         { header: 'Status', key: 'status', width: 16 },
         { header: 'Ingediend op', key: 'submittedAt', width: 20 },
+        { header: 'Beoordeeld door', key: 'reviewedBy', width: 28 },
+        { header: 'Beoordeeld op', key: 'reviewedAt', width: 20 },
+        { header: 'Beoordelingsnotitie', key: 'reviewNote', width: 42 },
       ]
       claims.forEach((claim) => sheet.addRow({
         employeeEmail: claim.employee_email || '',
@@ -218,6 +233,9 @@ function MileageWorkspace({ userId, userRole, onBack }) {
         notes: claim.notes || '',
         status: STATUS_LABELS[claim.status] || claim.status,
         submittedAt: claim.submitted_at ? new Date(claim.submitted_at).toLocaleString('nl-NL') : '',
+        reviewedBy: claim.reviewed_by ? profiles[claim.reviewed_by] || claim.reviewed_by : '',
+        reviewedAt: claim.reviewed_at ? new Date(claim.reviewed_at).toLocaleString('nl-NL') : '',
+        reviewNote: claim.review_note || '',
       }))
       const header = sheet.getRow(1)
       header.font = { bold: true, color: { argb: 'FFFFFFFF' } }
@@ -225,7 +243,7 @@ function MileageWorkspace({ userId, userRole, onBack }) {
       header.alignment = { vertical: 'middle' }
       header.height = 24
       sheet.views = [{ state: 'frozen', ySplit: 1 }]
-      sheet.autoFilter = { from: 'A1', to: 'I1' }
+      sheet.autoFilter = { from: 'A1', to: 'L1' }
       sheet.getColumn('kilometers').numFmt = '0.0'
       sheet.getColumn('tripDate').numFmt = 'yyyy-mm-dd'
 
@@ -368,7 +386,8 @@ function MileageWorkspace({ userId, userRole, onBack }) {
     }
   }
 
-  const totalKilometers = claims.reduce((sum, claim) => sum + Number(claim.kilometers || 0), 0)
+  const approvedKilometers = claims.filter(claim => claim.status === 'approved').reduce((sum, claim) => sum + Number(claim.kilometers || 0), 0)
+  const pendingKilometers = claims.filter(claim => claim.status === 'pending').reduce((sum, claim) => sum + Number(claim.kilometers || 0), 0)
 
   if (claimSection === 'expenses') {
     return g.jsx(ExpenseWorkspace, {
@@ -538,7 +557,7 @@ function MileageWorkspace({ userId, userRole, onBack }) {
                       g.jsx('h2', { children: isAdmin ? 'Alle declaraties' : 'Mijn declaraties' }),
                       g.jsx('p', {
                         className: 'ig-mileage-help',
-                        children: `${claims.length} declaratie${claims.length === 1 ? '' : 's'} · ${formatKilometers(totalKilometers)}`,
+                        children: `${claims.length} declaratie${claims.length === 1 ? '' : 's'} · goedgekeurd ${formatKilometers(approvedKilometers)} · in behandeling ${formatKilometers(pendingKilometers)}`,
                       }),
                     ],
                   }),
@@ -609,6 +628,7 @@ function MileageWorkspace({ userId, userRole, onBack }) {
                             ],
                           }),
                           claim.notes && g.jsx('p', { className: 'ig-mileage-notes', children: claim.notes }),
+                          claim.reviewed_at && g.jsxs('p', { className: 'ig-mileage-notes', children: ['Beoordeeld door ', profiles[claim.reviewed_by] || 'beheer', ' op ', new Date(claim.reviewed_at).toLocaleString('nl-NL'), claim.review_note ? ` · ${claim.review_note}` : ''] }),
                           g.jsxs('div', {
                             className: 'ig-mileage-claim-footer',
                             children: [
@@ -621,13 +641,15 @@ function MileageWorkspace({ userId, userRole, onBack }) {
                                 children: [
                                   g.jsx('button', {
                                     type: 'button',
-                                    onClick: () => reviewClaim(claim.id, 'rejected'),
+                                    disabled: reviewingId === claim.id,
+                                    onClick: () => setReviewRequest({ id: claim.id, status: 'rejected' }),
                                     className: 'is-reject',
                                     children: 'Afkeuren',
                                   }),
                                   g.jsx('button', {
                                     type: 'button',
-                                    onClick: () => reviewClaim(claim.id, 'approved'),
+                                    disabled: reviewingId === claim.id,
+                                    onClick: () => setReviewRequest({ id: claim.id, status: 'approved' }),
                                     className: 'is-approve',
                                     children: 'Goedkeuren',
                                   }),
@@ -642,6 +664,7 @@ function MileageWorkspace({ userId, userRole, onBack }) {
           }),
         ],
       }),
+      g.jsx(ClaimReviewDialog, { request: reviewRequest, busy: Boolean(reviewingId), onCancel: () => setReviewRequest(null), onConfirm: note => reviewClaim(reviewRequest.id, reviewRequest.status, note) }),
     ],
   })
 }

@@ -1,6 +1,7 @@
 // @ts-nocheck
-import { Ze, g, hr } from './vendor-core'
+import { Ze, ac, g, hr } from './vendor-core'
 import { qM } from './reporting-vendor'
+import { ClaimReviewDialog } from './claim-review-dialog'
 
 const RECEIPT_BUCKET = 'expense-receipts'
 const MAX_RECEIPT_SIZE = 10 * 1024 * 1024
@@ -62,6 +63,7 @@ function ExpenseWorkspace({ userId, userRole, onBack, onOpenMileage }) {
   const [loading, setLoading] = Ze.useState(true)
   const [saving, setSaving] = Ze.useState(false)
   const [reviewingId, setReviewingId] = Ze.useState('')
+  const [reviewRequest, setReviewRequest] = Ze.useState(null)
   const [downloadingId, setDownloadingId] = Ze.useState('')
   const [message, setMessage] = Ze.useState('')
   const [error, setError] = Ze.useState('')
@@ -147,7 +149,7 @@ function ExpenseWorkspace({ userId, userRole, onBack, onOpenMileage }) {
       return
     }
 
-    const { error: insertError } = await hr.from('expense_claims').insert({
+    const { data: insertedClaim, error: insertError } = await hr.from('expense_claims').insert({
       user_id: userId,
       expense_date: form.expense_date,
       category: form.category,
@@ -158,7 +160,7 @@ function ExpenseWorkspace({ userId, userRole, onBack, onOpenMileage }) {
       receipt_name: safeReceiptName(receipt.name),
       receipt_mime_type: receipt.type,
       receipt_size: receipt.size,
-    })
+    }).select('id').single()
     if (insertError) {
       await hr.storage.from(RECEIPT_BUCKET).remove([receiptPath])
       console.error('Onkostendeclaratie indienen mislukt:', insertError)
@@ -170,18 +172,22 @@ function ExpenseWorkspace({ userId, userRole, onBack, onOpenMileage }) {
     setForm({ ...EMPTY_EXPENSE, expense_date: localDateValue() })
     setReceipt(null)
     if (receiptInputRef.current) receiptInputRef.current.value = ''
+    await ac(isAdmin ? 'admin' : 'inspector', 'expense_claim_submitted', 'expense_claim', insertedClaim?.id || null, form.description || form.category, {
+      bedrag: amount,
+      datum: form.expense_date,
+    })
     setMessage('Onkostendeclaratie met bon is ingediend.')
     setSaving(false)
     await loadClaims()
   }
 
-  const reviewClaim = async (claimId, status) => {
+  const reviewClaim = async (claimId, status, reviewNote) => {
     setReviewingId(claimId)
     setMessage('')
     setError('')
     const { data: updatedClaim, error: updateError } = await hr
       .from('expense_claims')
-      .update({ status, reviewed_by: userId, reviewed_at: new Date().toISOString() })
+      .update({ status, reviewed_by: userId, reviewed_at: new Date().toISOString(), review_note: reviewNote || null })
       .eq('id', claimId)
       .eq('status', 'pending')
       .select('id')
@@ -197,6 +203,8 @@ function ExpenseWorkspace({ userId, userRole, onBack, onOpenMileage }) {
       await loadClaims()
       return
     }
+    await ac('admin', status === 'approved' ? 'expense_claim_approved' : 'expense_claim_rejected', 'expense_claim', claimId, 'Onkostendeclaratie', reviewNote ? { toelichting: reviewNote } : undefined)
+    setReviewRequest(null)
     setMessage(status === 'approved' ? 'Declaratie goedgekeurd.' : 'Declaratie afgekeurd.')
     await loadClaims()
   }
@@ -237,6 +245,9 @@ function ExpenseWorkspace({ userId, userRole, onBack, onOpenMileage }) {
         { header: 'Bonbestand', key: 'receiptName', width: 30 },
         { header: 'Status', key: 'status', width: 16 },
         { header: 'Ingediend op', key: 'submittedAt', width: 20 },
+        { header: 'Beoordeeld door', key: 'reviewedBy', width: 28 },
+        { header: 'Beoordeeld op', key: 'reviewedAt', width: 20 },
+        { header: 'Beoordelingsnotitie', key: 'reviewNote', width: 42 },
       ]
       claims.forEach((claim) => sheet.addRow({
         employeeEmail: claim.employee_email || '',
@@ -248,13 +259,16 @@ function ExpenseWorkspace({ userId, userRole, onBack, onOpenMileage }) {
         receiptName: claim.receipt_name,
         status: STATUS_LABELS[claim.status] || claim.status,
         submittedAt: claim.submitted_at ? new Date(claim.submitted_at).toLocaleString('nl-NL') : '',
+        reviewedBy: claim.reviewed_by ? profiles[claim.reviewed_by] || claim.reviewed_by : '',
+        reviewedAt: claim.reviewed_at ? new Date(claim.reviewed_at).toLocaleString('nl-NL') : '',
+        reviewNote: claim.review_note || '',
       }))
       const header = sheet.getRow(1)
       header.font = { bold: true, color: { argb: 'FFFFFFFF' } }
       header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF263C58' } }
       header.height = 24
       sheet.views = [{ state: 'frozen', ySplit: 1 }]
-      sheet.autoFilter = { from: 'A1', to: 'I1' }
+      sheet.autoFilter = { from: 'A1', to: 'L1' }
       sheet.getColumn('amount').numFmt = '€ #,##0.00'
       sheet.getColumn('expenseDate').numFmt = 'yyyy-mm-dd'
       const buffer = await workbook.xlsx.writeBuffer()
@@ -274,7 +288,8 @@ function ExpenseWorkspace({ userId, userRole, onBack, onOpenMileage }) {
     }
   }
 
-  const totalAmount = claims.reduce((sum, claim) => sum + Number(claim.amount || 0), 0)
+  const approvedAmount = claims.filter(claim => claim.status === 'approved').reduce((sum, claim) => sum + Number(claim.amount || 0), 0)
+  const pendingAmount = claims.filter(claim => claim.status === 'pending').reduce((sum, claim) => sum + Number(claim.amount || 0), 0)
 
   return g.jsxs('main', {
     className: 'ig-mileage-shell',
@@ -310,7 +325,7 @@ function ExpenseWorkspace({ userId, userRole, onBack, onOpenMileage }) {
         ] }),
         g.jsxs('section', { className: 'ig-mileage-card', children: [
           g.jsxs('div', { className: 'ig-mileage-list-heading', children: [
-            g.jsxs('div', { children: [g.jsx('h2', { children: isAdmin ? 'Alle onkosten' : 'Mijn onkosten' }), g.jsx('p', { className: 'ig-mileage-help', children: `${claims.length} declaratie${claims.length === 1 ? '' : 's'} · ${formatCurrency(totalAmount)}` })] }),
+            g.jsxs('div', { children: [g.jsx('h2', { children: isAdmin ? 'Alle onkosten' : 'Mijn onkosten' }), g.jsx('p', { className: 'ig-mileage-help', children: `${claims.length} declaratie${claims.length === 1 ? '' : 's'} · goedgekeurd ${formatCurrency(approvedAmount)} · in behandeling ${formatCurrency(pendingAmount)}` })] }),
             g.jsxs('div', { className: 'ig-mileage-toolbar', children: [
               g.jsx('button', { type: 'button', onClick: exportClaims, className: 'ig-mileage-refresh', children: 'Excel downloaden' }),
               g.jsx('button', { type: 'button', onClick: loadClaims, className: 'ig-mileage-refresh', children: 'Vernieuwen' }),
@@ -330,6 +345,7 @@ function ExpenseWorkspace({ userId, userRole, onBack, onOpenMileage }) {
                 g.jsx('strong', { children: formatCurrency(claim.amount) }),
               ] }),
               claim.notes && g.jsx('p', { className: 'ig-mileage-notes', children: claim.notes }),
+              claim.reviewed_at && g.jsxs('p', { className: 'ig-mileage-notes', children: ['Beoordeeld door ', profiles[claim.reviewed_by] || 'beheer', ' op ', new Date(claim.reviewed_at).toLocaleString('nl-NL'), claim.review_note ? ` · ${claim.review_note}` : ''] }),
               g.jsxs('div', { className: 'ig-expense-receipt-row', children: [
                 g.jsxs('span', { children: ['Bon: ', claim.receipt_name] }),
                 g.jsx('button', { type: 'button', className: 'ig-mileage-refresh', disabled: downloadingId === claim.id, onClick: () => downloadReceipt(claim), children: downloadingId === claim.id ? 'Downloaden…' : 'Bon downloaden' }),
@@ -337,14 +353,15 @@ function ExpenseWorkspace({ userId, userRole, onBack, onOpenMileage }) {
               g.jsxs('div', { className: 'ig-mileage-claim-footer', children: [
                 g.jsx('span', { className: `ig-mileage-status is-${claim.status}`, children: STATUS_LABELS[claim.status] || claim.status }),
                 isAdmin && claim.status === 'pending' && g.jsxs('div', { className: 'ig-mileage-actions', children: [
-                  g.jsx('button', { type: 'button', disabled: reviewingId === claim.id, onClick: () => reviewClaim(claim.id, 'rejected'), className: 'is-reject', children: 'Afkeuren' }),
-                  g.jsx('button', { type: 'button', disabled: reviewingId === claim.id, onClick: () => reviewClaim(claim.id, 'approved'), className: 'is-approve', children: 'Goedkeuren' }),
+                  g.jsx('button', { type: 'button', disabled: reviewingId === claim.id, onClick: () => setReviewRequest({ id: claim.id, status: 'rejected' }), className: 'is-reject', children: 'Afkeuren' }),
+                  g.jsx('button', { type: 'button', disabled: reviewingId === claim.id, onClick: () => setReviewRequest({ id: claim.id, status: 'approved' }), className: 'is-approve', children: 'Goedkeuren' }),
                 ] }),
               ] }),
             ] }, claim.id)),
           }),
         ] }),
       ] }),
+      g.jsx(ClaimReviewDialog, { request: reviewRequest, busy: Boolean(reviewingId), onCancel: () => setReviewRequest(null), onConfirm: note => reviewClaim(reviewRequest.id, reviewRequest.status, note) }),
     ],
   })
 }
