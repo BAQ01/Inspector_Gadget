@@ -1,0 +1,95 @@
+/* Tablet-specific ergonomics. Desktop and phone layouts remain owned by production.css. */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .ig-login-shell {
+    padding: 2rem;
+  }
+
+  .ig-login-card {
+    max-width: 44rem;
+  }
+
+  .ig-login-card > section {
+    min-height: auto;
+    padding: 3rem;
+  }
+
+  .ig-login-card > section > .max-w-md {
+    width: 100%;
+    max-width: 34rem;
+    margin-inline: auto;
+  }
+
+  .ig-inspector-canvas {
+    max-width: calc(100vw - 1.5rem) !important;
+    margin-block: 0.75rem !important;
+    border-radius: 1.25rem !important;
+  }
+
+  .ig-inspector-header {
+    padding: 0.8rem 1rem !important;
+  }
+
+  .ig-inspector-header button,
+  .ig-icon-button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .ig-step-nav {
+    top: 4.5rem !important;
+    padding: 0.65rem 1rem !important;
+  }
+
+  .ig-step-item {
+    min-height: 2.75rem !important;
+    padding: 0.65rem 0.5rem !important;
+  }
+
+  .ig-inspector-shell main {
+    padding: 1.25rem !important;
+  }
+
+  .ig-admin-workspace {
+    padding-inline: 1rem;
+  }
+
+  .ig-admin-actions > button,
+  .ig-mileage-refresh,
+  .ig-mileage-back,
+  .ig-mileage-actions button {
+    min-height: 2.75rem;
+  }
+
+  .ig-table-card,
+  .ig-admin-shell .overflow-x-auto {
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ig-mileage-content {
+    grid-template-columns: 1fr;
+    width: min(100% - 2rem, 52rem);
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1180px) {
+  .ig-mileage-content {
+    grid-template-columns: minmax(20rem, 24rem) minmax(0, 1fr);
+  }
+}
+
+@media (pointer: coarse) {
+  :where(.ig-inspector-shell, .ig-admin-shell, .ig-installer-shell, .ig-login-shell) button,
+  .ig-mileage-shell button,
+  .ig-mileage-shell .ig-mileage-refresh,
+  .ig-mileage-shell .ig-mileage-back {
+    min-height: 2.75rem;
+    touch-action: manipulation;
+  }
+
+  :where(.ig-inspector-shell, .ig-admin-shell, .ig-installer-shell, .ig-login-shell, .ig-mileage-shell)
+    :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), select) {
+    min-height: 2.75rem;
+  }
+}

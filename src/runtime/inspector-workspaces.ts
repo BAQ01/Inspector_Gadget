@@ -979,19 +979,19 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
         }), g.jsxs("div", {
           className: "flex items-center gap-2",
           children: [g.jsxs("div", {
-            className: "items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full hidden md:flex animate-pulse bg-secondary-container/50 text-on-secondary-container font-bold",
+            className: "items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full hidden lg:flex animate-pulse bg-secondary-container/50 text-on-secondary-container font-bold",
             children: [g.jsx(Ns, {
               size: 14
             }), " Autosave"]
           }), g.jsx("div", {
-            className: "text-[13px] font-mono px-3 py-1.5 rounded-full hidden md:block bg-surface-container-high text-on-surface-variant font-medium",
+            className: "text-[13px] font-mono px-3 py-1.5 rounded-full hidden lg:block bg-surface-container-high text-on-surface-variant font-medium",
             children: b.date
           }), g.jsx("div", {
-            className: "h-8 w-[1px] bg-outline-variant/20 hidden md:block mx-1"
+            className: "h-8 w-[1px] bg-outline-variant/20 hidden lg:block mx-1"
           }), g.jsx("button", {
             type: "button",
             onClick: () => a(!0),
-            className: "hidden md:flex items-center justify-center px-4 py-2 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low",
+            className: "hidden lg:flex items-center justify-center px-4 py-2 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low",
             title: "Mijn Profiel",
             children: g.jsxs("span", {
               className: "flex items-center gap-2 text-sm font-bold text-primary",
@@ -1002,7 +1002,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
           }), n && g.jsx("button", {
             onClick: n,
             title: "Planning en agenda",
-            className: "p-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low hidden md:flex",
+            className: "p-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low hidden lg:flex",
             children: g.jsx(Eg, {
               size: 21
             })
@@ -1010,7 +1010,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
             onClick: mileage,
             title: "Kilometerdeclaraties",
             "aria-label": "Kilometerdeclaraties",
-            className: "p-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low hidden md:flex",
+            className: "p-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low hidden lg:flex",
             children: g.jsx("span", {
               "aria-hidden": "true",
               className: "text-sm font-black",
@@ -1019,21 +1019,21 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
           }), r === "admin" && t && g.jsx("button", {
             onClick: t,
             title: "Beheerder",
-            className: "p-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low hidden md:flex",
+            className: "p-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low hidden lg:flex",
             children: g.jsx(BS, {
               size: 22
             })
           }), e && g.jsx("button", {
             onClick: e,
             title: "Uitloggen",
-            className: "p-2.5 rounded-full text-error hover:bg-error-container active:scale-95 transition-all bg-surface-container-low hidden md:flex",
+            className: "p-2.5 rounded-full text-error hover:bg-error-container active:scale-95 transition-all bg-surface-container-low hidden lg:flex",
             children: g.jsx(kS, {
               size: 22
             })
           }), g.jsx("button", {
             type: "button",
             onClick: () => o(ie => !ie),
-            className: "ig-icon-button md:hidden",
+            className: "ig-icon-button lg:hidden",
             "aria-expanded": s,
             "aria-label": s ? "Menu sluiten" : "Menu openen",
             children: s ? g.jsx(Kc, {
@@ -1043,7 +1043,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
             })
           })]
         }), s && g.jsxs("div", {
-          className: "absolute left-3 right-3 top-[calc(100%+0.5rem)] rounded-2xl border border-outline-variant/20 bg-white p-2 shadow-xl md:hidden",
+          className: "absolute left-3 right-3 top-[calc(100%+0.5rem)] rounded-2xl border border-outline-variant/20 bg-white p-2 shadow-xl lg:hidden",
           children: [g.jsxs("div", {
             className: "px-3 py-2 text-xs font-semibold text-on-surface-variant",
             children: [b.date || "Geen inspectiedatum", " · Autosave actief"]
@@ -2158,7 +2158,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                   className: "text-[10px] font-bold text-blue-700 uppercase mb-2",
                   children: "Nieuw instrument aanmaken in database"
                 }), g.jsxs("div", {
-                  className: "grid grid-cols-1 md:grid-cols-4 gap-2 mb-2",
+                  className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-2",
                   children: [g.jsx("input", {
                     className: "border p-2 rounded text-sm w-full md:col-span-1",
                     placeholder: "Naam",
@@ -3288,7 +3288,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                 }), is && g.jsxs("div", {
                   className: "mt-2 p-3 border rounded bg-gray-50 animate-fadeIn",
                   children: [g.jsxs("div", {
-                    className: "grid grid-cols-1 md:grid-cols-4 gap-2 mb-2",
+                    className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-2",
                     children: [g.jsx("input", {
                       className: "border p-2 rounded text-sm w-full md:col-span-1",
                       placeholder: "Naam",
@@ -3398,7 +3398,7 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
                     children: er ? g.jsxs("div", {
                       className: "space-y-2",
                       children: [g.jsxs("div", {
-                        className: "grid grid-cols-1 md:grid-cols-4 gap-2",
+                        className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2",
                         children: [g.jsx("input", {
                           className: "border p-2 rounded text-sm w-full md:col-span-1",
                           value: vi.name,
