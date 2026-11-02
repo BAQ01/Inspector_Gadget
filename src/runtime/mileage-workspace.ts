@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { Ze, g, hr } from './vendor-core'
 import { qM } from './reporting-vendor'
+import { ExpenseWorkspace } from './expense-workspace'
 
 function localDateValue(date = new Date()) {
   const localTime = date.getTime() - date.getTimezoneOffset() * 60_000
@@ -67,6 +68,7 @@ function claimKey(claim) {
 }
 
 function MileageWorkspace({ userId, userRole, onBack }) {
+  const [claimSection, setClaimSection] = Ze.useState('mileage')
   const isAdmin = userRole === 'admin'
   const [claims, setClaims] = Ze.useState([])
   const [profiles, setProfiles] = Ze.useState({})
@@ -368,6 +370,15 @@ function MileageWorkspace({ userId, userRole, onBack }) {
 
   const totalKilometers = claims.reduce((sum, claim) => sum + Number(claim.kilometers || 0), 0)
 
+  if (claimSection === 'expenses') {
+    return g.jsx(ExpenseWorkspace, {
+      userId,
+      userRole,
+      onBack,
+      onOpenMileage: () => setClaimSection('mileage'),
+    })
+  }
+
   return g.jsxs('main', {
     className: 'ig-mileage-shell',
     'data-ui': 'mileage-claims',
@@ -385,9 +396,27 @@ function MileageWorkspace({ userId, userRole, onBack }) {
               children: '← Terug',
             }),
             g.jsxs('div', {
+              className: 'ig-claims-heading',
               children: [
                 g.jsx('p', { className: 'ig-mileage-eyebrow', children: 'B2Inspect' }),
-                g.jsx('h1', { children: 'Kilometerdeclaraties' }),
+                g.jsx('h1', { children: 'Declaraties' }),
+              ],
+            }),
+            g.jsxs('nav', {
+              className: 'ig-claims-tabs',
+              'aria-label': 'Soort declaratie',
+              children: [
+                g.jsx('button', {
+                  type: 'button',
+                  className: 'is-active',
+                  'aria-current': 'page',
+                  children: 'Kilometers',
+                }),
+                g.jsx('button', {
+                  type: 'button',
+                  onClick: () => setClaimSection('expenses'),
+                  children: 'Overige onkosten',
+                }),
               ],
             }),
           ],

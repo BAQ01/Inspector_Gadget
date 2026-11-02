@@ -1008,13 +1008,13 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
             })
           }), mileage && g.jsx("button", {
             onClick: mileage,
-            title: "Kilometerdeclaraties",
-            "aria-label": "Kilometerdeclaraties",
+            title: "Declaraties",
+            "aria-label": "Declaraties",
             className: "p-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all bg-surface-container-low hidden lg:flex",
             children: g.jsx("span", {
               "aria-hidden": "true",
               className: "text-sm font-black",
-              children: "KM"
+              children: "€"
             })
           }), r === "admin" && t && g.jsx("button", {
             onClick: t,
@@ -1074,8 +1074,8 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
             children: [g.jsx("span", {
               "aria-hidden": "true",
               className: "font-black",
-              children: "KM"
-            }), " Kilometerdeclaraties"]
+              children: "€"
+            }), " Declaraties"]
           }), r === "admin" && t && g.jsxs("button", {
             type: "button",
             onClick: () => {
