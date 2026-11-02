@@ -1,0 +1,17 @@
+RewriteEngine On
+RewriteBase /inspector/
+
+# Serveer het PWA-manifest met het gestandaardiseerde MIME-type.
+AddType application/manifest+json .webmanifest
+
+# Maak Supabase sessieheader beschikbaar voor PHP-CGI/FastCGI.
+SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+
+# Nooit serverconfiguratie of tokenbestanden uitleveren.
+<FilesMatch "^\.inspector-calendar">
+  Require all denied
+</FilesMatch>
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /inspector/index.html [L]
