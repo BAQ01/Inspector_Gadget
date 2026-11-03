@@ -4,6 +4,10 @@
   display: none;
 }
 
+.ig-admin-nav-item {
+  min-height: 2.75rem;
+}
+
 @media (max-width: 767px) {
   .ig-admin-nav:not(.is-more-open) {
     overflow: hidden !important;
