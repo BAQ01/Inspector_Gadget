@@ -1,12 +1,12 @@
 // @ts-nocheck
 import { Ze, ac, g, hr } from './vendor-core'
-import { dueState, instrumentAvailability, openQualityRisk, qualityLabels, qualityReadiness } from './quality-model'
+import { buildQualityAuditPackage, dueState, instrumentAvailability, openQualityRisk, qualityCompetencyIssue, qualityDocumentIssue, qualityInstrumentIssue, qualityLabels, qualityReadiness } from './quality-model'
 
 const today = () => new Date().toISOString().slice(0, 10)
-const emptyDocument = { document_code: '', title: '', category: 'Kwaliteitssysteem', version: '0.1', status: 'draft', effective_date: '', change_reason: '' }
+const emptyDocument = { document_code: '', title: '', category: 'Kwaliteitssysteem', version: '0.1', status: 'draft', effective_date: '', change_reason: '', requirement_codes: '' }
 const emptyCompetency = { user_id: '', competency_type: 'diploma', scope_code: 'Scope 8 PI', title: '', issuer: '', certificate_number: '', issued_on: '', expires_on: '', status: 'planned', notes: '' }
-const emptyInstrument = { asset_code: '', name: '', manufacturer: '', model: '', serial_number: '', scopes: '8, 10', calibration_date: '', calibration_due_date: '', status: 'active', notes: '' }
-const emptyRecord = { record_type: 'external_task', title: '', description: '', severity: 'normal', due_date: '', source: '', status: 'open' }
+const emptyInstrument = { asset_code: '', name: '', manufacturer: '', model: '', serial_number: '', scopes: '8, 10', calibration_required: true, calibration_date: '', calibration_due_date: '', status: 'active', notes: '' }
+const emptyRecord = { record_type: 'external_task', title: '', description: '', severity: 'normal', due_date: '', source: '', status: 'open', requirement_id: '' }
 
 function StatusBadge({ value, kind = 'default' }) {
   const color = kind === 'danger' ? 'bg-red-100 text-red-800' : kind === 'warning' ? 'bg-amber-100 text-amber-900' : kind === 'success' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
@@ -54,6 +54,8 @@ function QualityWorkspace() {
   const [instrumentFile, setInstrumentFile] = Ze.useState(null)
   const [recordForm, setRecordForm] = Ze.useState(emptyRecord)
   const [recordFile, setRecordFile] = Ze.useState(null)
+  const [recordToComplete, setRecordToComplete] = Ze.useState(null)
+  const [effectivenessCheck, setEffectivenessCheck] = Ze.useState('')
 
   const load = Ze.useCallback(async () => {
     setLoading(true)
@@ -93,7 +95,19 @@ function QualityWorkspace() {
     return path
   }
 
-  const actorId = async () => (await hr.auth.getUser()).data.user?.id || null
+  const actorId = async () => {
+    const { data, error: authError } = await hr.auth.getUser()
+    if (authError) throw authError
+    if (!data.user?.id) throw new Error('Uw sessie is verlopen. Meld u opnieuw aan.')
+    return data.user.id
+  }
+
+  const insertWithEvidence = async (table, payload, filePath) => {
+    const { data, error: saveError } = await hr.from(table).insert(payload).select().single()
+    if (!saveError) return data
+    if (filePath) await hr.storage.from('quality-evidence').remove([filePath])
+    throw saveError
+  }
 
   const runSave = async (operation, successMessage) => {
     setBusy(true)
@@ -113,19 +127,21 @@ function QualityWorkspace() {
   const saveDocument = async (event) => {
     event.preventDefault()
     await runSave(async () => {
+      const validationIssue = qualityDocumentIssue(documentForm, Boolean(documentFile))
+      if (validationIssue) throw new Error(validationIssue)
       const userId = await actorId()
       const filePath = await uploadEvidence(documentFile, 'documents')
       const approved = documentForm.status === 'approved'
       const payload = {
         ...documentForm,
+        requirement_codes: documentForm.requirement_codes.split(',').map((value) => value.trim()).filter(Boolean),
         effective_date: documentForm.effective_date || (approved ? today() : null),
         file_path: filePath,
         approved_by: approved ? userId : null,
         approved_at: approved ? new Date().toISOString() : null,
         owner_id: userId,
       }
-      const { data, error: saveError } = await hr.from('quality_documents').insert(payload).select().single()
-      if (saveError) throw saveError
+      const data = await insertWithEvidence('quality_documents', payload, filePath)
       await ac('admin', 'quality_document_created', 'quality_document', data.id, data.title, { code: data.document_code, version: data.version })
       setDocumentForm(emptyDocument)
       setDocumentFile(null)
@@ -135,12 +151,13 @@ function QualityWorkspace() {
   const saveCompetency = async (event) => {
     event.preventDefault()
     await runSave(async () => {
+      const validationIssue = qualityCompetencyIssue(competencyForm, Boolean(competencyFile))
+      if (validationIssue) throw new Error(validationIssue)
       const userId = await actorId()
       const filePath = await uploadEvidence(competencyFile, 'competencies')
       const verified = competencyForm.status === 'valid'
       const payload = { ...competencyForm, issued_on: competencyForm.issued_on || null, expires_on: competencyForm.expires_on || null, file_path: filePath, verified_by: verified ? userId : null, verified_at: verified ? new Date().toISOString() : null }
-      const { data, error: saveError } = await hr.from('quality_competencies').insert(payload).select().single()
-      if (saveError) throw saveError
+      const data = await insertWithEvidence('quality_competencies', payload, filePath)
       await ac('admin', 'quality_competency_created', 'quality_competency', data.id, data.title, { user_id: data.user_id, scope: data.scope_code })
       setCompetencyForm(emptyCompetency)
       setCompetencyFile(null)
@@ -150,11 +167,12 @@ function QualityWorkspace() {
   const saveInstrument = async (event) => {
     event.preventDefault()
     await runSave(async () => {
+      const validationIssue = qualityInstrumentIssue(instrumentForm, Boolean(instrumentFile))
+      if (validationIssue) throw new Error(validationIssue)
       const filePath = await uploadEvidence(instrumentFile, 'instruments')
       const payload = { ...instrumentForm, applicable_scopes: instrumentForm.scopes.split(',').map((value) => value.trim()).filter(Boolean), calibration_date: instrumentForm.calibration_date || null, calibration_due_date: instrumentForm.calibration_due_date || null, certificate_path: filePath }
       delete payload.scopes
-      const { data, error: saveError } = await hr.from('quality_instruments').insert(payload).select().single()
-      if (saveError) throw saveError
+      const data = await insertWithEvidence('quality_instruments', payload, filePath)
       await ac('admin', 'quality_instrument_created', 'quality_instrument', data.id, data.name, { serial_number: data.serial_number })
       setInstrumentForm(emptyInstrument)
       setInstrumentFile(null)
@@ -166,8 +184,7 @@ function QualityWorkspace() {
     await runSave(async () => {
       const userId = await actorId()
       const filePath = await uploadEvidence(recordFile, 'records')
-      const { data, error: saveError } = await hr.from('quality_records').insert({ ...recordForm, due_date: recordForm.due_date || null, owner_id: userId, evidence_path: filePath }).select().single()
-      if (saveError) throw saveError
+      const data = await insertWithEvidence('quality_records', { ...recordForm, requirement_id: recordForm.requirement_id || null, due_date: recordForm.due_date || null, owner_id: userId, evidence_path: filePath }, filePath)
       await ac('admin', 'quality_record_created', 'quality_record', data.id, data.title, { type: data.record_type, severity: data.severity })
       setRecordForm(emptyRecord)
       setRecordFile(null)
@@ -180,14 +197,18 @@ function QualityWorkspace() {
     await ac('admin', 'quality_requirement_updated', 'quality_requirement', item.id, item.title, { from: item.status, to: status })
   }, 'Status van de eis is bijgewerkt.')
 
-  const completeRecord = async (record) => {
-    const effectiveness = window.prompt('Welke controle toont aan dat de actie effectief is?')
-    if (!effectiveness?.trim()) return
+  const completeRecord = async (event) => {
+    event.preventDefault()
+    const record = recordToComplete
+    const effectiveness = effectivenessCheck.trim()
+    if (!record || !effectiveness) return setError('Beschrijf eerst hoe de effectiviteit aantoonbaar is gecontroleerd.')
     await runSave(async () => {
       const userId = await actorId()
-      const { error: saveError } = await hr.from('quality_records').update({ status: 'completed', effectiveness_check: effectiveness.trim(), closed_by: userId, closed_at: new Date().toISOString() }).eq('id', record.id)
+      const { error: saveError } = await hr.from('quality_records').update({ status: 'completed', effectiveness_check: effectiveness, closed_by: userId, closed_at: new Date().toISOString() }).eq('id', record.id)
       if (saveError) throw saveError
-      await ac('admin', 'quality_record_completed', 'quality_record', record.id, record.title, { effectiveness_check: effectiveness.trim() })
+      await ac('admin', 'quality_record_completed', 'quality_record', record.id, record.title, { effectiveness_check: effectiveness })
+      setRecordToComplete(null)
+      setEffectivenessCheck('')
     }, 'Actie is aantoonbaar afgerond.')
   }
 
@@ -195,6 +216,42 @@ function QualityWorkspace() {
     const { data, error: signedError } = await hr.storage.from('quality-evidence').createSignedUrl(path, 120)
     if (signedError) return setError(signedError.message)
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  const exportAuditPackage = async () => {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const { data: auth, error: authError } = await hr.auth.getUser()
+      if (authError) throw authError
+      if (!auth?.user) throw new Error('Gebruiker is niet aangemeld.')
+      const profile = profiles.find((item) => item.id === auth.user.id)
+      const generatedAt = new Date().toISOString()
+      const auditPackage = buildQualityAuditPackage(
+        { requirements, documents, competencies, instruments, records },
+        { generatedAt, generatedBy: profile?.full_name || auth.user.email || auth.user.id },
+      )
+      const canonical = JSON.stringify(auditPackage, null, 2)
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical))
+      const hash = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+      const fileName = `B2Inspect-SCIOS-auditpakket-${today()}.json`
+      const exportDocument = { ...auditPackage, integrity: { algorithm: 'SHA-256', hash, applies_to: 'audit_package_without_integrity' } }
+      const url = URL.createObjectURL(new Blob([JSON.stringify(exportDocument, null, 2)], { type: 'application/json' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      await ac('admin', 'quality_dataroom_exported', 'quality_audit_package', null, fileName, { hash, generated_at: generatedAt })
+      setNotice('Auditpakket is geëxporteerd met inhoudsopgave en integriteitscontrole.')
+    } catch (exportError) {
+      setError(exportError?.message || 'Auditpakket exporteren is mislukt.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const readiness = qualityReadiness(requirements)
@@ -214,7 +271,10 @@ function QualityWorkspace() {
           g.jsx('h2', { className: 'text-xl font-extrabold text-slate-900', children: 'Digitale SCIOS-certificering' }),
           g.jsx('p', { className: 'mt-1 text-sm text-slate-500', children: 'Eén aantoonbare keten voor eisen, bewijs, bevoegdheden, audits en Kiwa-acties.' }),
         ] }),
-        g.jsx('button', { type: 'button', onClick: load, className: 'min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50', children: 'Vernieuwen' }),
+        g.jsxs('div', { className: 'quality-hero-actions flex flex-col gap-2 sm:flex-row', children: [
+          g.jsx('button', { type: 'button', onClick: exportAuditPackage, disabled: busy, className: 'min-h-11 rounded-xl bg-slate-800 px-4 text-sm font-bold text-white disabled:opacity-50', children: 'Auditpakket exporteren' }),
+          g.jsx('button', { type: 'button', onClick: load, disabled: busy, className: 'min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50', children: 'Vernieuwen' }),
+        ] }),
       ] }),
       g.jsx('nav', { className: 'mt-4 flex gap-2 overflow-x-auto pb-1', 'aria-label': 'Kwaliteitsonderdelen', children: tabs.map(([key, label]) => g.jsx('button', { type: 'button', onClick: () => setTab(key), 'aria-current': tab === key ? 'page' : void 0, className: `min-h-10 whitespace-nowrap rounded-xl px-3 text-sm font-bold ${tab === key ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`, children: label }, key)) }),
     ] }),
@@ -238,7 +298,7 @@ function QualityWorkspace() {
     tab === 'requirements' && g.jsx('div', { className: 'grid gap-3', children: requirements.map((item) => g.jsxs('article', { className: 'rounded-2xl border border-slate-200 bg-white p-4', children: [
       g.jsxs('div', { className: 'flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between', children: [
         g.jsxs('div', { children: [g.jsxs('p', { className: 'text-xs font-bold uppercase tracking-wide text-slate-500', children: [item.code, ' · ', item.category] }), g.jsx('h3', { className: 'mt-1 font-extrabold text-slate-900', children: item.title }), item.notes && g.jsx('p', { className: 'mt-2 max-w-4xl text-sm leading-6 text-slate-600', children: item.notes })] }),
-        g.jsxs('div', { className: 'flex flex-wrap items-center gap-2', children: [g.jsx(StatusBadge, { value: qualityLabels.sourceStatus[item.source_status] || item.source_status, kind: item.source_status === 'current' ? 'success' : 'warning' }), g.jsx('select', { value: item.status, onChange: (event) => updateRequirement(item, event.target.value), className: 'min-h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold', children: Object.entries(qualityLabels.requirementStatus).map(([value, label]) => g.jsx('option', { value, children: label }, value)) })] }),
+        g.jsxs('div', { className: 'flex flex-wrap items-center gap-2', children: [g.jsx(StatusBadge, { value: qualityLabels.sourceStatus[item.source_status] || item.source_status, kind: item.source_status === 'current' ? 'success' : 'warning' }), g.jsx('select', { value: item.status, 'aria-label': `Status van eis ${item.code}`, onChange: (event) => updateRequirement(item, event.target.value), className: 'min-h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold', children: Object.entries(qualityLabels.requirementStatus).map(([value, label]) => g.jsx('option', { value, children: label }, value)) })] }),
       ] }),
     ] }, item.id)) }),
 
@@ -252,8 +312,9 @@ function QualityWorkspace() {
         g.jsx(Field, { label: 'Ingangsdatum', children: g.jsx('input', { type: 'date', value: documentForm.effective_date, onChange: (e) => setDocumentForm({ ...documentForm, effective_date: e.target.value }), className: 'min-h-11 rounded-xl border px-3' }) }),
         g.jsx(Field, { label: 'Bestand (PDF)', children: g.jsx('input', { type: 'file', accept: '.pdf,application/pdf', onChange: (e) => setDocumentFile(e.target.files?.[0] || null), className: 'min-h-11 rounded-xl border p-2' }) }),
         g.jsx(Field, { label: 'Wijzigingsreden', className: 'sm:col-span-2', children: g.jsx('input', { value: documentForm.change_reason, onChange: (e) => setDocumentForm({ ...documentForm, change_reason: e.target.value }), className: 'min-h-11 rounded-xl border px-3' }) }),
+        g.jsx(Field, { label: 'Gekoppelde eis-codes (komma)', className: 'sm:col-span-2', children: g.jsx('input', { value: documentForm.requirement_codes, onChange: (e) => setDocumentForm({ ...documentForm, requirement_codes: e.target.value }), placeholder: 'Bijv. QMS-01, DOC-02', className: 'min-h-11 rounded-xl border px-3' }) }),
       ] }),
-      g.jsx('div', { className: 'grid gap-3 lg:grid-cols-2', children: documents.map((item) => g.jsxs('article', { className: 'rounded-2xl border border-slate-200 bg-white p-4', children: [g.jsxs('div', { className: 'flex items-start justify-between gap-3', children: [g.jsxs('div', { children: [g.jsx('p', { className: 'text-xs font-bold text-slate-500', children: `${item.document_code} · versie ${item.version}` }), g.jsx('h3', { className: 'mt-1 font-extrabold text-slate-900', children: item.title }), g.jsx('p', { className: 'mt-1 text-sm text-slate-500', children: item.category })] }), g.jsx(StatusBadge, { value: item.status, kind: item.status === 'approved' ? 'success' : 'warning' })] }), item.file_path && g.jsx('button', { type: 'button', onClick: () => openEvidence(item.file_path), className: 'mt-3 text-sm font-bold text-blue-700 underline', children: 'Bewijsbestand openen' })] }, item.id)) })
+      g.jsx('div', { className: 'grid gap-3 lg:grid-cols-2', children: documents.map((item) => g.jsxs('article', { className: 'rounded-2xl border border-slate-200 bg-white p-4', children: [g.jsxs('div', { className: 'flex items-start justify-between gap-3', children: [g.jsxs('div', { children: [g.jsx('p', { className: 'text-xs font-bold text-slate-500', children: `${item.document_code} · versie ${item.version}` }), g.jsx('h3', { className: 'mt-1 font-extrabold text-slate-900', children: item.title }), g.jsx('p', { className: 'mt-1 text-sm text-slate-500', children: item.category }), g.jsx('p', { className: 'mt-1 text-xs text-slate-500', children: item.requirement_codes?.length ? `Eisen: ${item.requirement_codes.join(', ')}` : 'Nog niet aan een eis gekoppeld' })] }), g.jsx(StatusBadge, { value: item.status, kind: item.status === 'approved' ? 'success' : 'warning' })] }), item.file_path && g.jsx('button', { type: 'button', onClick: () => openEvidence(item.file_path), className: 'mt-3 text-sm font-bold text-blue-700 underline', children: 'Bewijsbestand openen' })] }, item.id)) })
     ] }),
 
     tab === 'competencies' && g.jsxs(g.Fragment, { children: [
@@ -280,6 +341,7 @@ function QualityWorkspace() {
         g.jsx(Field,{label:'Fabrikant',children:g.jsx('input',{value:instrumentForm.manufacturer,onChange:(e)=>setInstrumentForm({...instrumentForm,manufacturer:e.target.value}),className:'min-h-11 rounded-xl border px-3'})}),
         g.jsx(Field,{label:'Model',children:g.jsx('input',{value:instrumentForm.model,onChange:(e)=>setInstrumentForm({...instrumentForm,model:e.target.value}),className:'min-h-11 rounded-xl border px-3'})}),
         g.jsx(Field,{label:'Scopes (komma)',children:g.jsx('input',{value:instrumentForm.scopes,onChange:(e)=>setInstrumentForm({...instrumentForm,scopes:e.target.value}),className:'min-h-11 rounded-xl border px-3'})}),
+        g.jsx(Field,{label:'Kalibratieplicht',children:g.jsxs('span',{className:'flex min-h-11 items-center gap-2 rounded-xl border px-3',children:[g.jsx('input',{type:'checkbox',checked:instrumentForm.calibration_required,onChange:(e)=>setInstrumentForm({...instrumentForm,calibration_required:e.target.checked})}),g.jsx('span',{className:'font-normal',children:'Kalibratie en certificaat vereist'})]})}),
         g.jsx(Field,{label:'Kalibratiedatum',children:g.jsx('input',{type:'date',value:instrumentForm.calibration_date,onChange:(e)=>setInstrumentForm({...instrumentForm,calibration_date:e.target.value}),className:'min-h-11 rounded-xl border px-3'})}),
         g.jsx(Field,{label:'Kalibratie geldig tot',children:g.jsx('input',{type:'date',value:instrumentForm.calibration_due_date,onChange:(e)=>setInstrumentForm({...instrumentForm,calibration_due_date:e.target.value}),className:'min-h-11 rounded-xl border px-3'})}),
         g.jsx(Field,{label:'Kalibratiecertificaat',children:g.jsx('input',{type:'file',accept:'.pdf,image/*',onChange:(e)=>setInstrumentFile(e.target.files?.[0]||null),className:'min-h-11 rounded-xl border p-2'})}),
@@ -294,11 +356,21 @@ function QualityWorkspace() {
         g.jsx(Field,{label:'Ernst',children:g.jsx('select',{value:recordForm.severity,onChange:(e)=>setRecordForm({...recordForm,severity:e.target.value}),className:'min-h-11 rounded-xl border px-3',children:[['low','Laag'],['normal','Normaal'],['high','Hoog'],['critical','Kritiek']].map(([value,label])=>g.jsx('option',{value,children:label},value))})}),
         g.jsx(Field,{label:'Uiterste datum',children:g.jsx('input',{type:'date',value:recordForm.due_date,onChange:(e)=>setRecordForm({...recordForm,due_date:e.target.value}),className:'min-h-11 rounded-xl border px-3'})}),
         g.jsx(Field,{label:'Bron',children:g.jsx('input',{value:recordForm.source,onChange:(e)=>setRecordForm({...recordForm,source:e.target.value}),placeholder:'Bijv. interne audit of Kiwa',className:'min-h-11 rounded-xl border px-3'})}),
+        g.jsx(Field,{label:'Gekoppelde eis',children:g.jsx('select',{value:recordForm.requirement_id,onChange:(e)=>setRecordForm({...recordForm,requirement_id:e.target.value}),className:'min-h-11 rounded-xl border px-3',children:[g.jsx('option',{value:'',children:'Geen eis geselecteerd'}),...requirements.map((item)=>g.jsx('option',{value:item.id,children:`${item.code} · ${item.title}`},item.id))]})}),
         g.jsx(Field,{label:'Beschrijving',className:'sm:col-span-2',children:g.jsx('textarea',{value:recordForm.description,onChange:(e)=>setRecordForm({...recordForm,description:e.target.value}),rows:3,className:'rounded-xl border p-3'})}),
         g.jsx(Field,{label:'Bewijsbestand',children:g.jsx('input',{type:'file',accept:'.pdf,image/*,.csv,.xlsx',onChange:(e)=>setRecordFile(e.target.files?.[0]||null),className:'min-h-11 rounded-xl border p-2'})}),
       ] }),
-      g.jsx('div',{className:'grid gap-3',children:records.map((item)=>g.jsxs('article',{className:`rounded-2xl border bg-white p-4 ${openQualityRisk(item)?'border-red-300':'border-slate-200'}`,children:[g.jsxs('div',{className:'flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between',children:[g.jsxs('div',{children:[g.jsx('p',{className:'text-xs font-bold uppercase text-slate-500',children:qualityLabels.recordType[item.record_type]||item.record_type}),g.jsx('h3',{className:'mt-1 font-extrabold text-slate-900',children:item.title}),item.description&&g.jsx('p',{className:'mt-2 text-sm leading-6 text-slate-600',children:item.description}),g.jsx('p',{className:'mt-2 text-xs text-slate-500',children:item.due_date?`Uiterlijk ${item.due_date}`:'Geen uiterste datum'})]}),g.jsxs('div',{className:'flex flex-wrap gap-2',children:[g.jsx(StatusBadge,{value:item.severity,kind:item.severity==='critical'?'danger':item.severity==='high'?'warning':'default'}),g.jsx(StatusBadge,{value:item.status,kind:item.status==='completed'?'success':'warning'})]})]}),g.jsxs('div',{className:'mt-3 flex flex-wrap gap-3',children:[item.evidence_path&&g.jsx('button',{type:'button',onClick:()=>openEvidence(item.evidence_path),className:'text-sm font-bold text-blue-700 underline',children:'Bewijs openen'}),!['completed','cancelled'].includes(item.status)&&g.jsx('button',{type:'button',onClick:()=>completeRecord(item),className:'rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white',children:'Effectief afronden'})]})]},item.id))})
+      g.jsx('div',{className:'grid gap-3',children:records.map((item)=>{const requirement=requirements.find((entry)=>entry.id===item.requirement_id);return g.jsxs('article',{className:`rounded-2xl border bg-white p-4 ${openQualityRisk(item)?'border-red-300':'border-slate-200'}`,children:[g.jsxs('div',{className:'flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between',children:[g.jsxs('div',{children:[g.jsx('p',{className:'text-xs font-bold uppercase text-slate-500',children:qualityLabels.recordType[item.record_type]||item.record_type}),g.jsx('h3',{className:'mt-1 font-extrabold text-slate-900',children:item.title}),item.description&&g.jsx('p',{className:'mt-2 text-sm leading-6 text-slate-600',children:item.description}),g.jsx('p',{className:'mt-2 text-xs text-slate-500',children:[item.due_date?`Uiterlijk ${item.due_date}`:'Geen uiterste datum',requirement?` · eis ${requirement.code}`:'']})]}),g.jsxs('div',{className:'flex flex-wrap gap-2',children:[g.jsx(StatusBadge,{value:item.severity,kind:item.severity==='critical'?'danger':item.severity==='high'?'warning':'default'}),g.jsx(StatusBadge,{value:item.status,kind:item.status==='completed'?'success':'warning'})]})]}),g.jsxs('div',{className:'mt-3 flex flex-wrap gap-3',children:[item.evidence_path&&g.jsx('button',{type:'button',onClick:()=>openEvidence(item.evidence_path),className:'text-sm font-bold text-blue-700 underline',children:'Bewijs openen'}),!['completed','cancelled'].includes(item.status)&&g.jsx('button',{type:'button',onClick:()=>{setError('');setRecordToComplete(item);setEffectivenessCheck('')},className:'rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white',children:'Effectief afronden'})]})]},item.id)})})
     ] }),
+    recordToComplete && g.jsx('div', { role: 'presentation', className: 'fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4', onMouseDown: (event) => { if (event.target === event.currentTarget && !busy) setRecordToComplete(null) }, children: g.jsxs('form', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'quality-complete-title', onSubmit: completeRecord, className: 'w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl', children: [
+      g.jsx('h3', { id: 'quality-complete-title', className: 'text-lg font-extrabold text-slate-900', children: 'Kwaliteitsactie afronden' }),
+      g.jsx('p', { className: 'mt-2 text-sm text-slate-600', children: `Leg vast welke controle aantoont dat “${recordToComplete.title}” effectief is opgelost.` }),
+      g.jsx(Field, { label: 'Effectiviteitscontrole', className: 'mt-4', children: g.jsx('textarea', { required: true, autoFocus: true, value: effectivenessCheck, onChange: (event) => setEffectivenessCheck(event.target.value), rows: 4, className: 'rounded-xl border p-3', placeholder: 'Beschrijf de controle, uitkomst en het bewijs.' }) }),
+      g.jsxs('div', { className: 'mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', children: [
+        g.jsx('button', { type: 'button', disabled: busy, onClick: () => { setRecordToComplete(null); setEffectivenessCheck('') }, className: 'min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 disabled:opacity-50', children: 'Annuleren' }),
+        g.jsx('button', { type: 'submit', disabled: busy || !effectivenessCheck.trim(), className: 'min-h-11 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white disabled:opacity-50', children: busy ? 'Afronden…' : 'Bevestigen en afronden' }),
+      ] }),
+    ] }) }),
   ] })
 }
 

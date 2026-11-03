@@ -26,10 +26,35 @@ test('geblokkeerde of niet-gekalibreerde meetmiddelen zijn niet beschikbaar', ()
   assert.equal(model.instrumentAvailability({ status: 'blocked', calibration_due_date: '2027-01-01' }, '2026-11-03'), 'blocked')
   assert.equal(model.instrumentAvailability({ status: 'active', calibration_due_date: '2026-11-02' }, '2026-11-03'), 'blocked')
   assert.equal(model.instrumentAvailability({ status: 'active', calibration_due_date: '2027-01-01' }, '2026-11-03'), 'warning')
+  assert.equal(model.instrumentAvailability({ status: 'active', calibration_required: false }, '2026-11-03'), 'valid')
+})
+
+test('formele vrijgave vereist het juiste bewijs', () => {
+  assert.match(model.qualityDocumentIssue({ status: 'approved' }), /bewijsbestand/)
+  assert.equal(model.qualityDocumentIssue({ status: 'approved' }, true), '')
+  assert.match(model.qualityCompetencyIssue({ status: 'valid' }), /bewijsbestand/)
+  assert.equal(model.qualityCompetencyIssue({ status: 'planned' }), '')
+  assert.match(model.qualityInstrumentIssue({ status: 'active', calibration_required: true }, true), /kalibratiedatum/)
+  assert.match(model.qualityInstrumentIssue({ status: 'active', calibration_required: true, calibration_date: '2026-01-01', calibration_due_date: '2027-01-01' }), /kalibratiecertificaat/)
+  assert.equal(model.qualityInstrumentIssue({ status: 'active', calibration_required: false }), '')
 })
 
 test('kritieke of verlopen open kwaliteitsacties zijn een risico', () => {
   assert.equal(model.openQualityRisk({ status: 'open', severity: 'critical' }, '2026-11-03'), true)
   assert.equal(model.openQualityRisk({ status: 'open', severity: 'normal', due_date: '2026-11-02' }, '2026-11-03'), true)
   assert.equal(model.openQualityRisk({ status: 'completed', severity: 'critical' }, '2026-11-03'), false)
+})
+
+test('auditpakket bevat een reproduceerbare inhoudsopgave en samenvatting', () => {
+  const result = model.buildQualityAuditPackage({
+    requirements: [{ id: 'b', status: 'missing' }, { id: 'a', status: 'ready' }],
+    documents: [{ id: 'doc-1' }],
+    competencies: [],
+    instruments: [{ id: 'meter-1' }],
+    records: [{ id: 'record-1', status: 'open' }],
+  }, { generatedAt: '2026-11-03T12:00:00.000Z', generatedBy: 'Bart Quispel' })
+  assert.equal(result.schema_version, 1)
+  assert.equal(result.summary.readiness.percentage, 50)
+  assert.equal(result.summary.open_records, 1)
+  assert.deepEqual(result.registers.requirements.map((item) => item.id), ['a', 'b'])
 })

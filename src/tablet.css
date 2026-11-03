@@ -160,3 +160,230 @@
     min-height: 2.75rem;
   }
 }
+
+/* Shared interaction and keyboard affordances. */
+:where(.ig-inspector-shell, .ig-admin-shell, .ig-installer-shell, .ig-login-shell, .ig-mileage-shell, .quality-workspace)
+  :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid rgba(15, 118, 110, 0.42);
+  outline-offset: 2px;
+}
+
+:where(.ig-inspector-shell, .ig-admin-shell, .ig-installer-shell, .ig-login-shell, .ig-mileage-shell, .quality-workspace)
+  :is(button, a) {
+  touch-action: manipulation;
+}
+
+.fixed.inset-0[aria-modal='true'] {
+  overscroll-behavior: contain;
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+/* Keep dense office tables readable instead of compressing thirteen columns into a phone width. */
+@media (max-width: 1023px) {
+  .ig-admin-shell :is(.overflow-x-auto, .ig-table-card) {
+    max-width: 100%;
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ig-admin-shell :is(.overflow-x-auto, .ig-table-card) table {
+    min-width: max(64rem, 100%) !important;
+  }
+
+  .ig-admin-shell table :is(th, td) {
+    white-space: normal;
+  }
+
+  .ig-admin-shell table td:last-child {
+    min-width: 12rem;
+  }
+
+  .ig-admin-shell table button {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-height: 2.75rem !important;
+    min-width: 2.75rem !important;
+  }
+
+  .ig-admin-shell table input[type='checkbox'] {
+    height: 1.25rem;
+    width: 1.25rem;
+  }
+}
+
+/* Digital SCIOS quality workspace. The selectors intentionally stay inside its root. */
+.quality-workspace {
+  container-type: inline-size;
+  min-width: 0;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.quality-workspace,
+.quality-workspace > *,
+.quality-workspace article,
+.quality-workspace form,
+.quality-workspace li,
+.quality-workspace label {
+  min-width: 0;
+}
+
+.quality-workspace :is(h2, h3, p, li, strong, span) {
+  overflow-wrap: anywhere;
+}
+
+.quality-workspace nav[aria-label='Kwaliteitsonderdelen'] {
+  margin-inline: -0.25rem;
+  overscroll-behavior-x: contain;
+  padding-inline: 0.25rem;
+  scroll-padding-inline: 0.25rem;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.quality-workspace nav[aria-label='Kwaliteitsonderdelen'] button {
+  min-height: 2.75rem;
+  scroll-snap-align: start;
+}
+
+.quality-workspace form :is(input, select, textarea) {
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.quality-workspace form textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+.quality-workspace form input[type='file'] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quality-workspace :is(button, input, select, textarea) {
+  font: inherit;
+}
+
+.quality-workspace button {
+  min-height: 2.75rem;
+}
+
+.quality-workspace article > :is(div, header):first-child {
+  min-width: 0;
+}
+
+.quality-workspace .overflow-x-auto {
+  max-width: 100%;
+  overflow-x: auto !important;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.quality-workspace table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.quality-workspace table :is(th, td) {
+  text-align: left;
+  vertical-align: top;
+}
+
+.quality-workspace table button {
+  min-height: 2.75rem;
+  padding-inline: 0.75rem;
+}
+
+.quality-workspace :is([role='alert'], [role='status']) {
+  scroll-margin-top: 6rem;
+}
+
+@media (max-width: 767px) {
+  .quality-workspace {
+    font-size: 0.9375rem;
+  }
+
+  .quality-workspace > :first-child {
+    border-radius: 0.85rem !important;
+    padding: 0.9rem !important;
+  }
+
+  .quality-workspace > :first-child > div:first-child {
+    align-items: stretch !important;
+  }
+
+  .quality-workspace > :first-child > div:first-child > button {
+    width: 100%;
+  }
+
+  .quality-workspace nav[aria-label='Kwaliteitsonderdelen'] {
+    margin-inline: -0.9rem;
+    padding-inline: 0.9rem;
+    scroll-padding-inline: 0.9rem;
+  }
+
+  .quality-workspace nav[aria-label='Kwaliteitsonderdelen'] button {
+    flex: 0 0 auto;
+  }
+
+  .quality-workspace form,
+  .quality-workspace article {
+    border-radius: 0.85rem !important;
+    padding: 0.9rem !important;
+  }
+
+  .quality-workspace form :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+    font-size: 1rem;
+    min-height: 2.75rem;
+  }
+
+  .quality-workspace form button[type='submit'] {
+    min-height: 3rem;
+    width: 100%;
+  }
+
+  .quality-workspace article :is(.flex.items-start.justify-between, .flex.items-center.justify-between),
+  .quality-workspace article li.flex {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .quality-workspace article select {
+    min-height: 2.75rem;
+    width: 100%;
+  }
+
+  .quality-workspace .overflow-x-auto table {
+    min-width: 44rem !important;
+  }
+
+  .quality-workspace article button {
+    min-height: 2.75rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  .quality-workspace form > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .quality-workspace .overflow-x-auto table {
+    min-width: 48rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.ig-inspector-shell, .ig-admin-shell, .ig-installer-shell, .ig-login-shell, .ig-mileage-shell, .quality-workspace) *,
+  :where(.ig-inspector-shell, .ig-admin-shell, .ig-installer-shell, .ig-login-shell, .ig-mileage-shell, .quality-workspace) *::before,
+  :where(.ig-inspector-shell, .ig-admin-shell, .ig-installer-shell, .ig-login-shell, .ig-mileage-shell, .quality-workspace) *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

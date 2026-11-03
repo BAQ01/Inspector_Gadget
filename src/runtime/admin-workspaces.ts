@@ -7190,6 +7190,7 @@ ${an} Projecten bijgewerkt`), Dr();
                     quality_record_created: "Kwaliteitsactie geregistreerd",
                     quality_record_completed: "Kwaliteitsactie afgerond",
                     quality_requirement_updated: "Certificatie-eis bijgewerkt",
+                    quality_dataroom_exported: "SCIOS-auditpakket geëxporteerd",
                     settings_company_updated: "Inspectiebedrijf bijgewerkt",
                     expense_claim_submitted: "Onkosten ingediend",
                     expense_claim_approved: "Onkosten goedgekeurd",
