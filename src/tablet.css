@@ -274,6 +274,25 @@
   min-height: 2.75rem;
 }
 
+/* The recovered production stylesheet does not contain every utility that the
+   quality workspace uses. Keep its action hierarchy explicit and scoped so
+   primary actions never render as white text on a transparent background. */
+.quality-workspace .bg-slate-800 {
+  background-color: #1e293b;
+}
+
+.quality-workspace .bg-emerald-700 {
+  background-color: #047857;
+}
+
+.quality-workspace [class~='bg-slate-950/60'] {
+  background-color: rgb(2 6 23 / 60%);
+}
+
+.quality-workspace :is(.bg-slate-800, .bg-emerald-700):not(:disabled):hover {
+  filter: brightness(1.08);
+}
+
 .quality-workspace article > :is(div, header):first-child {
   min-width: 0;
 }
