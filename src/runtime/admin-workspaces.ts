@@ -1,8 +1,9 @@
 // @ts-nocheck
 /* Recovered module: admin-workspaces. Generated from the verified 2026-10-26 production runtime. */
-import { $Ce, $V, $c, AC, Av, BS, CEe, Cx, DCe, DM, Ee, Eg, Ex, FM, Fd, Gt, Gv, Kc, LCe, LM, MM, Mu, NM, NS, Ng, Ns, Ou, PM, QM, RM, TS, UI, UV, VS, Vm, WEe, WV, ZEe, Ze, ac, b5, bEe, c3e, cC, dC, dEe, e1, eEe, f3e, fC, g, gC, gEe, gf, h1, hC, hr, i3e, ip, jM, k1, kCe, lEe, mf, mh, mv, oC, p1, pC, qCe, r3e, s3e, st, t1, u0, wCe, y5, yCe, zM } from './vendor-core'
+import { $Ce, $V, $c, AC, Av, BS, CEe, Cx, DCe, DM, Ee, Eg, Ex, FM, Fd, Gt, Gv, Kc, LCe, LM, MM, Mu, NM, NS, Ng, Ns, Ou, PM, QM, RM, TS, UI, UV, VS, Vm, WEe, WV, ZEe, Ze, ac, b5, bEe, c3e, cC, dC, dEe, e1, eEe, f3e, fC, g, gC, gEe, gf, h1, hC, hr, i3e, ip, jM, k1, kCe, lEe, mC, mf, mh, mv, oC, p1, pC, qCe, r3e, s3e, st, t1, u0, wCe, y5, yCe, zM } from './vendor-core'
 import { BB, D9e, FNe, GNe, HA, II, JNe, KNe, Nk, PNe, PhoneAgendaConnection, QNe, Ru, UNe, WK, XNe, Yo, _I, aU, eje, iU, lo, lp, pf, qM, rZ, tje, wI, zA, zNe } from './reporting-vendor'
 import { InspectionReviewDialog } from './inspection-review-dialog'
+import { QualityWorkspace } from './quality-workspace'
 
 const normalizeClientValue = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
 const clientsLikelyDuplicate = (left, right) => {
@@ -6164,6 +6165,10 @@ ${an} Projecten bijgewerkt`), Dr();
       settings: {
         title: "Instellingen",
         subtitle: "Stamgegevens en systeemkeuzes"
+      },
+      quality: {
+        title: "SCIOS-kwaliteit",
+        subtitle: "Digitale certificering, auditbewijs en verbetercyclus"
       }
     }[r];
   return g.jsx("div", {
@@ -6328,6 +6333,15 @@ ${an} Projecten bijgewerkt`), Dr();
           children: [g.jsx(jM, {
             size: 17
           }), " Bibliotheek"]
+        }), g.jsxs("button", {
+          onClick: () => {
+            e("quality"), setMobileMoreOpen(!1);
+          },
+          "aria-current": r === "quality" ? "page" : void 0,
+          className: `ig-admin-nav-item ig-nav-secondary ${r === "quality" ? "is-active" : ""}`,
+          children: [g.jsx(mC, {
+            size: 17
+          }), " SCIOS-kwaliteit"]
         }), g.jsxs("button", {
           onClick: () => {
             e("log"), setMobileMoreOpen(!1);
@@ -7170,6 +7184,12 @@ ${an} Projecten bijgewerkt`), Dr();
                     client_deleted: "Klant verwijderd",
                     user_company_updated: "Bedrijf bijgewerkt",
                     profile_updated: "Profiel bijgewerkt",
+                    quality_document_created: "Kwaliteitsdocument geregistreerd",
+                    quality_competency_created: "Competentie geregistreerd",
+                    quality_instrument_created: "Meetmiddel geregistreerd",
+                    quality_record_created: "Kwaliteitsactie geregistreerd",
+                    quality_record_completed: "Kwaliteitsactie afgerond",
+                    quality_requirement_updated: "Certificatie-eis bijgewerkt",
                     settings_company_updated: "Inspectiebedrijf bijgewerkt",
                     expense_claim_submitted: "Onkosten ingediend",
                     expense_claim_approved: "Onkosten goedgekeurd",
@@ -7812,7 +7832,7 @@ ${an} Projecten bijgewerkt`), Dr();
             })]
           })
         })]
-      }), u && g.jsx("div", {
+      }), r === "quality" && g.jsx(QualityWorkspace, {}), u && g.jsx("div", {
         className: "fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50",
         children: g.jsxs("div", {
           className: "bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-lg p-0 overflow-hidden flex flex-col max-h-[94dvh]",

@@ -15,6 +15,9 @@ Meetdatum: 30 oktober 2026 (Europe/Amsterdam)
 - De bronbuild bevat **Planning en agenda**, **Werkvoorraad** en de **Commerciële pipeline**.
 - Medewerkers kunnen kilometerdeclaraties indienen en via Excel inladen of downloaden; beheerders kunnen dit voor alle geregistreerde medewerkers doen en declaraties beoordelen. De declaraties zijn met RLS per medewerker afgeschermd.
 - De lokale browsertest toont het actuele B2Inspect-inlogscherm zonder runtimefouten.
+- De kantooromgeving bevat een digitale SCIOS-kwaliteitsmodule voor eisen,
+  beheerste documenten, competenties, meetmiddelen, audits, CAPA, klachten en
+  externe certificatietaken. De productiemigratie wordt afzonderlijk vrijgegeven.
 - TypeScript-controle, lintcontrole en de productiebuild slagen.
 - `npm audit` rapporteert na gerichte updates en verwijdering van ongebruikte pakketten
   **0 bekende kwetsbaarheden**.
