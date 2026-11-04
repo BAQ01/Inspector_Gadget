@@ -42,15 +42,41 @@
   }
 
   .ig-step-nav {
+    display: block !important;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ig-step-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ig-step-track {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    overflow: visible !important;
+    min-width: 0 !important;
+    width: 100% !important;
   }
 
   .ig-step-item {
     min-width: 0 !important;
     min-height: 2.75rem !important;
+    line-height: 1.15;
+    letter-spacing: 0.01em !important;
+    overflow-wrap: normal;
+    padding: 0.625rem 0.25rem !important;
+    text-transform: none !important;
+    transform: none !important;
     white-space: normal !important;
+  }
+
+  .ig-step-number,
+  .ig-step-label {
+    display: block;
   }
 
   .ig-admin-actions {
@@ -68,6 +94,20 @@
   .ig-table-card td button:not(.ig-mileage-refresh) {
     min-width: 2.75rem;
     min-height: 2.75rem;
+  }
+}
+
+@media (max-width: 359px) {
+  .ig-step-nav {
+    scroll-snap-type: x proximity;
+  }
+
+  .ig-step-track {
+    min-width: 20rem !important;
+  }
+
+  .ig-step-item {
+    scroll-snap-align: start;
   }
 }
 

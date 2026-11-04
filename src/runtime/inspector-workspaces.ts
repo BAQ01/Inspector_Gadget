@@ -1121,12 +1121,22 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
         children: g.jsx("div", {
           className: "ig-step-track flex bg-surface-container-low p-1.5 rounded-2xl w-max md:w-full min-w-full",
           children: Rm.map((ie, Se) => {
-            const Re = K === ie;
+            const Re = K === ie,
+              stepLabel = ie === "setup" ? "Basis" : ie === "measure" ? "Metingen" : ie === "inspect" ? "Gebreken" : "Rapport";
             return g.jsxs("button", {
+              type: "button",
               onClick: () => oe(ie),
               "aria-current": Re ? "step" : void 0,
-              className: `ig-step-item flex-1 min-w-[100px] py-2.5 px-4 text-xs md:text-sm font-bold uppercase tracking-widest transition-all duration-300 ${Re ? "is-active bg-white text-primary shadow-sm transform scale-100" : "text-on-surface-variant hover:text-primary hover:bg-surface-container-highest scale-95"}`,
-              children: [Se + 1, ". ", ie === "setup" ? "Basis" : ie === "measure" ? "Metingen" : ie === "inspect" ? "Gebreken" : "Export"]
+              "aria-label": `Stap ${Se + 1}: ${stepLabel}`,
+              className: `ig-step-item flex-1 min-w-[100px] py-2.5 px-4 text-xs md:text-sm font-bold transition-all duration-300 ${Re ? "is-active bg-white text-primary shadow-sm" : "text-on-surface-variant hover:text-primary hover:bg-surface-container-highest"}`,
+              children: [g.jsxs("span", {
+                className: "ig-step-number",
+                "aria-hidden": "true",
+                children: [Se + 1, "."]
+              }), g.jsx("span", {
+                className: "ig-step-label",
+                children: stepLabel
+              })]
             }, ie);
           })
         })
@@ -2633,30 +2643,44 @@ ${fn}` : wt.description, Se = wt.classification, Re = wt.id;
               }), g.jsxs("div", {
                 className: "flex gap-2 pt-2",
                 children: [g.jsxs("label", {
-                  className: "flex-1 bg-gray-100 p-3 rounded cursor-pointer flex justify-center border hover:bg-gray-200",
+                  htmlFor: "defect-photo-1",
+                  className: "flex-1 min-w-0 bg-gray-100 p-3 rounded cursor-pointer flex items-center justify-center gap-2 border hover:bg-gray-200 text-xs font-bold text-gray-700",
                   children: [g.jsx(lC, {
-                    size: 20
+                    size: 20,
+                    "aria-hidden": "true"
+                  }), g.jsx("span", {
+                    children: en ? "Foto 1 vervangen" : "Foto 1 toevoegen"
                   }), g.jsx("input", {
+                    id: "defect-photo-1",
                     type: "file",
                     accept: "image/*",
                     className: "hidden",
+                    "aria-label": "Foto 1 van het gebrek uploaden",
                     onChange: ie => Al(ie, 1)
                   })]
                 }), en && g.jsx("img", {
                   src: en,
+                  alt: "Voorbeeld van foto 1",
                   className: "w-12 h-12 object-cover rounded border"
                 }), g.jsxs("label", {
-                  className: "flex-1 bg-gray-100 p-3 rounded cursor-pointer flex justify-center border hover:bg-gray-200",
+                  htmlFor: "defect-photo-2",
+                  className: "flex-1 min-w-0 bg-gray-100 p-3 rounded cursor-pointer flex items-center justify-center gap-2 border hover:bg-gray-200 text-xs font-bold text-gray-700",
                   children: [g.jsx(lC, {
-                    size: 20
+                    size: 20,
+                    "aria-hidden": "true"
+                  }), g.jsx("span", {
+                    children: dn ? "Foto 2 vervangen" : "Foto 2 toevoegen"
                   }), g.jsx("input", {
+                    id: "defect-photo-2",
                     type: "file",
                     accept: "image/*",
                     className: "hidden",
+                    "aria-label": "Foto 2 van het gebrek uploaden",
                     onChange: ie => Al(ie, 2)
                   })]
                 }), dn && g.jsx("img", {
                   src: dn,
+                  alt: "Voorbeeld van foto 2",
                   className: "w-12 h-12 object-cover rounded border"
                 })]
               }), g.jsxs("div", {
