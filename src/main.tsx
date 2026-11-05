@@ -1,4 +1,5 @@
 import './recovered/production.css'
+import './quote.css'
 import './mileage.css'
 import './mileage-excel.css'
 import './tablet.css'

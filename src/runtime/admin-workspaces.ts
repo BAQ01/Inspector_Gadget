@@ -4,6 +4,7 @@ import { $Ce, $V, $c, AC, Av, BS, CEe, Cx, DCe, DM, Ee, Eg, Ex, FM, Fd, Gt, Gv, 
 import { BB, D9e, FNe, GNe, HA, II, JNe, KNe, Nk, PNe, PhoneAgendaConnection, QNe, Ru, UNe, WK, XNe, Yo, _I, aU, eje, iU, lo, lp, pf, qM, rZ, tje, wI, zA, zNe } from './reporting-vendor'
 import { InspectionReviewDialog } from './inspection-review-dialog'
 import { QualityWorkspace } from './quality-workspace'
+import { calculateQuote, createDefaultQuoteInput, normalizeQuoteInput, validateQuoteInput } from './quote-calculation.js'
 
 const normalizeClientValue = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
 const clientsLikelyDuplicate = (left, right) => {
@@ -1699,125 +1700,7 @@ const bf = {
       B: "Klasse B — gemiddeld risico",
       C: "Klasse C — hoog risico"
     }
-  },
-  nje = 2,
-  ije = .45,
-  lU = 35,
-  aje = {
-    kantoor: .0016,
-    industrie: .005,
-    agrarisch: .006,
-    zorg: .003,
-    onderwijs: .0025,
-    horeca: .0045,
-    logistiek: .0022
-  },
-  sje = {
-    schemaVersion: 1,
-    scope: "10",
-    inspectionType: "PI",
-    riskClass: "B",
-    buildingType: "kantoor",
-    buildingAge: "normaal",
-    accessibility: "goed",
-    documentation: "compleet",
-    surfaceArea: 500,
-    mainBoards: 1,
-    subBoards: 0,
-    hasSolar: !1,
-    solarInverters: 1,
-    hasEV: !1,
-    evChargers: 1,
-    heavyMachinery: 0,
-    hasUPS: !1,
-    travelDistance: 25,
-    outOfHours: !1,
-    needsLift: !1,
-    safetyInduction: !1,
-    hourlyRate: 95,
-    unforeseenCosts: 0,
-    hotelCosts: 0,
-    parkingCosts: 0
-  },
-  oje = (r, e) => Object.prototype.hasOwnProperty.call(r, e),
-  lje = r => !!r && typeof r == "object" && !Array.isArray(r),
-  ng = (r, e, t) => typeof r == "string" && e.includes(r) ? r : t,
-  Rd = (r, e) => typeof r == "number" && Number.isFinite(r) ? r : e,
-  Pm = (r, e, t) => oje(r, e) && typeof r[e] == "boolean" ? r[e] : t,
-  Qm = r => Math.round((r + Number.EPSILON) * 100) / 100;
-function createDefaultQuoteInput(r = []) {
-  const e = r.includes("8"),
-    t = r.includes("10");
-  return {
-    ...sje,
-    scope: e && t ? "combi" : e ? "8" : "10"
   };
-}
-function normalizeQuoteInput(r, e = []) {
-  const t = createDefaultQuoteInput(e);
-  return lje(r) ? {
-    schemaVersion: 1,
-    scope: ng(r.scope, ["8", "10", "combi"], t.scope),
-    inspectionType: ng(r.inspectionType, ["PI", "EBI"], t.inspectionType),
-    riskClass: ng(r.riskClass, ["A", "B", "C"], t.riskClass),
-    buildingType: ng(r.buildingType, ["kantoor", "industrie", "agrarisch", "zorg", "onderwijs", "horeca", "logistiek"], t.buildingType),
-    buildingAge: ng(r.buildingAge, ["nieuw", "normaal", "oud"], t.buildingAge),
-    accessibility: ng(r.accessibility, ["goed", "matig", "slecht"], t.accessibility),
-    documentation: ng(r.documentation, ["compleet", "incompleet", "geen"], t.documentation),
-    surfaceArea: Rd(r.surfaceArea, t.surfaceArea),
-    mainBoards: Rd(r.mainBoards, t.mainBoards),
-    subBoards: Rd(r.subBoards, t.subBoards),
-    hasSolar: Pm(r, "hasSolar", t.hasSolar),
-    solarInverters: Rd(r.solarInverters, t.solarInverters),
-    hasEV: Pm(r, "hasEV", t.hasEV),
-    evChargers: Rd(r.evChargers, t.evChargers),
-    heavyMachinery: Rd(r.heavyMachinery, t.heavyMachinery),
-    hasUPS: Pm(r, "hasUPS", t.hasUPS),
-    travelDistance: Rd(r.travelDistance, t.travelDistance),
-    outOfHours: Pm(r, "outOfHours", t.outOfHours),
-    needsLift: Pm(r, "needsLift", t.needsLift),
-    safetyInduction: Pm(r, "safetyInduction", t.safetyInduction),
-    hourlyRate: Rd(r.hourlyRate, t.hourlyRate),
-    unforeseenCosts: Rd(r.unforeseenCosts, t.unforeseenCosts),
-    hotelCosts: Rd(r.hotelCosts, t.hotelCosts),
-    parkingCosts: Rd(r.parkingCosts, t.parkingCosts)
-  } : t;
-}
-function validateQuoteInput(r) {
-  const e = [[r.surfaceArea, 1, 1e6, "Oppervlakte"], [r.mainBoards, 0, 1e4, "Aantal hoofdverdelers"], [r.subBoards, 0, 1e4, "Aantal onderverdelers"], [r.solarInverters, 0, 1e4, "Aantal omvormers"], [r.evChargers, 0, 1e4, "Aantal laadpunten"], [r.heavyMachinery, 0, 1e4, "Aantal zware machines"], [r.travelDistance, 0, 5e3, "Reisafstand"], [r.hourlyRate, 1, 1e4, "Uurtarief"], [r.unforeseenCosts, 0, 1e6, "Onvoorziene kosten"], [r.hotelCosts, 0, 1e6, "Verblijfskosten"], [r.parkingCosts, 0, 1e6, "Parkeerkosten"]];
-  for (const [t, n, i, a] of e) if (!Number.isFinite(t) || t < n || t > i) return `${a} moet tussen ${n.toLocaleString("nl-NL")} en ${i.toLocaleString("nl-NL")} liggen.`;
-  return [r.mainBoards, r.subBoards, r.solarInverters, r.evChargers, r.heavyMachinery].every(Number.isInteger) ? null : "Aantallen moeten hele getallen zijn.";
-}
-function calculateQuote(r) {
-  let e = nje + r.surfaceArea * aje[r.buildingType];
-  r.buildingAge === "oud" && (e *= 1.2), r.buildingAge === "nieuw" && (e *= .9), r.riskClass === "C" && r.scope !== "10" && (e *= 1.25), r.riskClass === "A" && r.scope !== "10" && (e *= .9), r.documentation === "incompleet" && (e += 1), r.documentation === "geen" && (e += r.inspectionType === "EBI" ? 3 : 1.5);
-  const t = r.accessibility === "slecht" ? 1.5 : r.accessibility === "matig" ? 1.2 : 1;
-  e += r.mainBoards * t, e += r.subBoards * .6 * t, e += r.heavyMachinery * .5, r.hasSolar && (e += r.solarInverters * .75), r.hasEV && (e += r.evChargers * .5), r.hasUPS && (e += 1.5), r.inspectionType === "EBI" && (e *= 1.4), r.scope === "10" && (e += 1.5), r.scope === "combi" && (e = e * 1.35 + 1.5), r.safetyInduction && (e += 1);
-  const n = Math.ceil(e * 2) / 2,
-    i = r.outOfHours ? r.hourlyRate * 1.5 : r.hourlyRate,
-    a = n * i,
-    s = r.travelDistance * 2,
-    o = s / 80,
-    c = o * r.hourlyRate + s * ije,
-    l = r.scope === "combi" ? lU * 2 : lU,
-    u = r.needsLift ? 150 : 0,
-    d = r.unforeseenCosts + r.hotelCosts + r.parkingCosts,
-    f = Qm(a + c + l + u + d),
-    h = Qm(f * .21);
-  return {
-    hours: n,
-    laborCost: Qm(a),
-    travelDistanceReturn: s,
-    travelHours: Math.round(o * 100) / 100,
-    travelCost: Qm(c),
-    sciosCost: l,
-    equipmentCost: u,
-    otherCost: Qm(d),
-    totalExcludingVat: f,
-    vat: h,
-    totalIncludingVat: Qm(f + h)
-  };
-}
 function createQuotePdfFilename(r, e) {
   return `Offerte_${`${r}_${e}`.normalize("NFKD").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 120) || "B2Inspect"}.pdf`;
 }
@@ -1885,6 +1768,39 @@ function QuoteToggleField({
       onChange: a => i(a.currentTarget.checked)
     }), g.jsx("span", {
       children: e
+    })]
+  });
+}
+function QuotePriceField({
+  id: r,
+  label: e,
+  value: t,
+  automaticValue: n,
+  disabled: i,
+  onChange: a
+}) {
+  const s = t !== null && t !== void 0;
+  return g.jsxs("div", {
+    className: `ig-quote-price-field ${s ? "is-manual" : ""}`,
+    children: [g.jsx(QuoteNumberField, {
+      id: r,
+      label: e,
+      value: s ? t : n,
+      max: 1e6,
+      step: .01,
+      suffix: "€",
+      disabled: i,
+      onChange: a
+    }), g.jsxs("div", {
+      className: "ig-quote-price-state",
+      children: [g.jsx("span", {
+        children: s ? "Handmatig aangepast" : "Automatisch berekend"
+      }), s && g.jsx("button", {
+        type: "button",
+        disabled: i,
+        onClick: () => a(null),
+        children: "Herstel automatisch"
+      })]
     })]
   });
 }
@@ -2196,6 +2112,53 @@ function QuoteCalculator({
           onChange: l => a("safetyInduction", l)
         })]
       })]
+    }), g.jsxs("section", {
+      className: "ig-quote-section ig-quote-price-section",
+      children: [g.jsxs("header", {
+        children: [g.jsx("h4", {
+          children: "Prijsregels"
+        }), g.jsx("p", {
+          children: "Pas bedragen per offerte aan. Herstel een regel om de automatische calculatie weer te gebruiken."
+        })]
+      }), g.jsxs("div", {
+        className: "ig-quote-grid ig-quote-price-grid",
+        children: [g.jsx(QuotePriceField, {
+          id: "quote-manual-labor",
+          label: "Inspectie en rapportage",
+          value: r.manualLaborCost,
+          automaticValue: e.automaticCosts.laborCost,
+          disabled: n,
+          onChange: l => a("manualLaborCost", l)
+        }), g.jsx(QuotePriceField, {
+          id: "quote-manual-travel",
+          label: "Reis en reistijd",
+          value: r.manualTravelCost,
+          automaticValue: e.automaticCosts.travelCost,
+          disabled: n,
+          onChange: l => a("manualTravelCost", l)
+        }), g.jsx(QuotePriceField, {
+          id: "quote-manual-scios",
+          label: "SCIOS-afmelding",
+          value: r.manualSciosCost,
+          automaticValue: e.automaticCosts.sciosCost,
+          disabled: n,
+          onChange: l => a("manualSciosCost", l)
+        }), g.jsx(QuotePriceField, {
+          id: "quote-manual-equipment",
+          label: "Materieel",
+          value: r.manualEquipmentCost,
+          automaticValue: e.automaticCosts.equipmentCost,
+          disabled: n,
+          onChange: l => a("manualEquipmentCost", l)
+        }), g.jsx(QuotePriceField, {
+          id: "quote-manual-other",
+          label: "Overige kosten",
+          value: r.manualOtherCost,
+          automaticValue: e.automaticCosts.otherCost,
+          disabled: n,
+          onChange: l => a("manualOtherCost", l)
+        })]
+      })]
     }), g.jsxs("aside", {
       className: "ig-quote-summary",
       "aria-live": "polite",
@@ -2259,12 +2222,14 @@ function QuoteCalculator({
   });
 }
 const ds = {
-    ink: "#202327",
-    muted: "#666b72",
-    line: "#dfe2e6",
-    soft: "#f4f5f6",
-    accent: "#6659a7",
-    accentSoft: "#efedf8"
+    ink: "#1d3557",
+    muted: "#59687c",
+    line: "#d8e1e8",
+    soft: "#f5f1eb",
+    accent: "#3f7c80",
+    accentSoft: "#e8f1f0",
+    navy: "#17345b",
+    cream: "#f5f1eb"
   },
   Cn = UV.create({
     page: {
@@ -2278,12 +2243,32 @@ const ds = {
     },
     header: {
       alignItems: "flex-start",
-      borderBottomColor: ds.line,
-      borderBottomWidth: 1,
       flexDirection: "row",
       justifyContent: "space-between",
-      marginBottom: 22,
-      paddingBottom: 16
+      marginBottom: 18
+    },
+    brandLockup: {
+      alignItems: "center",
+      flexDirection: "row"
+    },
+    brandMark: {
+      alignItems: "center",
+      backgroundColor: ds.accent,
+      borderRadius: 7,
+      height: 40,
+      justifyContent: "center",
+      marginRight: 8,
+      width: 40
+    },
+    brandMarkText: {
+      color: "#ffffff",
+      fontFamily: "Helvetica-Bold",
+      fontSize: 17
+    },
+    brandWord: {
+      color: ds.navy,
+      fontFamily: "Helvetica-Bold",
+      fontSize: 18
     },
     brand: {
       color: ds.ink,
@@ -2296,9 +2281,16 @@ const ds = {
       marginTop: 3
     },
     documentTitle: {
+      color: ds.navy,
+      fontFamily: "Helvetica-Bold",
+      fontSize: 25,
+      textAlign: "right"
+    },
+    documentSubtitle: {
       color: ds.accent,
       fontFamily: "Helvetica-Bold",
-      fontSize: 18,
+      fontSize: 8,
+      marginTop: 3,
       textAlign: "right"
     },
     meta: {
@@ -2311,6 +2303,51 @@ const ds = {
       flexDirection: "row",
       gap: 12,
       marginBottom: 18
+    },
+    metaTable: {
+      borderColor: ds.line,
+      borderTopWidth: 1,
+      borderLeftWidth: 1,
+      marginBottom: 16
+    },
+    metaTableRow: {
+      flexDirection: "row"
+    },
+    metaLabelCell: {
+      backgroundColor: ds.cream,
+      borderBottomColor: ds.line,
+      borderBottomWidth: 1,
+      borderRightColor: ds.line,
+      borderRightWidth: 1,
+      color: ds.navy,
+      fontFamily: "Helvetica-Bold",
+      fontSize: 7.5,
+      paddingHorizontal: 7,
+      paddingVertical: 5,
+      width: "18%"
+    },
+    metaValueCell: {
+      borderBottomColor: ds.line,
+      borderBottomWidth: 1,
+      borderRightColor: ds.line,
+      borderRightWidth: 1,
+      color: ds.ink,
+      fontSize: 7.5,
+      paddingHorizontal: 7,
+      paddingVertical: 5,
+      width: "32%"
+    },
+    greeting: {
+      color: ds.navy,
+      fontFamily: "Helvetica-Bold",
+      fontSize: 9,
+      marginBottom: 5
+    },
+    introduction: {
+      color: ds.muted,
+      fontSize: 8.2,
+      lineHeight: 1.45,
+      marginBottom: 15
     },
     party: {
       backgroundColor: ds.soft,
@@ -2343,7 +2380,7 @@ const ds = {
     sectionTitle: {
       borderBottomColor: ds.line,
       borderBottomWidth: 1,
-      color: ds.ink,
+      color: ds.navy,
       fontFamily: "Helvetica-Bold",
       fontSize: 10,
       marginBottom: 8,
@@ -2364,6 +2401,26 @@ const ds = {
       minHeight: 22,
       paddingVertical: 5
     },
+    priceTableHeader: {
+      backgroundColor: ds.navy,
+      flexDirection: "row",
+      minHeight: 24,
+      paddingHorizontal: 8,
+      paddingVertical: 6
+    },
+    priceTableHeaderLabel: {
+      color: "#ffffff",
+      fontFamily: "Helvetica-Bold",
+      fontSize: 7.5,
+      width: "62%"
+    },
+    priceTableHeaderValue: {
+      color: "#ffffff",
+      fontFamily: "Helvetica-Bold",
+      fontSize: 7.5,
+      textAlign: "right",
+      width: "38%"
+    },
     rowLabel: {
       color: ds.muted,
       width: "62%"
@@ -2374,11 +2431,12 @@ const ds = {
       width: "38%"
     },
     totalRow: {
-      backgroundColor: ds.accentSoft,
-      borderRadius: 4,
+      backgroundColor: ds.cream,
+      borderBottomColor: ds.line,
+      borderBottomWidth: 1,
       flexDirection: "row",
-      marginTop: 7,
-      padding: 9
+      paddingHorizontal: 8,
+      paddingVertical: 7
     },
     totalLabel: {
       color: ds.accent,
@@ -2511,6 +2569,47 @@ const ds = {
     });
   },
   uU = (...r) => r.filter(e => e?.trim()).join(", ");
+function QuoteBrand() {
+  return g.jsxs(st, {
+    style: Cn.brandLockup,
+    children: [g.jsx(st, {
+      style: Cn.brandMark,
+      children: g.jsx(Ee, {
+        style: Cn.brandMarkText,
+        children: "B2"
+      })
+    }), g.jsx(Ee, {
+      style: Cn.brandWord,
+      children: "Inspect"
+    })]
+  });
+}
+function QuoteMetaRow({
+  leftLabel: r,
+  leftValue: e,
+  rightLabel: t,
+  rightValue: n
+}) {
+  return g.jsxs(st, {
+    style: Cn.metaTableRow,
+    children: [g.jsx(Ee, {
+      style: Cn.metaLabelCell,
+      children: r
+    }), g.jsx(Ee, {
+      style: Cn.metaValueCell,
+      children: e || "—"
+    }), g.jsx(Ee, {
+      style: Cn.metaLabelCell,
+      children: t
+    }), g.jsx(Ee, {
+      style: Cn.metaValueCell,
+      children: n || "—"
+    })]
+  });
+}
+function quoteServiceDescription(r) {
+  return r === "8" ? "SCIOS Scope 8-inspectie van elektrische arbeidsmiddelen en installaties volgens NEN 3140 en de toepasselijke SCIOS-voorschriften." : r === "10" ? "SCIOS Scope 10-brandrisico-inspectie volgens NTA 8220 en de toepasselijke SCIOS-voorschriften, inclusief thermografie voor zover van toepassing." : "Gecombineerde SCIOS Scope 8- en Scope 10-inspectie volgens NEN 3140, NTA 8220 en de toepasselijke SCIOS-voorschriften, inclusief thermografie voor zover van toepassing.";
+}
 function ch({
   label: r,
   value: e
@@ -2570,76 +2669,56 @@ function QuotePdfDocument({
       style: Cn.page,
       children: [g.jsxs(st, {
         style: Cn.header,
-        children: [g.jsxs(st, {
-          children: [g.jsx(Ee, {
-            style: Cn.brand,
-            children: "B2Inspect"
-          }), g.jsx(Ee, {
-            style: Cn.brandSub,
-            children: "Inspectie en advies · info@b2inspect.nl"
-          })]
-        }), g.jsxs(st, {
+        children: [g.jsx(QuoteBrand, {}), g.jsxs(st, {
           children: [g.jsx(Ee, {
             style: Cn.documentTitle,
-            children: "OFFERTE"
+            children: "Offerte"
           }), g.jsxs(Ee, {
-            style: Cn.meta,
-            children: ["Offertenummer: ", r.quoteNumber]
-          }), g.jsxs(Ee, {
-            style: Cn.meta,
-            children: ["Dossier: ", r.caseNumber]
-          }), g.jsxs(Ee, {
-            style: Cn.meta,
-            children: ["Datum: ", BI(r.quoteDate)]
-          }), g.jsxs(Ee, {
-            style: Cn.meta,
-            children: ["Geldig tot: ", BI(r.validUntil)]
+            style: Cn.documentSubtitle,
+            children: [bf.scopes[e.scope], " | ", r.projectName]
           })]
         })]
       }), g.jsxs(st, {
-        style: Cn.columns,
-        children: [g.jsxs(st, {
-          style: Cn.party,
-          children: [g.jsx(Ee, {
-            style: Cn.partyLabel,
-            children: "Opdrachtgever"
-          }), g.jsx(Ee, {
-            style: Cn.partyName,
-            children: r.clientName
-          }), g.jsx(Ee, {
-            style: Cn.partyLine,
-            children: uU(r.clientAddress, r.clientPostalCode, r.clientCity) || "Adres niet opgegeven"
-          }), r.contactName && g.jsxs(Ee, {
-            style: Cn.partyLine,
-            children: ["Contact: ", r.contactName]
-          }), r.contactEmail && g.jsx(Ee, {
-            style: Cn.partyLine,
-            children: r.contactEmail
-          }), r.contactPhone && g.jsx(Ee, {
-            style: Cn.partyLine,
-            children: r.contactPhone
-          })]
-        }), g.jsxs(st, {
-          style: Cn.party,
-          children: [g.jsx(Ee, {
-            style: Cn.partyLabel,
-            children: "Inspectielocatie"
-          }), g.jsx(Ee, {
-            style: Cn.partyName,
-            children: r.projectName
-          }), g.jsx(Ee, {
-            style: Cn.partyLine,
-            children: uU(r.projectAddress, r.projectPostalCode, r.projectCity) || "Adres niet opgegeven"
-          })]
+        style: Cn.metaTable,
+        children: [g.jsx(QuoteMetaRow, {
+          leftLabel: "Offertenummer",
+          leftValue: r.quoteNumber,
+          rightLabel: "Datum",
+          rightValue: BI(r.quoteDate)
+        }), g.jsx(QuoteMetaRow, {
+          leftLabel: "Opdrachtgever",
+          leftValue: r.clientName,
+          rightLabel: "Contact",
+          rightValue: r.contactName || r.contactEmail || r.contactPhone
+        }), g.jsx(QuoteMetaRow, {
+          leftLabel: "Inspectielocatie",
+          leftValue: `${r.projectName} · ${uU(r.projectAddress, r.projectPostalCode, r.projectCity) || "Adres niet opgegeven"}`,
+          rightLabel: "Geldig tot",
+          rightValue: BI(r.validUntil)
+        })]
+      }), g.jsxs(Ee, {
+        style: Cn.greeting,
+        children: ["Beste ", r.contactName || r.clientName, ","]
+      }), g.jsx(Ee, {
+        style: Cn.introduction,
+        children: "Dank voor uw aanvraag. Op basis van de door u aangeleverde gegevens bieden wij u hierbij onze inspectiedienst aan. Hieronder vindt u de afgesproken omvang en investering overzichtelijk uitgewerkt."
+      }), g.jsxs(st, {
+        style: Cn.section,
+        children: [g.jsx(Ee, {
+          style: Cn.sectionTitle,
+          children: "Uw inspectievraag"
+        }), g.jsx(Ee, {
+          style: Cn.description,
+          children: r.description || r.title
         })]
       }), g.jsxs(st, {
         style: Cn.section,
         children: [g.jsx(Ee, {
           style: Cn.sectionTitle,
-          children: "Inspectieopdracht"
+          children: "Dit voeren wij voor u uit"
         }), g.jsx(Ee, {
-          style: Cn.description,
-          children: r.description || r.title
+          style: Cn.introduction,
+          children: quoteServiceDescription(e.scope)
         }), g.jsxs(st, {
           style: Cn.detailGrid,
           children: [g.jsx(cp, {
@@ -2672,28 +2751,31 @@ function QuotePdfDocument({
         style: Cn.section,
         children: [g.jsx(Ee, {
           style: Cn.sectionTitle,
-          children: "Kostenopbouw excl. btw"
+          children: "Uw investering"
+        }), g.jsxs(st, {
+          style: Cn.priceTableHeader,
+          children: [g.jsx(Ee, {
+            style: Cn.priceTableHeaderLabel,
+            children: "Omschrijving"
+          }), g.jsx(Ee, {
+            style: Cn.priceTableHeaderValue,
+            children: "Bedrag excl. btw"
+          })]
         }), g.jsx(ch, {
-          label: `Inspectie (${t.hours.toLocaleString("nl-NL")} uur à ${rv(e.hourlyRate)}${e.outOfHours ? ", buiten kantooruren +50%" : ""})`,
+          label: e.manualLaborCost !== null ? "Inspectie en rapportage · vaste prijs" : `Inspectie en rapportage (${t.hours.toLocaleString("nl-NL")} uur à ${rv(e.hourlyRate)}${e.outOfHours ? ", buiten kantooruren +50%" : ""})`,
           value: t.laborCost
         }), g.jsx(ch, {
-          label: `Reis (${t.travelDistanceReturn.toLocaleString("nl-NL")} km retour, inclusief reistijd)`,
+          label: e.manualTravelCost !== null ? "Reis en reistijd · vaste prijs" : `Reis en reistijd (${t.travelDistanceReturn.toLocaleString("nl-NL")} km retour)`,
           value: t.travelCost
         }), g.jsx(ch, {
           label: "SCIOS-afmeldkosten",
           value: t.sciosCost
         }), t.equipmentCost > 0 && g.jsx(ch, {
-          label: "Huur klimmaterieel / hoogwerker",
+          label: "Materieel / hoogwerker",
           value: t.equipmentCost
-        }), e.hotelCosts > 0 && g.jsx(ch, {
-          label: "Verblijfskosten",
-          value: e.hotelCosts
-        }), e.parkingCosts > 0 && g.jsx(ch, {
-          label: "Parkeerkosten",
-          value: e.parkingCosts
-        }), e.unforeseenCosts > 0 && g.jsx(ch, {
-          label: "Onvoorziene kosten",
-          value: e.unforeseenCosts
+        }), t.otherCost > 0 && g.jsx(ch, {
+          label: "Overige kosten",
+          value: t.otherCost
         }), g.jsx(ch, {
           label: "Totaal excl. btw",
           value: t.totalExcludingVat
@@ -2711,26 +2793,18 @@ function QuotePdfDocument({
           })]
         }), g.jsxs(Ee, {
           style: Cn.note,
-          children: ["Offertebedrag excl. btw: ", rv(t.totalExcludingVat), ". Bedragen zijn gebaseerd op aangeleverde informatie."]
+          children: ["Deze offerte is gebaseerd op de aangeleverde informatie en geldig tot en met ", BI(r.validUntil), "."]
         })]
       }), g.jsxs(Ee, {
         style: Cn.footer,
-        children: ["B2Inspect · info@b2inspect.nl · Offerte ", r.quoteNumber, " · Pagina 1 van 2"]
+        children: ["B2Inspect | Offerte ", r.quoteNumber, " · ", r.caseNumber, " | 1"]
       })]
     }), g.jsxs(Ou, {
       size: "A4",
       style: Cn.page,
       children: [g.jsxs(st, {
         style: Cn.header,
-        children: [g.jsxs(st, {
-          children: [g.jsx(Ee, {
-            style: Cn.brand,
-            children: "B2Inspect"
-          }), g.jsx(Ee, {
-            style: Cn.brandSub,
-            children: "Inspectie en advies"
-          })]
-        }), g.jsxs(st, {
+        children: [g.jsx(QuoteBrand, {}), g.jsxs(st, {
           children: [g.jsx(Ee, {
             style: Cn.documentTitle,
             children: "VOORWAARDEN"
