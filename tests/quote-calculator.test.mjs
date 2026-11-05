@@ -22,6 +22,16 @@ const calculateQuote = Function(
   value => Math.round((value + Number.EPSILON) * 100) / 100
 )
 
+const parseStart = source.indexOf('function parseQuoteNumberDraft')
+const parseEnd = source.indexOf('function QuoteNumberField')
+
+assert.notEqual(parseStart, -1, 'parseQuoteNumberDraft ontbreekt')
+assert.notEqual(parseEnd, -1, 'einde van parseQuoteNumberDraft ontbreekt')
+
+const parseQuoteNumberDraft = Function(
+  `${source.slice(parseStart, parseEnd)}; return parseQuoteNumberDraft;`
+)()
+
 const baseInput = {
   scope: '10',
   inspectionType: 'PI',
@@ -92,4 +102,10 @@ test('lege handmatige velden behouden de automatische berekening', () => {
   assert.equal(result.hours, result.automaticHours)
   assert.equal(result.manualAdjustment, 0)
   assert.equal(result.totalExcludingVat, result.calculatedTotalExcludingVat)
+})
+
+test('leegmaken van een numeriek offerteveld voegt geen nul voor de nieuwe invoer', () => {
+  assert.equal(parseQuoteNumberDraft(''), null)
+  assert.equal(parseQuoteNumberDraft('125'), 125)
+  assert.equal(parseQuoteNumberDraft('0.45'), .45)
 })

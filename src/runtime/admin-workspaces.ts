@@ -1841,6 +1841,11 @@ function formatCurrency(r) {
     currency: "EUR"
   }).format(r);
 }
+function parseQuoteNumberDraft(value) {
+  if (value === "") return null;
+  const parsedValue = Number(value);
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+}
 function QuoteNumberField({
   id: r,
   label: e,
@@ -1854,13 +1859,26 @@ function QuoteNumberField({
   disabled: l,
   onChange: u
 }) {
+  const [draftValue, setDraftValue] = Ze.useState(null);
   const d = f => {
-    if (c && f.currentTarget.value === "") {
-      u(null);
+    const rawValue = f.currentTarget.value;
+    setDraftValue(rawValue);
+    if (rawValue === "") {
+      c && u(null);
       return;
     }
-    const h = f.currentTarget.valueAsNumber;
-    u(Number.isFinite(h) ? h : 0);
+    const parsedValue = parseQuoteNumberDraft(rawValue);
+    parsedValue != null && u(parsedValue);
+  };
+  const handleBlur = f => {
+    const rawValue = f.currentTarget.value;
+    if (rawValue === "") {
+      c && u(null);
+    } else {
+      const parsedValue = parseQuoteNumberDraft(rawValue);
+      parsedValue != null && u(parsedValue);
+    }
+    setDraftValue(null);
   };
   return g.jsxs("label", {
     className: "ig-field",
@@ -1877,10 +1895,11 @@ function QuoteNumberField({
         min: n,
         max: i,
         step: a,
-        value: t ?? "",
+        value: draftValue ?? t ?? "",
         placeholder: o,
         disabled: l,
-        onChange: d
+        onChange: d,
+        onBlur: handleBlur
       }), s && g.jsx("em", {
         children: s
       })]
