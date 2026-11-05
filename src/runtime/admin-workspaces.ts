@@ -1713,7 +1713,7 @@ const bf = {
     logistiek: .0022
   },
   sje = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     scope: "10",
     inspectionType: "PI",
     riskClass: "B",
@@ -1734,10 +1734,14 @@ const bf = {
     outOfHours: !1,
     needsLift: !1,
     safetyInduction: !1,
+    inspectionHours: null,
     hourlyRate: 95,
+    travelHourlyRate: 95,
+    travelKilometerRate: .45,
     unforeseenCosts: 0,
     hotelCosts: 0,
-    parkingCosts: 0
+    parkingCosts: 0,
+    customTotalExcludingVat: null
   },
   oje = (r, e) => Object.prototype.hasOwnProperty.call(r, e),
   lje = r => !!r && typeof r == "object" && !Array.isArray(r),
@@ -1756,7 +1760,7 @@ function createDefaultQuoteInput(r = []) {
 function normalizeQuoteInput(r, e = []) {
   const t = createDefaultQuoteInput(e);
   return lje(r) ? {
-    schemaVersion: 1,
+    schemaVersion: 2,
     scope: ng(r.scope, ["8", "10", "combi"], t.scope),
     inspectionType: ng(r.inspectionType, ["PI", "EBI"], t.inspectionType),
     riskClass: ng(r.riskClass, ["A", "B", "C"], t.riskClass),
@@ -1777,14 +1781,19 @@ function normalizeQuoteInput(r, e = []) {
     outOfHours: Pm(r, "outOfHours", t.outOfHours),
     needsLift: Pm(r, "needsLift", t.needsLift),
     safetyInduction: Pm(r, "safetyInduction", t.safetyInduction),
+    inspectionHours: Number.isFinite(r.inspectionHours) && r.inspectionHours > 0 ? r.inspectionHours : null,
     hourlyRate: Rd(r.hourlyRate, t.hourlyRate),
+    travelHourlyRate: Rd(r.travelHourlyRate, Rd(r.hourlyRate, t.travelHourlyRate)),
+    travelKilometerRate: Rd(r.travelKilometerRate, t.travelKilometerRate),
     unforeseenCosts: Rd(r.unforeseenCosts, t.unforeseenCosts),
     hotelCosts: Rd(r.hotelCosts, t.hotelCosts),
-    parkingCosts: Rd(r.parkingCosts, t.parkingCosts)
+    parkingCosts: Rd(r.parkingCosts, t.parkingCosts),
+    customTotalExcludingVat: Number.isFinite(r.customTotalExcludingVat) && r.customTotalExcludingVat > 0 ? r.customTotalExcludingVat : null
   } : t;
 }
 function validateQuoteInput(r) {
-  const e = [[r.surfaceArea, 1, 1e6, "Oppervlakte"], [r.mainBoards, 0, 1e4, "Aantal hoofdverdelers"], [r.subBoards, 0, 1e4, "Aantal onderverdelers"], [r.solarInverters, 0, 1e4, "Aantal omvormers"], [r.evChargers, 0, 1e4, "Aantal laadpunten"], [r.heavyMachinery, 0, 1e4, "Aantal zware machines"], [r.travelDistance, 0, 5e3, "Reisafstand"], [r.hourlyRate, 1, 1e4, "Uurtarief"], [r.unforeseenCosts, 0, 1e6, "Onvoorziene kosten"], [r.hotelCosts, 0, 1e6, "Verblijfskosten"], [r.parkingCosts, 0, 1e6, "Parkeerkosten"]];
+  const e = [[r.surfaceArea, 1, 1e6, "Oppervlakte"], [r.mainBoards, 0, 1e4, "Aantal hoofdverdelers"], [r.subBoards, 0, 1e4, "Aantal onderverdelers"], [r.solarInverters, 0, 1e4, "Aantal omvormers"], [r.evChargers, 0, 1e4, "Aantal laadpunten"], [r.heavyMachinery, 0, 1e4, "Aantal zware machines"], [r.travelDistance, 0, 5e3, "Reisafstand"], [r.hourlyRate, 1, 1e4, "Inspectie-uurtarief"], [r.travelHourlyRate, 0, 1e4, "Reis-uurtarief"], [r.travelKilometerRate, 0, 100, "Kilometertarief"], [r.unforeseenCosts, 0, 1e6, "Onvoorziene kosten"], [r.hotelCosts, 0, 1e6, "Verblijfskosten"], [r.parkingCosts, 0, 1e6, "Parkeerkosten"]];
+  r.inspectionHours != null && e.push([r.inspectionHours, .5, 1e4, "Inspectie-uren"]), r.customTotalExcludingVat != null && e.push([r.customTotalExcludingVat, .01, 1e7, "Definitief offertebedrag"]);
   for (const [t, n, i, a] of e) if (!Number.isFinite(t) || t < n || t > i) return `${a} moet tussen ${n.toLocaleString("nl-NL")} en ${i.toLocaleString("nl-NL")} liggen.`;
   return [r.mainBoards, r.subBoards, r.solarInverters, r.evChargers, r.heavyMachinery].every(Number.isInteger) ? null : "Aantallen moeten hele getallen zijn.";
 }
@@ -1794,28 +1803,33 @@ function calculateQuote(r) {
   const t = r.accessibility === "slecht" ? 1.5 : r.accessibility === "matig" ? 1.2 : 1;
   e += r.mainBoards * t, e += r.subBoards * .6 * t, e += r.heavyMachinery * .5, r.hasSolar && (e += r.solarInverters * .75), r.hasEV && (e += r.evChargers * .5), r.hasUPS && (e += 1.5), r.inspectionType === "EBI" && (e *= 1.4), r.scope === "10" && (e += 1.5), r.scope === "combi" && (e = e * 1.35 + 1.5), r.safetyInduction && (e += 1);
   const n = Math.ceil(e * 2) / 2,
-    i = r.outOfHours ? r.hourlyRate * 1.5 : r.hourlyRate,
-    a = n * i,
-    s = r.travelDistance * 2,
-    o = s / 80,
-    c = o * r.hourlyRate + s * ije,
-    l = r.scope === "combi" ? lU * 2 : lU,
-    u = r.needsLift ? 150 : 0,
-    d = r.unforeseenCosts + r.hotelCosts + r.parkingCosts,
-    f = Qm(a + c + l + u + d),
-    h = Qm(f * .21);
+    i = r.inspectionHours == null ? n : r.inspectionHours,
+    a = r.outOfHours ? r.hourlyRate * 1.5 : r.hourlyRate,
+    s = i * a,
+    o = r.travelDistance * 2,
+    c = o / 80,
+    l = c * r.travelHourlyRate + o * r.travelKilometerRate,
+    u = r.scope === "combi" ? lU * 2 : lU,
+    d = r.needsLift ? 150 : 0,
+    f = r.unforeseenCosts + r.hotelCosts + r.parkingCosts,
+    h = Qm(s + l + u + d + f),
+    m = r.customTotalExcludingVat == null ? h : Qm(r.customTotalExcludingVat),
+    v = Qm(m * .21);
   return {
-    hours: n,
-    laborCost: Qm(a),
-    travelDistanceReturn: s,
-    travelHours: Math.round(o * 100) / 100,
-    travelCost: Qm(c),
-    sciosCost: l,
-    equipmentCost: u,
-    otherCost: Qm(d),
-    totalExcludingVat: f,
-    vat: h,
-    totalIncludingVat: Qm(f + h)
+    automaticHours: n,
+    hours: i,
+    laborCost: Qm(s),
+    travelDistanceReturn: o,
+    travelHours: Math.round(c * 100) / 100,
+    travelCost: Qm(l),
+    sciosCost: u,
+    equipmentCost: d,
+    otherCost: Qm(f),
+    calculatedTotalExcludingVat: h,
+    manualAdjustment: Qm(m - h),
+    totalExcludingVat: m,
+    vat: v,
+    totalIncludingVat: Qm(m + v)
   };
 }
 function createQuotePdfFilename(r, e) {
@@ -1835,12 +1849,18 @@ function QuoteNumberField({
   max: i,
   step: a = 1,
   suffix: s,
-  disabled: o,
-  onChange: c
+  placeholder: o,
+  allowEmpty: c = !1,
+  disabled: l,
+  onChange: u
 }) {
-  const l = u => {
-    const d = u.currentTarget.valueAsNumber;
-    c(Number.isFinite(d) ? d : 0);
+  const d = f => {
+    if (c && f.currentTarget.value === "") {
+      u(null);
+      return;
+    }
+    const h = f.currentTarget.valueAsNumber;
+    u(Number.isFinite(h) ? h : 0);
   };
   return g.jsxs("label", {
     className: "ig-field",
@@ -1857,9 +1877,10 @@ function QuoteNumberField({
         min: n,
         max: i,
         step: a,
-        value: t,
-        disabled: o,
-        onChange: l
+        value: t ?? "",
+        placeholder: o,
+        disabled: l,
+        onChange: d
       }), s && g.jsx("em", {
         children: s
       })]
@@ -2137,15 +2158,45 @@ function QuoteCalculator({
           disabled: n,
           onChange: l => a("travelDistance", l)
         }), g.jsx(QuoteNumberField, {
+          id: "quote-inspection-hours",
+          label: "Inspectie-uren (leeg = automatisch)",
+          value: r.inspectionHours,
+          min: .5,
+          max: 1e4,
+          step: .5,
+          suffix: "uur",
+          placeholder: "Automatisch",
+          allowEmpty: !0,
+          disabled: n,
+          onChange: l => a("inspectionHours", l)
+        }), g.jsx(QuoteNumberField, {
           id: "quote-hourly-rate",
-          label: "Uurtarief excl. btw",
+          label: "Inspectie-uurtarief excl. btw",
           value: r.hourlyRate,
           min: 1,
           max: 1e4,
-          step: 1,
+          step: .01,
           suffix: "€",
           disabled: n,
           onChange: l => a("hourlyRate", l)
+        }), g.jsx(QuoteNumberField, {
+          id: "quote-travel-hourly-rate",
+          label: "Reis-uurtarief excl. btw",
+          value: r.travelHourlyRate,
+          max: 1e4,
+          step: .01,
+          suffix: "€",
+          disabled: n,
+          onChange: l => a("travelHourlyRate", l)
+        }), g.jsx(QuoteNumberField, {
+          id: "quote-travel-kilometer-rate",
+          label: "Kilometertarief excl. btw",
+          value: r.travelKilometerRate,
+          max: 100,
+          step: .01,
+          suffix: "€",
+          disabled: n,
+          onChange: l => a("travelKilometerRate", l)
         }), g.jsx(QuoteNumberField, {
           id: "quote-unforeseen",
           label: "Onvoorziene kosten",
@@ -2173,7 +2224,22 @@ function QuoteCalculator({
           suffix: "€",
           disabled: n,
           onChange: l => a("parkingCosts", l)
+        }), g.jsx(QuoteNumberField, {
+          id: "quote-custom-total",
+          label: "Definitief offertebedrag excl. btw",
+          value: r.customTotalExcludingVat,
+          min: .01,
+          max: 1e7,
+          step: .01,
+          suffix: "€",
+          placeholder: "Automatisch berekend",
+          allowEmpty: !0,
+          disabled: n,
+          onChange: l => a("customTotalExcludingVat", l)
         })]
+      }), g.jsx("p", {
+        className: "ig-action-help",
+        children: "Laat inspectie-uren en definitief offertebedrag leeg om de automatische berekening te gebruiken. Een handmatig eindbedrag wordt ook in de PDF en het dossier opgeslagen."
       }), g.jsxs("div", {
         className: "ig-quote-toggles",
         children: [g.jsx(QuoteToggleField, {
@@ -2201,9 +2267,15 @@ function QuoteCalculator({
       "aria-live": "polite",
       children: [g.jsxs("div", {
         children: [g.jsx("span", {
-          children: "Geschatte inspectietijd"
+          children: r.inspectionHours == null ? "Geschatte inspectietijd" : "Ingestelde inspectietijd"
         }), g.jsxs("strong", {
           children: [e.hours.toLocaleString("nl-NL"), " uur"]
+        })]
+      }), r.inspectionHours != null && g.jsxs("div", {
+        children: [g.jsx("span", {
+          children: "Automatische urenschatting"
+        }), g.jsxs("strong", {
+          children: [e.automaticHours.toLocaleString("nl-NL"), " uur"]
         })]
       }), g.jsxs("div", {
         children: [g.jsx("span", {
@@ -2235,6 +2307,18 @@ function QuoteCalculator({
         }), g.jsx("strong", {
           children: formatCurrency(e.otherCost)
         })]
+      }), r.customTotalExcludingVat != null && g.jsxs("div", {
+        children: [g.jsx("span", {
+          children: "Automatisch berekend"
+        }), g.jsx("strong", {
+          children: formatCurrency(e.calculatedTotalExcludingVat)
+        })]
+      }), r.customTotalExcludingVat != null && g.jsxs("div", {
+        children: [g.jsx("span", {
+          children: "Commerciële prijsaanpassing"
+        }), g.jsx("strong", {
+          children: formatCurrency(e.manualAdjustment)
+        })]
       }), g.jsxs("div", {
         className: "ig-quote-total",
         children: [g.jsx("span", {
@@ -2259,12 +2343,14 @@ function QuoteCalculator({
   });
 }
 const ds = {
-    ink: "#202327",
-    muted: "#666b72",
-    line: "#dfe2e6",
-    soft: "#f4f5f6",
-    accent: "#6659a7",
-    accentSoft: "#efedf8"
+    ink: "#2f3b50",
+    navy: "#203f66",
+    teal: "#477d81",
+    muted: "#56657a",
+    line: "#cdd6df",
+    soft: "#f7f5ef",
+    accent: "#477d81",
+    accentSoft: "#eef5f5"
   },
   Cn = UV.create({
     page: {
@@ -2488,6 +2574,188 @@ const ds = {
       fontSize: 7,
       marginTop: 4
     },
+    brandLogo: {
+      alignItems: "center",
+      flexDirection: "row",
+      marginBottom: 24
+    },
+    brandBadge: {
+      alignItems: "center",
+      backgroundColor: ds.teal,
+      borderRadius: 11,
+      height: 50,
+      justifyContent: "center",
+      width: 50
+    },
+    brandBadgeText: {
+      color: "#ffffff",
+      fontFamily: "Helvetica-Bold",
+      fontSize: 22
+    },
+    brandWord: {
+      color: ds.navy,
+      fontFamily: "Helvetica-Bold",
+      fontSize: 24,
+      marginLeft: 10
+    },
+    offerTitle: {
+      color: "#000000",
+      fontFamily: "Helvetica-Bold",
+      fontSize: 28,
+      marginBottom: 15
+    },
+    agreementTitle: {
+      color: "#000000",
+      fontFamily: "Helvetica-Bold",
+      fontSize: 28,
+      lineHeight: 1.1,
+      marginBottom: 12
+    },
+    offerSubtitle: {
+      color: ds.teal,
+      fontSize: 12,
+      letterSpacing: .8,
+      marginBottom: 15
+    },
+    infoTable: {
+      borderColor: ds.line,
+      borderTopWidth: .7,
+      borderLeftWidth: .7,
+      marginBottom: 15
+    },
+    infoRow: {
+      flexDirection: "row"
+    },
+    infoLabel: {
+      backgroundColor: ds.soft,
+      borderBottomColor: ds.line,
+      borderBottomWidth: .7,
+      borderRightColor: ds.line,
+      borderRightWidth: .7,
+      fontFamily: "Helvetica-Bold",
+      minHeight: 25,
+      paddingHorizontal: 7,
+      paddingVertical: 6,
+      width: "18%"
+    },
+    infoValue: {
+      borderBottomColor: ds.line,
+      borderBottomWidth: .7,
+      borderRightColor: ds.line,
+      borderRightWidth: .7,
+      minHeight: 25,
+      paddingHorizontal: 7,
+      paddingVertical: 6,
+      width: "32%"
+    },
+    paragraph: {
+      color: ds.ink,
+      fontSize: 9.5,
+      lineHeight: 1.42,
+      marginBottom: 10
+    },
+    compactParagraph: {
+      color: ds.ink,
+      fontSize: 9.2,
+      lineHeight: 1.38,
+      marginBottom: 8
+    },
+    plainHeading: {
+      color: "#000000",
+      fontFamily: "Helvetica-Bold",
+      fontSize: 11.5,
+      marginBottom: 7,
+      marginTop: 4
+    },
+    investmentTable: {
+      borderColor: ds.line,
+      borderLeftWidth: .7,
+      borderTopWidth: .7,
+      marginBottom: 12
+    },
+    investmentHeader: {
+      backgroundColor: ds.navy,
+      flexDirection: "row"
+    },
+    investmentHeaderLabel: {
+      borderBottomColor: ds.line,
+      borderBottomWidth: .7,
+      borderRightColor: "#ffffff",
+      borderRightWidth: .7,
+      color: "#ffffff",
+      fontFamily: "Helvetica-Bold",
+      paddingHorizontal: 7,
+      paddingVertical: 7,
+      width: "73%"
+    },
+    investmentHeaderAmount: {
+      borderBottomColor: ds.line,
+      borderBottomWidth: .7,
+      borderRightColor: ds.line,
+      borderRightWidth: .7,
+      color: "#ffffff",
+      fontFamily: "Helvetica-Bold",
+      paddingHorizontal: 7,
+      paddingVertical: 7,
+      textAlign: "right",
+      width: "27%"
+    },
+    investmentRow: {
+      flexDirection: "row"
+    },
+    investmentLabel: {
+      borderBottomColor: ds.line,
+      borderBottomWidth: .7,
+      borderRightColor: ds.line,
+      borderRightWidth: .7,
+      paddingHorizontal: 7,
+      paddingVertical: 7,
+      width: "73%"
+    },
+    investmentAmount: {
+      borderBottomColor: ds.line,
+      borderBottomWidth: .7,
+      borderRightColor: ds.line,
+      borderRightWidth: .7,
+      paddingHorizontal: 7,
+      paddingVertical: 7,
+      textAlign: "right",
+      width: "27%"
+    },
+    investmentTotalLabel: {
+      backgroundColor: ds.soft,
+      borderBottomColor: ds.line,
+      borderBottomWidth: .7,
+      borderRightColor: ds.line,
+      borderRightWidth: .7,
+      fontFamily: "Helvetica-Bold",
+      paddingHorizontal: 7,
+      paddingVertical: 7,
+      width: "73%"
+    },
+    investmentTotalAmount: {
+      backgroundColor: ds.soft,
+      borderBottomColor: ds.line,
+      borderBottomWidth: .7,
+      borderRightColor: ds.line,
+      borderRightWidth: .7,
+      fontFamily: "Helvetica-Bold",
+      paddingHorizontal: 7,
+      paddingVertical: 7,
+      textAlign: "right",
+      width: "27%"
+    },
+    signoff: {
+      color: ds.ink,
+      fontSize: 9.5,
+      lineHeight: 1.35,
+      marginTop: 5
+    },
+    legalLine: {
+      color: ds.muted,
+      fontSize: 7.5,
+      marginTop: 6
+    },
     footer: {
       bottom: 22,
       color: ds.muted,
@@ -2495,7 +2763,7 @@ const ds = {
       left: 42,
       position: "absolute",
       right: 42,
-      textAlign: "center"
+      textAlign: "left"
     }
   }),
   rv = r => `€ ${r.toLocaleString("nl-NL", {
@@ -2560,7 +2828,12 @@ function QuotePdfDocument({
   input: e,
   calculation: t
 }) {
-  const n = e.inspectionType === "EBI" ? "Eerste bijzondere inspectie (EBI)" : "Periodieke inspectie (PI)";
+  const n = e.scope === "8" ? "SCIOS Scope 8" : e.scope === "10" ? "SCIOS Scope 10" : "SCIOS Scope 8 en 10",
+    i = e.scope === "combi" ? "SCIOS Scope 8- en Scope 10-inspecties" : `${n}-inspectie`,
+    a = [r.clientName, r.projectCity ? `in ${r.projectCity}` : ""].filter(Boolean).join(" "),
+    s = uU(r.projectAddress, r.projectPostalCode, r.projectCity) || r.projectName || "de afgesproken inspectielocatie",
+    o = e.scope === "8" ? "Een SCIOS Scope 8-inspectie gericht op risico’s voor personen bij het gebruik van de elektrische installatie, volgens NEN 3140 en de toepasselijke SCIOS-voorschriften." : e.scope === "10" ? "Een SCIOS Scope 10-inspectie gericht op brandrisico’s van elektrisch materieel, volgens NTA 8220 en de toepasselijke SCIOS-voorschriften, inclusief thermografie voor zover van toepassing." : "Een gecombineerde SCIOS Scope 8- en Scope 10-inspectie, gericht op risico’s voor personen en brandrisico’s van elektrisch materieel, volgens NEN 3140, NTA 8220 en de toepasselijke SCIOS-voorschriften.",
+    c = e.scope === "10" || e.scope === "combi";
   return g.jsxs(VS, {
     title: `Offerte ${r.quoteNumber}`,
     author: "B2Inspect",
@@ -2569,287 +2842,201 @@ function QuotePdfDocument({
       size: "A4",
       style: Cn.page,
       children: [g.jsxs(st, {
-        style: Cn.header,
+        style: Cn.brandLogo,
+        children: [g.jsx(st, {
+          style: Cn.brandBadge,
+          children: g.jsx(Ee, {
+            style: Cn.brandBadgeText,
+            children: "B2"
+          })
+        }), g.jsx(Ee, {
+          style: Cn.brandWord,
+          children: "Inspect"
+        })]
+      }), g.jsx(Ee, {
+        style: Cn.offerTitle,
+        children: "Offerte"
+      }), g.jsxs(Ee, {
+        style: Cn.offerSubtitle,
+        children: [n, "  |  ", a]
+      }), g.jsxs(st, {
+        style: Cn.infoTable,
         children: [g.jsxs(st, {
+          style: Cn.infoRow,
           children: [g.jsx(Ee, {
-            style: Cn.brand,
-            children: "B2Inspect"
+            style: Cn.infoLabel,
+            children: "Offertenummer"
           }), g.jsx(Ee, {
-            style: Cn.brandSub,
-            children: "Inspectie en advies · info@b2inspect.nl"
+            style: Cn.infoValue,
+            children: r.quoteNumber
+          }), g.jsx(Ee, {
+            style: Cn.infoLabel,
+            children: "Datum"
+          }), g.jsx(Ee, {
+            style: Cn.infoValue,
+            children: BI(r.quoteDate)
           })]
         }), g.jsxs(st, {
+          style: Cn.infoRow,
           children: [g.jsx(Ee, {
-            style: Cn.documentTitle,
-            children: "OFFERTE"
-          }), g.jsxs(Ee, {
-            style: Cn.meta,
-            children: ["Offertenummer: ", r.quoteNumber]
-          }), g.jsxs(Ee, {
-            style: Cn.meta,
-            children: ["Dossier: ", r.caseNumber]
-          }), g.jsxs(Ee, {
-            style: Cn.meta,
-            children: ["Datum: ", BI(r.quoteDate)]
-          }), g.jsxs(Ee, {
-            style: Cn.meta,
-            children: ["Geldig tot: ", BI(r.validUntil)]
-          })]
-        })]
-      }), g.jsxs(st, {
-        style: Cn.columns,
-        children: [g.jsxs(st, {
-          style: Cn.party,
-          children: [g.jsx(Ee, {
-            style: Cn.partyLabel,
+            style: Cn.infoLabel,
             children: "Opdrachtgever"
           }), g.jsx(Ee, {
-            style: Cn.partyName,
+            style: Cn.infoValue,
             children: r.clientName
           }), g.jsx(Ee, {
-            style: Cn.partyLine,
-            children: uU(r.clientAddress, r.clientPostalCode, r.clientCity) || "Adres niet opgegeven"
-          }), r.contactName && g.jsxs(Ee, {
-            style: Cn.partyLine,
-            children: ["Contact: ", r.contactName]
-          }), r.contactEmail && g.jsx(Ee, {
-            style: Cn.partyLine,
-            children: r.contactEmail
-          }), r.contactPhone && g.jsx(Ee, {
-            style: Cn.partyLine,
-            children: r.contactPhone
+            style: Cn.infoLabel,
+            children: "Contact"
+          }), g.jsx(Ee, {
+            style: Cn.infoValue,
+            children: r.contactName || "Niet opgegeven"
           })]
         }), g.jsxs(st, {
-          style: Cn.party,
+          style: Cn.infoRow,
           children: [g.jsx(Ee, {
-            style: Cn.partyLabel,
+            style: Cn.infoLabel,
             children: "Inspectielocatie"
           }), g.jsx(Ee, {
-            style: Cn.partyName,
-            children: r.projectName
+            style: Cn.infoValue,
+            children: s
           }), g.jsx(Ee, {
-            style: Cn.partyLine,
-            children: uU(r.projectAddress, r.projectPostalCode, r.projectCity) || "Adres niet opgegeven"
+            style: Cn.infoLabel,
+            children: "Geldig tot"
+          }), g.jsx(Ee, {
+            style: Cn.infoValue,
+            children: BI(r.validUntil)
           })]
         })]
+      }), g.jsx(Ee, {
+        style: Cn.paragraph,
+        children: r.contactName ? `Beste ${r.contactName},` : "Beste heer/mevrouw,"
+      }), g.jsx(Ee, {
+        style: Cn.paragraph,
+        children: "Dank voor uw aanvraag en uw vertrouwen in B2Inspect. Met B2Inspect kiest u voor een deskundige en praktische aanpak, heldere afspraken en korte communicatielijnen. Wij begeleiden uw inspectie van aanvraag tot rapportage en houden u gedurende het traject goed op de hoogte. In deze offerte vindt u de werkzaamheden, investering en afspraken overzichtelijk terug."
+      }), g.jsx(Ee, {
+        style: Cn.plainHeading,
+        children: "Uw inspectievraag"
+      }), g.jsxs(Ee, {
+        style: Cn.paragraph,
+        children: ["U heeft een offerte aangevraagd voor ", i, " op ", s, ". ", r.description?.trim() || "De definitieve inspectieomvang en beschikbare installatiegegevens stemmen wij vóór de uitvoering met u af."]
+      }), g.jsx(Ee, {
+        style: Cn.plainHeading,
+        children: "Dit voeren wij voor u uit"
+      }), g.jsx(Ee, {
+        style: Cn.paragraph,
+        children: o
+      }), g.jsx(Ee, {
+        style: Cn.plainHeading,
+        children: "Uw investering"
       }), g.jsxs(st, {
-        style: Cn.section,
-        children: [g.jsx(Ee, {
-          style: Cn.sectionTitle,
-          children: "Inspectieopdracht"
-        }), g.jsx(Ee, {
-          style: Cn.description,
-          children: r.description || r.title
-        }), g.jsxs(st, {
-          style: Cn.detailGrid,
-          children: [g.jsx(cp, {
-            label: "Scope",
-            value: bf.scopes[e.scope]
-          }), g.jsx(cp, {
-            label: "Inspectietype",
-            value: n
-          }), g.jsx(cp, {
-            label: "Gebouwtype",
-            value: bf.buildingTypes[e.buildingType]
-          }), g.jsx(cp, {
-            label: "Bruto vloeroppervlak",
-            value: `${e.surfaceArea.toLocaleString("nl-NL")} m²`
-          }), g.jsx(cp, {
-            label: "Leeftijd installatie",
-            value: bf.ages[e.buildingAge]
-          }), g.jsx(cp, {
-            label: "Verdelers",
-            value: `${e.mainBoards} hoofdverdeler(s), ${e.subBoards} onderverdeler(s)`
-          }), e.scope !== "10" && g.jsx(cp, {
-            label: "NEN 3140-risicoklasse",
-            value: bf.riskClasses[e.riskClass]
-          }), g.jsx(cp, {
-            label: "Geschatte inspectietijd",
-            value: `${t.hours.toLocaleString("nl-NL")} uur`
-          })]
-        })]
-      }), g.jsxs(st, {
-        style: Cn.section,
-        children: [g.jsx(Ee, {
-          style: Cn.sectionTitle,
-          children: "Kostenopbouw excl. btw"
-        }), g.jsx(ch, {
-          label: `Inspectie (${t.hours.toLocaleString("nl-NL")} uur à ${rv(e.hourlyRate)}${e.outOfHours ? ", buiten kantooruren +50%" : ""})`,
-          value: t.laborCost
-        }), g.jsx(ch, {
-          label: `Reis (${t.travelDistanceReturn.toLocaleString("nl-NL")} km retour, inclusief reistijd)`,
-          value: t.travelCost
-        }), g.jsx(ch, {
-          label: "SCIOS-afmeldkosten",
-          value: t.sciosCost
-        }), t.equipmentCost > 0 && g.jsx(ch, {
-          label: "Huur klimmaterieel / hoogwerker",
-          value: t.equipmentCost
-        }), e.hotelCosts > 0 && g.jsx(ch, {
-          label: "Verblijfskosten",
-          value: e.hotelCosts
-        }), e.parkingCosts > 0 && g.jsx(ch, {
-          label: "Parkeerkosten",
-          value: e.parkingCosts
-        }), e.unforeseenCosts > 0 && g.jsx(ch, {
-          label: "Onvoorziene kosten",
-          value: e.unforeseenCosts
-        }), g.jsx(ch, {
-          label: "Totaal excl. btw",
-          value: t.totalExcludingVat
-        }), g.jsx(ch, {
-          label: "Btw (21%)",
-          value: t.vat
-        }), g.jsxs(st, {
-          style: Cn.totalRow,
+        style: Cn.investmentTable,
+        children: [g.jsxs(st, {
+          style: Cn.investmentHeader,
           children: [g.jsx(Ee, {
-            style: Cn.totalLabel,
-            children: "Totaal incl. btw"
+            style: Cn.investmentHeaderLabel,
+            children: "Inspectieonderdeel"
           }), g.jsx(Ee, {
-            style: Cn.totalValue,
+            style: Cn.investmentHeaderAmount,
+            children: "Bedrag excl. btw"
+          })]
+        }), g.jsxs(st, {
+          style: Cn.investmentRow,
+          children: [g.jsx(Ee, {
+            style: Cn.investmentLabel,
+            children: i
+          }), g.jsx(Ee, {
+            style: Cn.investmentAmount,
+            children: rv(t.totalExcludingVat)
+          })]
+        }), g.jsxs(st, {
+          style: Cn.investmentRow,
+          children: [g.jsx(Ee, {
+            style: Cn.investmentLabel,
+            children: "Totaal exclusief btw"
+          }), g.jsx(Ee, {
+            style: Cn.investmentAmount,
+            children: rv(t.totalExcludingVat)
+          })]
+        }), g.jsxs(st, {
+          style: Cn.investmentRow,
+          children: [g.jsx(Ee, {
+            style: Cn.investmentLabel,
+            children: "Btw 21%"
+          }), g.jsx(Ee, {
+            style: Cn.investmentAmount,
+            children: rv(t.vat)
+          })]
+        }), g.jsxs(st, {
+          style: Cn.investmentRow,
+          children: [g.jsx(Ee, {
+            style: Cn.investmentTotalLabel,
+            children: "Totaal inclusief btw"
+          }), g.jsx(Ee, {
+            style: Cn.investmentTotalAmount,
             children: rv(t.totalIncludingVat)
           })]
-        }), g.jsxs(Ee, {
-          style: Cn.note,
-          children: ["Offertebedrag excl. btw: ", rv(t.totalExcludingVat), ". Bedragen zijn gebaseerd op aangeleverde informatie."]
         })]
       }), g.jsxs(Ee, {
+        style: Cn.paragraph,
+        children: ["Inbegrepen in de prijs: ", i, " binnen de vooraf schriftelijk bevestigde inspectieomvang."]
+      }), g.jsxs(Ee, {
         style: Cn.footer,
-        children: ["B2Inspect · info@b2inspect.nl · Offerte ", r.quoteNumber, " · Pagina 1 van 2"]
+        children: ["B2Inspect  |  Offerte ", r.quoteNumber, "  |  1"]
       })]
     }), g.jsxs(Ou, {
       size: "A4",
       style: Cn.page,
-      children: [g.jsxs(st, {
-        style: Cn.header,
-        children: [g.jsxs(st, {
-          children: [g.jsx(Ee, {
-            style: Cn.brand,
-            children: "B2Inspect"
-          }), g.jsx(Ee, {
-            style: Cn.brandSub,
-            children: "Inspectie en advies"
-          })]
-        }), g.jsxs(st, {
-          children: [g.jsx(Ee, {
-            style: Cn.documentTitle,
-            children: "VOORWAARDEN"
-          }), g.jsxs(Ee, {
-            style: Cn.meta,
-            children: [r.quoteNumber, " · ", r.clientName]
-          })]
-        })]
-      }), g.jsxs(st, {
-        style: Cn.section,
-        children: [g.jsx(Ee, {
-          style: Cn.sectionTitle,
-          children: "Uitgangspunten opdrachtgever"
-        }), g.jsx(ff, {
-          children: "Alle hoofd- en onderverdelers zijn op de inspectiedag veilig en vrij toegankelijk."
-        }), g.jsx(ff, {
-          children: "Een contactpersoon verschaft toegang tot relevante ruimten, kasten en installaties."
-        }), g.jsx(ff, {
-          children: "Sleutels, toegangspassen, actuele schema’s en beschikbare installatiedocumentatie liggen klaar."
-        }), g.jsx(ff, {
-          children: "Benodigde productieonderbrekingen en kortstondig spanningsloos schakelen zijn vooraf afgestemd."
-        }), e.safetyInduction && g.jsx(ff, {
-          children: "De verplichte veiligheidsinstructie kan direct bij aankomst starten."
-        })]
-      }), (e.scope === "10" || e.scope === "combi") && g.jsxs(st, {
-        style: Cn.callout,
-        children: [g.jsx(Ee, {
-          style: Cn.calloutTitle,
-          children: "Scope 10: vereiste belasting"
-        }), g.jsx(Ee, {
-          style: Cn.calloutText,
-          children: "Voor representatieve thermografie draait de installatie minimaal 30 minuten vóór aanvang op minimaal 30% van de nominale belasting. Bij onvoldoende belasting kunnen onderdelen niet betrouwbaar worden beoordeeld."
-        })]
-      }), g.jsxs(st, {
-        style: Cn.section,
-        children: [g.jsx(Ee, {
-          style: Cn.sectionTitle,
-          children: "Niet inbegrepen"
-        }), g.jsx(ff, {
-          children: "Herstelwerk, aanpassingen en herinspecties na herstel vallen buiten deze offerte."
-        }), g.jsx(ff, {
-          children: "Werk buiten de beschreven scope wordt alleen uitgevoerd na aanvullende opdracht."
-        }), g.jsx(ff, {
-          children: "Procesmachines en apparaten vallen buiten de elektrische gebouwinstallatie, tenzij schriftelijk overeengekomen."
-        }), e.hasSolar ? g.jsx(ff, {
-          children: "PV-panelen en DC-bekabeling vallen buiten deze inspectie. Beoordeling van de opgegeven omvormeraansluitingen is wel meegenomen."
-        }) : g.jsx(ff, {
-          children: "SCIOS Scope 12-inspectie van zonnestroominstallaties is niet inbegrepen."
-        })]
-      }), g.jsxs(st, {
-        style: Cn.section,
-        children: [g.jsx(Ee, {
-          style: Cn.sectionTitle,
-          children: "Commerciële afspraken"
-        }), g.jsxs(st, {
-          style: Cn.clause,
-          children: [g.jsx(Ee, {
-            style: Cn.clauseTitle,
-            children: "Afwijkende omvang en meerwerk"
-          }), g.jsxs(Ee, {
-            style: Cn.clauseText,
-            children: ["Deze prijs is gebaseerd op de opgegeven omvang. Wijkt de werkelijke situatie meer dan 10% af, dan meldt B2Inspect dit zo snel mogelijk. Meerwerk wordt alleen na afstemming uitgevoerd en berekend tegen ", rv(e.hourlyRate), " excl. btw per uur, plus overeengekomen kosten."]
-          })]
-        }), g.jsxs(st, {
-          style: Cn.clause,
-          children: [g.jsx(Ee, {
-            style: Cn.clauseTitle,
-            children: "Annuleren of verzetten"
-          }), g.jsx(Ee, {
-            style: Cn.clauseText,
-            children: "Bij annulering of verplaatsing binnen 48 uur voor aanvang kan B2Inspect gereserveerde reis- en voorbereidingstijd in rekening brengen, met een minimum van twee uur tegen het vermelde uurtarief."
-          })]
-        }), g.jsxs(st, {
-          style: Cn.clause,
-          children: [g.jsx(Ee, {
-            style: Cn.clauseTitle,
-            children: "Geldigheid"
-          }), g.jsxs(Ee, {
-            style: Cn.clauseText,
-            children: ["Deze offerte is geldig tot en met ", BI(r.validUntil), ". Afwijkende afspraken gelden alleen wanneer beide partijen deze schriftelijk bevestigen."]
-          })]
-        })]
-      }), g.jsxs(st, {
-        style: Cn.section,
-        children: [g.jsx(Ee, {
-          style: Cn.sectionTitle,
-          children: "Akkoord voor opdracht"
-        }), g.jsx(Ee, {
-          style: Cn.clauseText,
-          children: "Door ondertekening bevestigt opdrachtgever de opdracht, beschreven scope, prijs en bovenstaande afspraken."
-        }), g.jsxs(st, {
-          style: Cn.signatures,
-          children: [g.jsxs(st, {
-            style: Cn.signature,
-            children: [g.jsxs(Ee, {
-              style: Cn.signatureTitle,
-              children: ["Opdrachtgever · ", r.clientName]
-            }), g.jsx(st, {
-              style: Cn.signatureLine
-            }), g.jsx(Ee, {
-              style: Cn.signatureHint,
-              children: "Naam, datum en handtekening"
-            })]
-          }), g.jsxs(st, {
-            style: Cn.signature,
-            children: [g.jsx(Ee, {
-              style: Cn.signatureTitle,
-              children: "Opdrachtnemer · B2Inspect"
-            }), g.jsx(st, {
-              style: Cn.signatureLine
-            }), g.jsx(Ee, {
-              style: Cn.signatureHint,
-              children: "Naam, datum en handtekening"
-            })]
-          })]
-        })]
+      children: [g.jsx(Ee, {
+        style: Cn.agreementTitle,
+        children: "Heldere afspraken"
+      }), g.jsxs(Ee, {
+        style: Cn.offerSubtitle,
+        children: ["Offerte ", r.quoteNumber, "  |  ", a]
+      }), g.jsx(Ee, {
+        style: Cn.plainHeading,
+        children: "Voorbereiding en toegang"
+      }), g.jsxs(Ee, {
+        style: Cn.compactParagraph,
+        children: ["Voor de inspectie spreken we af dat relevante ruimten en installatiedelen toegankelijk zijn en beschikbare installatiegegevens vooraf worden gedeeld. Benodigde uitschakelingen en communicatie met gebruikers stemmen we vooraf af.", c ? " Voor representatieve thermografie draait de installatie minimaal 30 minuten vóór aanvang op minimaal 30% van de nominale belasting." : ""]
+      }), g.jsx(Ee, {
+        style: Cn.plainHeading,
+        children: "Planning en rapportage"
+      }), g.jsx(Ee, {
+        style: Cn.compactParagraph,
+        children: "Beoogde uitvoering: in overleg. De definitieve datum bevestigen wij na uw akkoord en nadat de voorbereiding is afgestemd. De inspectie wordt uitgevoerd door een voor de betreffende scope bevoegde inspecteur binnen de toepasselijke SCIOS-procedure."
+      }), g.jsx(Ee, {
+        style: Cn.compactParagraph,
+        children: "Na uitvoering ontvangt u een inspectierapport. De levertermijn bevestigen wij bij de planning. Het rapport beschrijft de bevindingen binnen de afgesproken inspectieomvang. De toepasselijke registratie wordt verzorgd binnen de daarvoor geldende SCIOS-procedure."
+      }), g.jsx(Ee, {
+        style: Cn.plainHeading,
+        children: "Afbakening en aanvullende werkzaamheden"
+      }), g.jsx(Ee, {
+        style: Cn.compactParagraph,
+        children: "Niet inbegrepen zijn herstelwerk, aanpassingen, herinspecties en werkzaamheden buiten de vooraf schriftelijk bevestigde inspectieomvang. Procesmachines, apparaten en andere disciplines vallen alleen binnen de opdracht wanneer dit uitdrukkelijk is overeengekomen."
+      }), g.jsxs(Ee, {
+        style: Cn.compactParagraph,
+        children: ["Als de werkelijke situatie afwijkt van de uitgangspunten, bespreken wij eerst de gevolgen voor omvang, prijs en planning. Aanvullende werkzaamheden voeren wij pas uit na uw akkoord. Meerwerk wordt berekend tegen ", rv(e.hourlyRate), " excl. btw per uur, plus vooraf overeengekomen kosten."]
+      }), g.jsx(Ee, {
+        style: Cn.plainHeading,
+        children: "Prijsafspraken en bijlagen"
+      }), g.jsxs(Ee, {
+        style: Cn.compactParagraph,
+        children: ["Deze offerte is geldig tot en met ", BI(r.validUntil), ". Betaling vindt plaats volgens de overeengekomen betalingstermijn. Bij deze offerte horen geen afzonderlijke bijlagen, tenzij deze in de begeleidende e-mail of opdrachtbevestiging uitdrukkelijk zijn genoemd. Afwijkende afspraken gelden alleen wanneer beide partijen deze schriftelijk bevestigen."]
+      }), g.jsx(Ee, {
+        style: Cn.plainHeading,
+        children: "Uw akkoord"
+      }), g.jsxs(Ee, {
+        style: Cn.compactParagraph,
+        children: ["Wilt u ons de opdracht geven? Bevestig uw akkoord per e-mail aan info@b2inspect.nl en vermeld offertenummer ", r.quoteNumber, ". Heeft u vragen? Wij lichten de offerte graag toe."]
+      }), g.jsx(Ee, {
+        style: Cn.signoff,
+        children: "Met vriendelijke groet,\nBart Quispel\nB2Inspect  |  +31 6 2411 8772  |  info@b2inspect.nl"
+      }), g.jsx(Ee, {
+        style: Cn.legalLine,
+        children: "Contracterende partij: B2 Inspect B.V."
       }), g.jsxs(Ee, {
         style: Cn.footer,
-        children: ["B2Inspect · info@b2inspect.nl · Offerte ", r.quoteNumber, " · Pagina 2 van 2"]
+        children: ["B2Inspect  |  Offerte ", r.quoteNumber, "  |  2"]
       })]
     })]
   });
@@ -3870,7 +4057,7 @@ function CommercialPipeline({
                   size: 17
                 }), " Offerte opstellen"]
               }), g.jsx("p", {
-                children: "Klant, project en aanvraag zijn gekoppeld. Vul ontbrekende omvang in; prijs wordt automatisch berekend."
+                children: "Klant, project en aanvraag zijn gekoppeld. De calculator maakt een voorstel; uren, tarieven en het definitieve offertebedrag blijven handmatig aanpasbaar."
               }), !k.quote_data && k.quote_amount_cents != null && g.jsxs("div", {
                 className: "ig-quote-legacy-note",
                 role: "note",
